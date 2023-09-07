@@ -11,7 +11,8 @@ import functools
 import configobj
 import configobj.validate as validate
 
-from . import host as jhost
+from . import host as whost
+from . import conf as wconf
 
 CFGSPECS_FILE = os.path.join(os.path.basename(__file__), "tasks.ini")
 
@@ -20,7 +21,9 @@ class TaskError(Exception):
     pass
 
 
-def format_commandline(params, executable, positional=None, optional=None, required=None):
+def format_commandline(
+    params, executable, positional=None, optional=None, required=None
+):
     """Format a commandline call
 
     Parameters
@@ -47,7 +50,9 @@ def format_commandline(params, executable, positional=None, optional=None, requi
         if value.lower() != "none" or value:
             return value
         if required and name in required:
-            raise TaskError(f"Empty argument:\nname: {name}\nexecutable: {executable}")
+            raise TaskError(
+                f"Empty argument:\nname: {name}\nexecutable: {executable}"
+            )
         return value.format(**params)
 
     args = [executable]
@@ -63,23 +68,18 @@ def format_commandline(params, executable, positional=None, optional=None, requi
 
 
 class TaskManager:
-    def __init__(self, params):
-
-        self.validator = validate.Validator()
-        self.cfgspecs = configobj.configObj(CFGSPECS_FILE, interpolate=False)
-        self.params = params
+    def __init__(self, host):
         self._configs = []
         self._config = configobj.ConfigObj()
+        self._host = host
 
-    def load(self, cfgfile):
-        cfg = configobj.configObj(cfgfile, cfgspecs=self.cfgspecs)
-        self.validator.validate(cfg)
+    def load_config(self, cfgfile):
+        cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE)
         self._configs.append(cfg)
         self._postproc_()
 
     def _postproc_(self):
         if self._configs:
-
             # Merge
             for cfg in self._configs:
                 self._config.merge(cfg)
@@ -90,21 +90,31 @@ class TaskManager:
             #         inherit = content["inherit"]
             #         if inherit in content.sections:
 
-    def get_task(self, name):
+    @property
+    def host(self):
+        return self._host
+
+    def get_task(self, name, params):
         if name not in self._config:
             raise TaskError(f"Invalid task name: {name}")
-        return Task(self._config[name])
+        taskconfig = self._config[name]
+        params = self.params.copy()
+        if name in params:
+            params.update(params[name])
+            del params[name]
+        return Task(taskconfig, params, self.host)
 
     def __getitem__(self, item):
         return self.get_task(item)
 
-    def export_task(self, name):
+    def export_task(self, name, params):
         """Export a task as a dict
 
         Parameters
         ----------
         name: str
             Task name
+        params: dict
 
         Return
         ------
@@ -112,27 +122,26 @@ class TaskManager:
             Two keys:
 
             ``script_content``
-                Bash code that must be insert in the submitted script
+                Bash code that must be insert in the submission script
             ``scheduler_options``
                 Options that are given to the scheduler when submiting the script
         """
-        taskconfig = self.config[name]
-        params = self.params.copy()
-        if name in params:
-            params.update(params[name])
-            del params[name]
-        return self.get_task(taskconfig, params).export()
+        self.get_task(name, params).export()
 
 
 class Task:
-    def __init__(self, taskconfig, params):
+    def __init__(self, taskconfig, params, host):
+        self._config = taskconfig
         self.params = params
-        self.config = taskconfig
-        self._env = None
+        self._host = host
 
-    @functools.cached_property
+    @property
+    def config(self):
+        return self._config
+
+    @property
     def host(self):
-        return jhost.get_current_host()
+        return self._host
 
     @property
     def name(self):
@@ -146,14 +155,20 @@ class Task:
         return self.host.get_env(self.config["submit"]["env"])
 
     def export_env(self):
+        """Export the environment declarations as bash lines"""
         return str(self.env)
 
-    def export_chdir(self):
-        direc = self.host.get_dir(self.config["submit"]["chdir"])
-        if "{" in direc:
-            direc = direc.format(**self.params)
-        if direc:
-            return f"cd {direc}\n\n"
+    def export_rundir(self):
+        """Export the bash line to move to the running directory"""
+        rundir = self.config["submit"]["rundir"]
+        if rundir == "current":
+            rundir = os.getcwd()
+        elif "{" in rundir:
+            subst = self.params.copy()
+            subst.update(self.host.get_dirs())
+        rundir = rundir.strip()
+        if rundir:
+            return f"cd {rundir}\n"
         return ""
 
     def export_scheduler_options(self):
@@ -162,6 +177,7 @@ class Task:
         return {
             "queue": self.host["queues"][self.config["submit"]["queue"]],
             "mem": self.config["submit"]["mem"],
+            "extra": self.config["submit"]["extra"].dict(),
         }
 
     def export(self):

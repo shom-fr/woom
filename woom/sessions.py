@@ -9,6 +9,7 @@ import pathlib
 import shutil
 import functools
 import secrets
+import json
 
 import appdirs
 
@@ -50,24 +51,28 @@ class SessionManager(object):
     #         return self.get_session(session).path
     #     return pathlib.Path(session)
 
-    def get_files(self, session, pattern):
-        return self.get_session(session).get_files(pattern)
+    # def get_files(self, session, subdir, pattern):
+    #     return self.get_session(session).get_files(pattern)
 
     def create_session(self):
         """Create a new session"""
         return Session(self, secrets.token_hex(8))
 
     def find_session(self, session=None):
-        sess_list = self._get_session_list_(session)
-        if len(sess_list) > 1:
-            print("Choose one session:" + "\n")
-            [print(sess.split("/")[-1] + "\n") for sess in sess_list]
-            session_dir = input()
-        elif len(sess_list) == 1:
-            session_dir = sess_list[0].split("/")[-1]
+        if session:
+            session = self.get_session(session)
         else:
-            session_dir = None
-        return session_dir
+            sessions = self.sessions
+            if len(sessions) > 1:
+                print("Choose one session:")
+                for session in sessions:
+                    print(session)
+                session = self.get_session(input())
+            elif len(sessions) == 1:
+                sessions = sessions[0]
+            else:
+                return
+        return session.path
 
     def clear(self, session=None):
         """Remove session directories"""
@@ -93,6 +98,15 @@ class Session:
         self._id = sessionid
         self.logger = manager.logger
         self.logger.debug(f"Instantiated session: {self._id} (self.path)")
+        
+        # Scalars
+        self._json_file = self.path / "content.json"
+        if self._json_file.exists():
+            with open(self._json_file) as f:
+                self._content = json.load(f)
+        else:
+            self._content = {}
+        
 
     @property
     def id(self):
@@ -100,13 +114,38 @@ class Session:
 
     def __str__(self):
         return self.id
-
+    
     @property
     def path(self):
         p = self._manager.root_dir / self.id
         if not p.exists():
             os.makedirs(self.p)
         return p
+    
+    def dump(self):
+        with open(self._json_file, "w") as f:
+            json.dump(self._content, f, indent=4)
+    
+    def __setitem__(self, key, value):
+        self._content[key] = value
+        self.dump()
+    
+    def __getitem__(self, key):
+        return self._content[key]
+    
+    def __delitem__(self, key):
+        del self._content
+        self.dump()
 
-    def get_files(self, pattern="*"):
-        return [p for p in self.path.glob(pattern)]
+    def get_files(self, subdir, pattern="*"):
+        return [p for p in (self.path/subdir).glob(pattern)]
+    
+    def get_file_name(self, subdir, fname):
+        subdir = (self.path / subdir)
+        if not subdir.exists():
+           os.makedirs(subdir)
+        return subdir / fname
+
+    def open_file(self, subdir, fname, mode):
+        fname = self.get_file_name(subdir, fname)
+        return open(fname, mode)
