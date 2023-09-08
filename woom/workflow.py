@@ -20,8 +20,12 @@ def _get_scalar_items_(cfg):
 
 class Workflow:
     def __init__(self, cfgfile, session, taskmanager):
-        self._cfgfile = cfgfile
-        self._config = wconf.load_cfg(cfgfile, CFGSPECS_FILE)
+        if isinstance(cfgfile, str):
+            self._cfgfile = cfgfile
+            self._config = wconf.load_cfg(cfgfile, CFGSPECS_FILE)
+        else:
+            self._config = cfgfile
+            self._cfgfile = self._config.filename
         self._tm = taskmanager
         self._session = session
         if self._config["app"]["name"]:
