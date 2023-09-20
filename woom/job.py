@@ -10,7 +10,6 @@ import datetime
 
 # from .env import is_os_cmd_avail
 import json
-import secrets
 
 ALLOWED_SCHEDULERS = ["basic", "slurm", "pbspro"]
 
@@ -145,7 +144,9 @@ class BasicJobManager(object):
     def __init__(self, session):
         self.jobs = []
         self.session = session
-        logger.debug("Started job manager: " + self.__class__.__name__)
+        logger.info(
+            f"Started job manager: {self.__class__.__name__}(session={self.session})"
+        )
 
     def __repr__(self):
         return f"<{self.__class__.__name__}(session={self.session})>"
@@ -160,45 +161,59 @@ class BasicJobManager(object):
         return getattr(job, cls_name)(session)
 
     @classmethod
-    def _get_command_args_(cls, command, **kwargs):
+    def get_command_args(cls, command, **opts):
+        """Convert commandline specifcations and values to a list of arguments
+
+        Parameters
+        ----------
+        command: str
+            A valid key of the :attr:`commands` dictionary attribute
+        kwargs: dict
+            Dictionary to fill patterns defined in the :attr:`commands`
+            attribute.
+
+        Return
+        ------
+        list
+        """
         args = []
         if "command" in cls.commands[command]:
             args.append(cls.commands[command]["command"])
         if "options" in cls.commands[command]:
-            for oname, ovalue in kwargs.items():
-                if oname in cls.commands[command]["options"].keys():
-                    if not type(ovalue) == type(None):
+            for oname, ovalue in opts.items():
+                if oname in cls.commands[command]["options"]:
+                    if ovalue is not None:
                         fmt = cls.commands[command]["options"][oname]
                         if isinstance(ovalue, list):
                             ovalue = [val for val in ovalue if val]
-                            if not isinstance(
-                                cls.commands[command]["options"][oname], tuple
-                            ):
-                                sep = ","
-                            else:
-                                fmt, sep = fmt
+                            # if not isinstance(
+                            #     cls.commands[command]["options"][oname], tuple
+                            # ):
+                            #     sep = ","
+                            # else:
+                            #     fmt, sep = fmt
                             for val in ovalue:
                                 args.append(fmt.format(val))
                         else:
-                            fmt = fmt.format(ovalue).split(" ")
+                            fmt = fmt.format(ovalue).split()
                             args += fmt
         return args
 
-    @classmethod
-    def _get_opts_(cls, command, opts_in):
-        sep = ","
-        opts = {}
-        if cls.commands[command]["options"]:
-            for context in cls.commands[command]["options"].keys():
-                try:
-                    value = opts_in[context]
-                    if sep in value:
-                        value = value.split(sep)
-                except:
-                    continue
-                else:
-                    opts[context] = value
-        return opts
+    # @classmethod
+    # def _get_opts_(cls, command, opts_in):
+    #     sep = ","
+    #     opts = {}
+    #     if cls.commands[command]["options"]:
+    #         for context in cls.commands[command]["options"].keys():
+    #             try:
+    #                 value = opts_in[context]
+    #                 if sep in value:
+    #                     value = value.split(sep)
+    #             except:
+    #                 continue
+    #             else:
+    #                 opts[context] = value
+    #     return opts
 
     def _parse_submit_res_(self, res, jobargs):
         if res.stderr:
@@ -222,8 +237,8 @@ class BasicJobManager(object):
         )
         return job
 
-    def _get_session_id_(self):
-        return secrets.token_hex(8)
+    # def _get_session_id_(self):
+    #     return secrets.token_hex(8)
 
     def to_json(self, job):
         jobdict = self.to_dict(job)
@@ -358,26 +373,31 @@ class BasicJobManager(object):
     def __str__(self):
         return self.get_overview()
 
-    def submit(self, script, opts):
+    def get_submission_args(self, script, opts, depend=None):
         # self.session  opts["session"]
         # script = f"{opts['job']}"
-        opts = self._get_opts_("submit", opts)
-        if "queue" not in opts.keys():
-            opts.update({"queue": None})
-        jobargs = {}
-        if "depend" in opts.keys():
-            jobargs["depend"] = ":".join(opts["depend"])
-        jobargs.update(opts)
-        jobargs.update(dict(script=script))
-        if "extra " in jobargs:
-            jobargs.update(jobargs.pop("extra"))
+
+        # opts = self._get_opts_("submit", opts)
+        # if "queue" not in opts.keys():
+        #     opts.update({"queue": None})
+
+        # Finalize options
+        opts.update(dict(script=script))
+        if depend:
+            opts["depend"] = ":".join(depend)
+        if "extra " in opts:
+            opts.update(opts.pop("extra"))
 
         # Format commandline arguments
-        args = self._get_command_args_("submit", **jobargs)
+        return self.get_command_args("submit", **opts)
+
+    def submit(self, script, opts, depend=None):
+        # Get submission arguments
+        jobargs = self.get_submission_args(script, opts, depend=depend)
 
         # Submit
-        logger.debug("Submit: " + " ".join(args))
-        res = subprocess.run(args, capture_output=True, check=True)
+        logger.debug("Submit: " + " ".join(jobargs))
+        res = subprocess.run(jobargs, capture_output=True, check=True)
         logger.debug("Submitted")
 
         # Parse result
@@ -419,8 +439,8 @@ class BasicJobManager(object):
         subprocess.run(args, capture_output=True, check=True)
 
 
-class PbsJobManager(BasicJobManager):
-    """Pbs Job Manager"""
+class PbsproJobManager(BasicJobManager):
+    """Pbspro Job Manager"""
 
     commands = {
         "submit": {

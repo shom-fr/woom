@@ -9,13 +9,12 @@ import fnmatch
 import functools
 
 import configobj
-import configobj.validate as validate
 
 from . import job as wjob
 from . import env as wenv
 from . import conf as wconf
 
-thisdir = os.path.basename(__file__)
+thisdir = os.path.dirname(__file__)
 
 CFGSPECS_FILE = os.path.join(thisdir, "hosts.ini")
 
@@ -31,7 +30,7 @@ class HostManager:
     def config(self):
         return self._config
 
-    def load_cfg(self, cfgfile):
+    def load_config(self, cfgfile):
         """Load a user configuration file
 
         .. note:: It is merged with the current one
@@ -148,7 +147,7 @@ class Host:
     @functools.lru_cache
     def get_jobmanager(self, session):
         """Get a :mod:`~woom.job` manager instance"""
-        return wjob.BasicScheduler.from_scheduler(
+        return wjob.BasicJobManager.from_scheduler(
             self.config["scheduler"], session
         )
 
@@ -170,6 +169,24 @@ class Host:
         """Get generic directories as dict"""
         return self.config["dirs"]
 
+    def get_params(self):
+        """Get a configuration suitable for formatted task commandlines
+
+        In merges the following contents:
+
+        - The ``params`` config section.
+        - The ``dirs`` config section with key suffixed with "dir"
+          and with the user "~" symbol and environment variables expanded.
+
+        """
+        params = configobj.ConfigObj(
+            self._config["params"], interpolation=False
+        )
+        for dname, dval in self.config["dirs"].items():
+            dval = os.path.expanduser(os.path.expandvars(dval))
+            params[dname + "dir"] = dval
+        return params
+
     # def get_dir(self, name):
     #     """Get a directory from its generic name
 
@@ -188,7 +205,7 @@ class Host:
         """Get a :class:`EnvConfig` instance from a env config name"""
         cfg = self.config["envs"][name]
         return wenv.EnvConfig(
-            module_setup=cfg["module_setup"],
+            module_setup=self.config["module_setup"],
             module_use=cfg["modules"]["use"],
             module_load=cfg["modules"]["load"],
             vars_forward=cfg["vars"]["forward"],

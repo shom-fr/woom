@@ -45,11 +45,13 @@ class EnvConfig:
             for vname, value in self.vars_set.items():
                 cmds.append(f"export {vname}=" + value)
         if self.vars_append:
-            for vname, value in self.vars_set.items():
+            for vname, value in self.vars_append.items():
                 cmds.append(f"export {vname}=${vname}" + os.pathsep + value)
         if self.vars_prepend:
-            for vname, value in self.vars_set.items():
-                cmds.append(f"export {vname}=" + value + os.pathsep + "${vname}")
+            for vname, value in self.vars_prepend.items():
+                cmds.append(
+                    f"export {vname}=" + value + os.pathsep + f"${vname}"
+                )
         return "\n".join(cmds) + "\n\n"
 
     def __str__(self):

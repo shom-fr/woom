@@ -9,68 +9,68 @@ import shlex
 import functools
 
 import configobj
-import configobj.validate as validate
 
-from . import host as whost
 from . import conf as wconf
 
-CFGSPECS_FILE = os.path.join(os.path.basename(__file__), "tasks.ini")
+CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "tasks.ini")
 
 
 class TaskError(Exception):
     pass
 
 
-def format_commandline(
-    params, executable, positional=None, optional=None, required=None
-):
+def format_commandline(line_format, named_arguments=None, subst=None):
     """Format a commandline call
 
     Parameters
     ----------
-    params: dict
-        Parameters that come from the workflow configurations and that are used
-        to fill argument values.
-    executable: str
-        The executable script or program to call
-    positional: dict
-        The list of positional arguments
-    optional: dict
-        Optional named arguments with keys that are full option names like "--lon".
-    required: list(str)
-        List of required arguments, i.e whose value must not be empty or None
+    line_format: str
+        The commandline call with substitution patterns for named arguments
+        that need a value
+    named_options: None, dict
+        Dictionary the contains the specifications of named arguments
+    subst: None, dict
+        A dictionary used of substitutions, updated with the named options.
 
     Return
     ------
     str
     """
 
-    def check_arg(name, value):
-        value = str(value).strip()
-        if value.lower() != "none" or value:
-            return value
-        if required and name in required:
-            raise TaskError(
-                f"Empty argument:\nname: {name}\nexecutable: {executable}"
-            )
-        return value.format(**params)
+    more_subst = {}
+    if named_arguments:
+        for name, specs in named_arguments.items():
+            setops = []
+            for value in specs["value"]:
+                value = value.strip()
+                if value.lower() == "none" or not value:
+                    value = None
+                if value is not None:
+                    value = value.format(**subst)
+                    setops.append(
+                        specs["format"].format(name=name, value=value)
+                    )
+                elif specs["required"]:
+                    raise TaskError(
+                        f"Empty named argument:\nname: {name}\ncommandline: {line_format}"
+                    )
+            more_subst[name] = " ".join(setops)
 
-    args = [executable]
-    if positional:
-        for name, value in optional.item():
-            value = check_arg(name, value)
-            args.append(value)
-    if optional:
-        for name, value in optional.item():
-            value = check_arg(name, value)
-            args.append(f"{name} {value}")
-    return shlex.join(args)
+    try:
+        return line_format.format(**subst, **more_subst)
+    except KeyError as e:
+        raise TaskError(
+            f"Error while performing substitions in commandline: {line_format}\n"
+            + f"Please add the '{e.args[0]}' key to the [params] section of the workflow configuration."
+        )
+    except Exception as e:
+        raise Exception(*e.args)
 
 
 class TaskManager:
     def __init__(self, host):
         self._configs = []
-        self._config = configobj.ConfigObj()
+        self._config = configobj.ConfigObj(interpolation=False)
         self._host = host
 
     def load_config(self, cfgfile):
@@ -95,17 +95,33 @@ class TaskManager:
         return self._host
 
     def get_task(self, name, params):
+        """Get a :class:`Task` instance
+
+        Parameters
+        ----------
+        name: str
+            Known task name
+        params: dict
+            Disctionary for commandline substitution purpose
+
+        Return
+        ------
+        Task
+        """
+
         if name not in self._config:
             raise TaskError(f"Invalid task name: {name}")
-        taskconfig = self._config[name]
-        params = self.params.copy()
+
+        # Copy external params
+        params = params.copy()
+
+        # Update them if task specific params
         if name in params:
             params.update(params[name])
             del params[name]
-        return Task(taskconfig, params, self.host)
 
-    def __getitem__(self, item):
-        return self.get_task(item)
+        # Create instance
+        return Task(self._config[name], self.host, params)
 
     def export_task(self, name, params):
         """Export a task as a dict
@@ -126,14 +142,14 @@ class TaskManager:
             ``scheduler_options``
                 Options that are given to the scheduler when submiting the script
         """
-        self.get_task(name, params).export()
+        return self.get_task(name, params).export()
 
 
 class Task:
-    def __init__(self, taskconfig, params, host):
+    def __init__(self, taskconfig, host, params):
         self._config = taskconfig
-        self.params = params
         self._host = host
+        self._params = params
 
     @property
     def config(self):
@@ -144,18 +160,32 @@ class Task:
         return self._host
 
     @property
+    def params(self):
+        return self._params
+
+    @property
     def name(self):
         return self.config.name
 
-    def export_command_line(self):
-        return format_commandline(self.params, **self.config["commandline"])
+    def export_commandline(self):
+        """Export the commandline as an bash lines"""
+        cc = self.config["commandline"]
+        named_arguments = wconf.keep_sections(cc)
+        return format_commandline(
+            cc["format"],
+            named_arguments=named_arguments,
+            subst=self.params,
+        )
 
     @functools.cached_property
     def env(self):
-        return self.host.get_env(self.config["submit"]["env"])
+        if self.config["submit"]["env"]:
+            return self.host.get_env(self.config["submit"]["env"])
 
     def export_env(self):
         """Export the environment declarations as bash lines"""
+        if not self.env:
+            return ""
         return str(self.env)
 
     def export_rundir(self):
@@ -164,11 +194,10 @@ class Task:
         if rundir == "current":
             rundir = os.getcwd()
         elif "{" in rundir:
-            subst = self.params.copy()
-            subst.update(self.host.get_dirs())
+            rundir = rundir.format(**self.params)
         rundir = rundir.strip()
         if rundir:
-            return f"cd {rundir}\n"
+            return f"cd {rundir}\n\n"
         return ""
 
     def export_scheduler_options(self):
@@ -176,12 +205,17 @@ class Task:
             return {}
         return {
             "queue": self.host["queues"][self.config["submit"]["queue"]],
-            "mem": self.config["submit"]["mem"],
+            "memory": self.config["submit"]["memory"],
+            "time": self.config["submit"]["time"],
+            "mail": self.config["submit"]["mail"],
+            "log_out": self.config["submit"]["log_out"],
             "extra": self.config["submit"]["extra"].dict(),
         }
 
     def export(self):
         return {
-            "script_content": self.export_env() + self.export_commandline(),
+            "script_content": self.export_env()
+            + self.export_rundir()
+            + self.export_commandline(),
             "scheduler_options": self.export_scheduler_options(),
         }

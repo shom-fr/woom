@@ -4,6 +4,8 @@
 Configurations related utilities based on the :mod:`configobj` system
 """
 import pathlib
+import logging
+import pprint
 
 import pandas as pd
 import configobj
@@ -11,6 +13,10 @@ import configobj.validate as validate
 
 
 CACHE = {"cfgspecs": {}}
+
+
+class ConfigError(Exception):
+    pass
 
 
 def is_path(value):
@@ -38,7 +44,7 @@ VALIDATOR_FUNCTIONS = {
 }
 
 
-def get_validator(self):
+def get_validator():
     """Get a :class:`configobj.validate.Validator` instance"""
     if "validator" not in CACHE:
         CACHE["validator"] = validate.Validator(VALIDATOR_FUNCTIONS)
@@ -49,8 +55,8 @@ def get_cfgspecs(cfgspecsfile):
     """Get a configuration specification instance"""
     name = pathlib.Path(cfgspecsfile).stem
     if name not in CACHE["cfgspecs"]:
-        CACHE["cfgspecs"][name] = configobj.configObj(
-            cfgspecsfile, interpolate=False
+        CACHE["cfgspecs"][name] = configobj.ConfigObj(
+            cfgspecsfile, interpolation=False, list_values=False
         )
     return CACHE["cfgspecs"][name]
 
@@ -59,8 +65,32 @@ def load_cfg(cfgfile, cfgspecsfile):
     """Get a validated :class:`configobj.configObj` instance"""
     validator = get_validator()
     cfgspecs = get_cfgspecs(cfgspecsfile)
-    cfg = configobj.configObj(
-        cfgfile or {}, cfgspecs=cfgspecs, interpolate=False
+    cfg = configobj.ConfigObj(
+        cfgfile or {},
+        configspec=cfgspecs,
+        interpolation=False,
+        list_values=False,
     )
-    validator.validate(cfg)
+    success = cfg.validate(validator, preserve_errors=True)
+    if success is not True:
+        msg = f"Error while validating config: {cfgfile}\n"
+        msg += pprint.pformat(success)
+        logging.getLogger(__name__).error(msg)
+        raise ConfigError(msg)
     return cfg
+
+
+def strip_out_sections(cfg):
+    """Remove all section keeping only scalars"""
+    cfgo = configobj.ConfigObj(cfg, interpolation=cfg.main.interpolation)
+    for key in cfg.sections:
+        del cfgo[key]
+    return cfgo
+
+
+def keep_sections(cfg):
+    """Only keep section"""
+    cfgo = configobj.ConfigObj(cfg, interpolation=cfg.main.interpolation)
+    for key in cfg.scalars:
+        del cfgo[key]
+    return cfgo

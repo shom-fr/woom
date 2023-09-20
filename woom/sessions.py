@@ -6,7 +6,6 @@ Session specific utilities
 import os
 import logging
 import pathlib
-import shutil
 import functools
 import secrets
 import json
@@ -14,7 +13,7 @@ import fnmatch
 import collections
 
 import pandas as pd
-import appdirs
+import platformdirs
 
 
 class SessionError(Exception):
@@ -22,14 +21,20 @@ class SessionError(Exception):
 
 
 class SessionManager(object):
-    def __init__(self, root_dir=None):
+    def __init__(self):
         self.logger = logging.getLogger(__name__)
+        if "MTOOLDIR" in os.environ:
+            self.root_dir = (
+                pathlib.Path(os.environ["MTOOLDIR"])
+                / "cache"
+                / "woom"
+                / "sessions"
+            )
 
-        if root_dir is None:
-            root_dir = appdirs.AppDirs(
-                os.path.join("woom", "sessions"), "$LOGNAME"
-            ).user_cache_dir
-        self.root_dir = pathlib.Path(root_dir)
+        else:
+            self.root_dir = platformdirs.user_cache_path(
+                os.path.join("woom", "sessions"), ensure_exists=True
+            )
 
     def __repr__(self):
         return (
@@ -39,16 +44,16 @@ class SessionManager(object):
     @property
     def session_ids(self):
         """List of all session ids"""
-        return [str(p) for p in self.root_dir.glob("*")]
+        return [p.name for p in self.root_dir.glob("*")]
 
     @functools.cache
-    def get_session(self, session):
+    def get_session(self, session_id):
         """Get a :class:`Session` instance from a session id"""
-        if str(session) not in self.session_ids:
+        if str(session_id) not in self.session_ids:
             raise SessionError("Invalid session id")
-        if isinstance(session, str):
-            return Session(self, session)
-        return session
+        if isinstance(session_id, str):
+            return Session(self, session_id)
+        return session_id
 
     @property
     def sessions(self):
@@ -60,12 +65,15 @@ class SessionManager(object):
     def get_matching_sessions(self, **matching_items):
         sessions = []
         for session in self.sessions:
-            if session.check_matching_items(matching_items):
+            if session.check_matching_items(**matching_items):
                 sessions.append(session)
-        return session
+        return sessions
 
     def __getitem__(self, session_id):
         return self.get_session(session_id)
+
+    def __contains__(self, session_id):
+        return session_id in self.session_ids
 
     # def get_session_dir(self, session):
     #     if not os.path.isdir(session):
@@ -75,10 +83,18 @@ class SessionManager(object):
     # def get_files(self, session, subdir, pattern):
     #     return self.get_session(session).get_files(pattern)
 
-    def create_session(self):
+    def create_session(self, session_id=None):
         """Create a new session"""
-        session = Session(self, secrets.token_hex(8))
+        if session_id is None:
+            session_id = secrets.token_hex(8)
+        elif session_id in self:
+            self.logger.warning(
+                f"Session already exists: {session_id}. Using it."
+            )
+            return Session(self, session_id)
+        session = Session(self, session_id)
         session.dump()
+        return session
 
     def as_dataframe(self, sessions=None, extra_columns=None):
         """Convert a list of sessions to a :class:`pandas.DataFrame`"""
@@ -86,8 +102,8 @@ class SessionManager(object):
             sessions = self.sessions
         data = []
         index = []
-        columns = ["creation date", "modification date"]
-        all_subdirs = {}
+        columns = ["Creation date", "Modification date"]
+        all_subdirs = set()
         for session in sessions:
             all_subdirs.update([p.name for p in session.get_subdirs()])
         columns.extend([(p + "/") for p in all_subdirs])
@@ -100,15 +116,15 @@ class SessionManager(object):
 
             # Dates
             row = [
-                str(session.creation_date),
-                str(self.modification_date),
+                str(session.creation_date.round("s")),
+                str(session.modification_date.round("s")),
             ]
 
             # Number of files per subdir
             for subdir in all_subdirs:
                 p = session.root_dir / subdir
                 if p.exists():
-                    nfiles = len(p.glob("*"))
+                    nfiles = len(list(p.glob("*")))
                 else:
                     nfiles = ""
                 row.append(nfiles)
@@ -125,9 +141,16 @@ class SessionManager(object):
         """Nicely print sessions"""
         if sessions is None:
             sessions = self.sessions
-        print(self.as_dataframe(sessions, extra_columns))
+        if not sessions:
+            print("No session to print")
+        else:
+            print(
+                self.as_dataframe(sessions, extra_columns).to_string(
+                    justify="left"
+                )
+            )
 
-    def find(self, **matching_items):
+    def find(self, max_age=None, **matching_items):
         """Interactively find a session macthing criteria"""
         sessions = self.get_matching_sessions(**matching_items)
         if not sessions:
@@ -136,7 +159,7 @@ class SessionManager(object):
             raise SessionError(msg)
         if len(sessions) > 1:
             print("Choose one session:")
-            self.nice_print(sessions, list(matching_items))
+            self.nice_print(sessions, extra_columns=list(matching_items))
             return input("Session id: ")
         if len(sessions) == 1:
             return sessions[0]
@@ -154,25 +177,35 @@ class SessionManager(object):
                 last_session = session
         return last_session
 
-    def clear(self, session_id=None):
+    def clear(self, sessions=None, max_age=None, **matching_items):
         """Remove session directories"""
-        session_ids = self.session_ids
-        if session_id:
-            if session_id not in session_ids:
-                msg = f"Invalid session id: {session_id}"
-                self.logger.error(msg)
-                raise SessionError(msg)
-            session_ids = [session_id]
-        if session_ids:
-            for session_id in session_ids:
-                self.logger.debug(f"Deleting session: {session_id}")
-                path = self.root_dir / session_id
-                shutil.rmtree(path)
-                self.logger.info(f"Deleted session: {session_id} ({path})")
-        else:
-            self.logger.debug(
-                f"No sloop existing session in root: {self.root_dir}"
+        # Explicit list
+        if sessions is None:
+            sessions = self.sessions
+
+        # Matching content
+        if matching_items:
+            sessions = set(sessions).intersection(
+                self.get_matching_sessions(**matching_items)
             )
+
+        # Max age for keeping
+        if max_age:
+            max_age = pd.to_timedelta(max_age)
+            for session in list(sessions):
+                if session.get_age() > max_age:
+                    sessions.remove(session)
+
+        # Now clean
+        if sessions:
+            for session in sessions:
+                self.logger.debug(f"Deleting session: {session}")
+                session.clear()
+                self.logger.info(
+                    f"Deleted session: {session} ({session.path})"
+                )
+        else:
+            self.logger.debug("No session to clear")
 
 
 class Session(collections.UserDict):
@@ -180,7 +213,7 @@ class Session(collections.UserDict):
         self._manager = manager
         self._id = session_id
         self.logger = manager.logger
-        self.logger.debug(f"Instantiated session: {self._id} (self.path)")
+        self.logger.debug(f"Instantiated session: {self._id} ({self.path})")
 
         # Scalars
         self._json_file = self.path / "content.json"
@@ -202,6 +235,9 @@ class Session(collections.UserDict):
     def id(self):
         return self._id
 
+    def __hash__(self):
+        return hash(self._id)
+
     def __str__(self):
         return self.id
 
@@ -211,24 +247,41 @@ class Session(collections.UserDict):
 
     @property
     def path(self):
-        p = self.root_dir / self.id
-        if not p.exists():
-            os.makedirs(self.p)
-        return p
+        return self.root_dir / self.id
 
     @property
     def content(self):
         return self.data
 
+    @property
     def creation_date(self):
         return pd.to_datetime(self["creation_date"])
 
+    @property
     def modification_date(self):
         return pd.to_datetime(self["modification_date"])
 
+    def get_age(self):
+        return pd.to_datetime("now") - self.modification_date
+
+    def _path_exists_(self, subdir=None):
+        p = self.path
+        if subdir:
+            p /= subdir
+        if not p:
+            os.makedirs(p)
+
     def dump(self):
+        # self._path_exists_()
+        self._json_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self._json_file, "w") as f:
             json.dump(self.data, f, indent=4)
+
+    def clear(self):
+        path = self.root_dir / self.id
+        if path.exists():
+            print("rm", path)
+            # shutil.rmtree(self.path)
 
     def _modified_(self):
         self.data["modification_date"] = pd.Timestamp.now().isoformat()
@@ -247,9 +300,13 @@ class Session(collections.UserDict):
     #     self._modified_()
 
     def get_subdirs(self):
-        return [p for p in self.root_dir.glob("*") if p.is_dir()]
+        if not self.path.exists():
+            return []
+        return [p for p in self.path.glob("*") if p.is_dir()]
 
     def get_files(self, subdir, pattern="*"):
+        if not (self.path / subdir).exists():
+            return []
         return [p for p in (self.path / subdir).glob(pattern)]
 
     def get_file_name(self, subdir, fname):
@@ -261,6 +318,7 @@ class Session(collections.UserDict):
     def open_file(self, subdir, fname, mode):
         if "w" in mode:
             self.data["modification_date"] = pd.Timestamp.now().isoformat()
+            self.dump()
         fname = self.get_file_name(subdir, fname)
         return open(fname, mode)
 

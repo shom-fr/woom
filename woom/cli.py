@@ -10,12 +10,15 @@ import argparse
 from pathlib import Path
 import logging
 
+import pandas as pd
+
 from . import hosts as whosts
 from . import sessions as wsessions
 from . import job as wjob
 from . import tasks as wtasks
 from . import workflow as wworkflow
 from . import conf as wconf
+from . import log as wlog
 
 
 def get_parser():
@@ -26,6 +29,9 @@ def get_parser():
     subparsers = parser.add_subparsers(help="sub-command help")
 
     add_parser_run(subparsers)
+    add_parser_sessions(subparsers)
+
+    return parser
 
 
 def main():
@@ -56,18 +62,19 @@ def add_parser_run(subparsers):
     parser_run.add_argument(
         "--workflow-cfg",
         default="workflow.cfg",
-        type=Path,
         help="workflow configuration file",
     )
     parser_run.add_argument(
         "--tasks-cfg",
         default="tasks.cfg",
-        type=Path,
         help="tasks configuration file",
     )
     parser_run.add_argument(
-        "--hosts-cfg", type=Path, help="hosts configuration file"
+        "--hosts-cfg", help="hosts configuration file", default="hosts.cfg"
     )
+    parser_run.add_argument("--host", help="target host")
+    parser_run.add_argument("--session", help="target session")
+    wlog.add_logging_parser_arguments(parser_run)
     parser_run.set_defaults(func=main_run)
 
     return parser_run
@@ -75,7 +82,7 @@ def add_parser_run(subparsers):
 
 def main_run(parser, args):
     # Setup logging
-    wjob.main_setup_logging(args)
+    wlog.main_setup_logging(args)
     logger = logging.getLogger(__name__)
 
     # Load workflow config
@@ -116,7 +123,7 @@ def main_run(parser, args):
     else:
         logger.debug("Infer host")
         host = hostmanager.infer_host()
-        logger.debug("Infered host: " + host.name)
+        logger.info("Infered host: " + host.name)
 
     # Get session
     logger.debug("Initialize the session manager")
@@ -127,16 +134,21 @@ def main_run(parser, args):
             logger.debug("Load latest session")
             session = session_manager.get_latest_session(**app)
             logger.info(f"Loaded lession: {session}")
+        elif args.session not in session_manager:
+            logger.debug("Create explicit new session: " + args.session)
+            session = session_manager.create_session(args.session)
+            logger.info("Created new session: " + session.id)
+            session.update(app)
         else:
             logger.debug("Load session: " + args.session)
             session = session_manager.get_session(args.session)
-            if not session.check_matching_items(session, **app):
+            if not session.check_matching_items(**app):
                 raise Exception("Loaded session is incompatible with app")
             logger.info(f"Loaded session: {session}")
     else:
         logger.debug("Create new session")
         session = session_manager.create_session()
-        logger.debug("Created new session: " + session.id)
+        logger.info("Created new session: " + session.id)
         session.update(app)
 
     # Get task manager
@@ -144,13 +156,17 @@ def main_run(parser, args):
     taskmanager = wtasks.TaskManager(host)
     logger.info("Initialized the task manager")
     logger.debug("Load the task config file: " + args.tasks_cfg)
-    taskmanager.load(args.tasks_cfg)
+    taskmanager.load_config(args.tasks_cfg)
     logger.info("Loaded the task config file: " + args.tasks_cfg)
 
     # Get the workflow instance
     logger.debug("Initialize the workflow")
-    worflow = wworkflow.Workflow(workflow_config, session, taskmanager)
-    logger.debug("Initialized the workflow")
+    workflow = wworkflow.Workflow(workflow_config, session, taskmanager)
+    logger.info("Initialized the workflow")
+
+    logger.debug("Run the workflow")
+    workflow.run()
+    logger.info("Ran the workflow")
 
 
 def add_parser_sessions(subparsers):
@@ -162,13 +178,39 @@ def add_parser_sessions(subparsers):
         help="sessions sub-command help"
     )
 
+    # list
     parser_list = subparsers_sessions.add_parser("list", help="list sessions")
     parser_list.set_defaults(func=main_sessions_list)
 
+    # clear
+    parser_clear = subparsers_sessions.add_parser(
+        "clear", help="clear sessions"
+    )
+    parser_clear.add_argument(
+        "session_id", help="selected session ids", nargs="*"
+    )
+    parser_clear.add_argument(
+        "--max-age", help="Max allowed age", type=pd.to_timedelta
+    )
+    parser_clear.set_defaults(func=main_sessions_clear)
+
 
 def main_sessions_list(parser, args):
+    print("main_sessions_list")
     session_manager = wsessions.SessionManager()
     sessions = session_manager.get_matching_sessions(
         app_name=args.app_name, app_conf=args.app_conf, app_exp=args.app_exp
     )
     session_manager.nice_print(sessions)
+
+
+def main_sessions_clear(parser, args):
+    print("main_sessions_clear")
+    session_manager = wsessions.SessionManager()
+    session_manager.clear(
+        args.session_id or None,
+        max_age=args.max_age,
+        app_name=args.app_name,
+        app_conf=args.app_conf,
+        app_exp=args.app_exp,
+    )
