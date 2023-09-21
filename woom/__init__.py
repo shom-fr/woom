@@ -3,3 +3,7 @@
 """
 Light weight workflow manager for ocean models
 """
+
+
+class WoomError(Exception):
+    pass

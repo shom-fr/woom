@@ -11,6 +11,7 @@ import functools
 import configobj
 
 from . import conf as wconf
+from . import util as wutil
 
 CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "tasks.ini")
 
@@ -102,7 +103,7 @@ class TaskManager:
         name: str
             Known task name
         params: dict
-            Disctionary for commandline substitution purpose
+            Dictionary for commandline substitution purpose
 
         Return
         ------
@@ -111,14 +112,6 @@ class TaskManager:
 
         if name not in self._config:
             raise TaskError(f"Invalid task name: {name}")
-
-        # Copy external params
-        params = params.copy()
-
-        # Update them if task specific params
-        if name in params:
-            params.update(params[name])
-            del params[name]
 
         # Create instance
         return Task(self._config[name], self.host, params)
@@ -129,8 +122,9 @@ class TaskManager:
         Parameters
         ----------
         name: str
-            Task name
+            Known task name
         params: dict
+            Dictionary for commandline substitution purpose
 
         Return
         ------
@@ -141,6 +135,9 @@ class TaskManager:
                 Bash code that must be insert in the submission script
             ``scheduler_options``
                 Options that are given to the scheduler when submiting the script
+        See also
+        --------
+        get_task
         """
         return self.get_task(name, params).export()
 
@@ -149,7 +146,7 @@ class Task:
     def __init__(self, taskconfig, host, params):
         self._config = taskconfig
         self._host = host
-        self._params = params
+        self._params = wutil.subst_dict(params)
 
     @property
     def config(self):
@@ -197,7 +194,7 @@ class Task:
             rundir = rundir.format(**self.params)
         rundir = rundir.strip()
         if rundir:
-            return f"cd {rundir}\n\n"
+            return f"mkdir -p {rundir} && cd {rundir}\n\n"
         return ""
 
     def export_scheduler_options(self):

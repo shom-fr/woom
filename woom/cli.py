@@ -151,7 +151,7 @@ def main_run(parser, args):
         logger.info("Created new session: " + session.id)
         session.update(app)
 
-    # Get task manager
+    # Init task manager
     logger.debug("Initialize the task manager")
     taskmanager = wtasks.TaskManager(host)
     logger.info("Initialized the task manager")
@@ -159,11 +159,12 @@ def main_run(parser, args):
     taskmanager.load_config(args.tasks_cfg)
     logger.info("Loaded the task config file: " + args.tasks_cfg)
 
-    # Get the workflow instance
+    # Init workflow
     logger.debug("Initialize the workflow")
     workflow = wworkflow.Workflow(workflow_config, session, taskmanager)
     logger.info("Initialized the workflow")
 
+    # Run the workflow
     logger.debug("Run the workflow")
     workflow.run()
     logger.info("Ran the workflow")
@@ -182,17 +183,17 @@ def add_parser_sessions(subparsers):
     parser_list = subparsers_sessions.add_parser("list", help="list sessions")
     parser_list.set_defaults(func=main_sessions_list)
 
-    # clear
-    parser_clear = subparsers_sessions.add_parser(
-        "clear", help="clear sessions"
+    # remove
+    parser_remove = subparsers_sessions.add_parser(
+        "remove", help="remove sessions"
     )
-    parser_clear.add_argument(
+    parser_remove.add_argument(
         "session_id", help="selected session ids", nargs="*"
     )
-    parser_clear.add_argument(
+    parser_remove.add_argument(
         "--max-age", help="Max allowed age", type=pd.to_timedelta
     )
-    parser_clear.set_defaults(func=main_sessions_clear)
+    parser_remove.set_defaults(func=main_sessions_remove)
 
 
 def main_sessions_list(parser, args):
@@ -204,10 +205,10 @@ def main_sessions_list(parser, args):
     session_manager.nice_print(sessions)
 
 
-def main_sessions_clear(parser, args):
-    print("main_sessions_clear")
+def main_sessions_remove(parser, args):
+    print("main_sessions_remove")
     session_manager = wsessions.SessionManager()
-    session_manager.clear(
+    session_manager.remove(
         args.session_id or None,
         max_age=args.max_age,
         app_name=args.app_name,

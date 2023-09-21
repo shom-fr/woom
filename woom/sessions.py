@@ -86,14 +86,18 @@ class SessionManager(object):
     def create_session(self, session_id=None):
         """Create a new session"""
         if session_id is None:
+            self.logger.debug(f"New session id: {session_id}")
             session_id = secrets.token_hex(8)
         elif session_id in self:
             self.logger.warning(
                 f"Session already exists: {session_id}. Using it."
             )
             return Session(self, session_id)
+        else:
+            self.logger.debug(f"New explicit session id: {session_id}")
         session = Session(self, session_id)
         session.dump()
+        self.logger.info(f"Created session: {session.id}")
         return session
 
     def as_dataframe(self, sessions=None, extra_columns=None):
@@ -177,7 +181,7 @@ class SessionManager(object):
                 last_session = session
         return last_session
 
-    def clear(self, sessions=None, max_age=None, **matching_items):
+    def remove(self, sessions=None, max_age=None, **matching_items):
         """Remove session directories"""
         # Explicit list
         if sessions is None:
@@ -199,13 +203,9 @@ class SessionManager(object):
         # Now clean
         if sessions:
             for session in sessions:
-                self.logger.debug(f"Deleting session: {session}")
-                session.clear()
-                self.logger.info(
-                    f"Deleted session: {session} ({session.path})"
-                )
+                session.remove()
         else:
-            self.logger.debug("No session to clear")
+            self.logger.debug("No session to remove")
 
 
 class Session(collections.UserDict):
@@ -277,11 +277,13 @@ class Session(collections.UserDict):
         with open(self._json_file, "w") as f:
             json.dump(self.data, f, indent=4)
 
-    def clear(self):
+    def remove(self):
+        self.logger.debug(f"Removing session: {self}")
         path = self.root_dir / self.id
         if path.exists():
             print("rm", path)
             # shutil.rmtree(self.path)
+        self.logger.info(f"Removed session: {self}")
 
     def _modified_(self):
         self.data["modification_date"] = pd.Timestamp.now().isoformat()

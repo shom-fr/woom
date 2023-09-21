@@ -165,9 +165,9 @@ class Host:
             return self.queues[name]
         return name
 
-    def get_dirs(self):
-        """Get generic directories as dict"""
-        return self.config["dirs"]
+    # def get_dirs(self):
+    #     """Get generic directories as dict"""
+    #     return self.config["dirs"]
 
     def get_params(self):
         """Get a configuration suitable for formatted task commandlines
@@ -179,9 +179,7 @@ class Host:
           and with the user "~" symbol and environment variables expanded.
 
         """
-        params = configobj.ConfigObj(
-            self._config["params"], interpolation=False
-        )
+        params = {}
         for dname, dval in self.config["dirs"].items():
             dval = os.path.expanduser(os.path.expandvars(dval))
             params[dname + "dir"] = dval
