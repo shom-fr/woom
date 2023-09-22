@@ -12,6 +12,7 @@ import shlex
 
 import configobj
 
+from . import WoomError
 from . import conf as wconf
 from . import util as wutil
 
@@ -214,7 +215,7 @@ class Workflow:
             "batch_script_content": submission_args["batch_script"]["content"],
         }
 
-    def run(self, begindate=None, enddate=None, freq=None, ncycle=None):
+    def run(self):
         """Run the workflow by submiting all tasks"""
         if self.config["stages"]["dry_run"]:
             self.logger.debug("Running the workflow in fake mode")
@@ -229,14 +230,29 @@ class Workflow:
 
             # Get cycles for looping in time
             if stage == "cycles":
-                cycles = wutil.get_cycles(begindate, enddate, freq, ncycle)
-                self.logger.info(
-                    "Cycling from {} to {} in {} time(s)".format(
-                        cycles[0]["cycle_begin_date"],
-                        cycles[-1]["cycle_end_date"],
-                        len(cycles),
+                try:
+                    cycles = wutil.get_cycles(**self.config["cycles"])
+                except Exception as err:
+                    msg = (
+                        "Error while computing dates of cylces:\n"
+                        + err.args[0]
                     )
-                )
+                    self.logger.error(msg)
+                    raise WoomError(msg)
+                if "cycle_end_date" not in cycles[0]:
+                    self.logger.info(
+                        "Single cycle with unique date: {}".format(
+                            cycles[0]["cycle_begin_date"]
+                        )
+                    )
+                else:
+                    self.logger.info(
+                        "Cycling from {} to {} in {} time(s)".format(
+                            cycles[0]["cycle_begin_date"],
+                            cycles[-1]["cycle_end_date"],
+                            len(cycles),
+                        )
+                    )
 
             else:
                 cycles = [None]
@@ -244,12 +260,19 @@ class Workflow:
             # Only the "cycles" stage is really looping
             for cycle_params in cycles:
                 if stage == "cycles":
-                    self.logger.debug(
-                        "Running cycle: {} -> {}".format(
-                            cycle_params["cycle_begin_date"],
-                            cycle_params["cycle_end_date"],
+                    if "cycle_end_date" not in cycle_params:
+                        self.logger.debug(
+                            "Running cycle: {}".format(
+                                cycle_params["cycle_begin_date"]
+                            )
                         )
-                    )
+                    else:
+                        self.logger.debug(
+                            "Running cycle: {} -> {}".format(
+                                cycle_params["cycle_begin_date"],
+                                cycle_params["cycle_end_date"],
+                            )
+                        )
                 for sequence, task_names in self.config["stages"][
                     stage
                 ].items():

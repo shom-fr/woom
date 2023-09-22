@@ -35,9 +35,22 @@ def get_parser():
 
 
 def main():
+    # Get the parser
     parser = get_parser()
+
+    # Parse args
     args = parser.parse_args()
-    args.func(parser, args)
+
+    # Call subparser function
+    if hasattr(args, "func"):
+        args.func(parser, args)
+    elif hasattr(args, "subcommands"):
+        parser.exit(
+            0, "please use one of the subcommands: " f"{args.subcommands}\n"
+        )
+
+    # Fallback to usage
+    parser.print_usage()
 
 
 def add_app_arguments(parser):
@@ -74,6 +87,16 @@ def add_parser_run(subparsers):
     )
     parser_run.add_argument("--host", help="target host")
     parser_run.add_argument("--session", help="target session")
+    parser_run.add_argument(
+        "--begin-date", help="begin date", type=wconf.is_datetime
+    )
+    parser_run.add_argument(
+        "--end-date", help="end date", type=wconf.is_datetime
+    )
+    parser_run.add_argument(
+        "--freq", help="interval between cycles", type=wconf.is_timedelta
+    )
+    parser_run.add_argument("--ncycle", help="number of cycles", type=int)
     wlog.add_logging_parser_arguments(parser_run)
     parser_run.set_defaults(func=main_run)
 
@@ -91,12 +114,11 @@ def main_run(parser, args):
         args.workflow_cfg, wworkflow.CFGSPECS_FILE
     )
     logger.info("Loaded workflow config")
-    if args.app_name:
-        workflow_config["app"]["name"] = args.app_name
-    if args.app_conf:
-        workflow_config["app"]["conf"] = args.app_conf
-    if args.app_exp:
-        workflow_config["app"]["exp"] = args.app_exp
+
+    # App
+    wconf.merge_args_with_config(
+        workflow_config, args, ["name", "conf", "exp"], prefix="app_"
+    )
     app_name = workflow_config["app"]["name"]
     app_conf = workflow_config["app"]["conf"]
     app_exp = workflow_config["app"]["exp"]
@@ -107,6 +129,13 @@ def main_run(parser, args):
     if app_exp:
         logger.info(f"App exp: {app_exp}")
     app = dict(app_name=app_name, app_conf=app_conf, app_exp=app_exp)
+
+    # Cycles
+    wconf.merge_args_with_config(
+        workflow_config["cycles"],
+        args,
+        ["begin_date", "end_date", "freq", "ncycle"],
+    )
 
     # Get host
     logger.debug("Initialize the host manager")

@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+woom commandline interface
+"""
+import sys
+import pathlib
+
+this_file = pathlib.Path(__file__)
+if (this_file.parent.parent / "woom" / "__init__.py").exists():
+    sys.path.insert(0, this_file.parent.parent)
+
+
+from woom.cli import main
+
+if __name__ == "__main__":
+    main()

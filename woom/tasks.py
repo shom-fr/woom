@@ -188,6 +188,8 @@ class Task:
     def export_rundir(self):
         """Export the bash line to move to the running directory"""
         rundir = self.config["submit"]["rundir"]
+        if rundir is None:
+            return ""
         if rundir == "current":
             rundir = os.getcwd()
         elif "{" in rundir:
@@ -200,14 +202,16 @@ class Task:
     def export_scheduler_options(self):
         if not self.host["scheduler"]:
             return {}
-        return {
-            "queue": self.host["queues"][self.config["submit"]["queue"]],
+        opts = {
             "memory": self.config["submit"]["memory"],
             "time": self.config["submit"]["time"],
             "mail": self.config["submit"]["mail"],
             "log_out": self.config["submit"]["log_out"],
             "extra": self.config["submit"]["extra"].dict(),
         }
+        if self.config["submit"]["queue"]:
+            opts["queue"] = self.host["queues"][self.config["submit"]["queue"]]
+        return opts
 
     def export(self):
         return {

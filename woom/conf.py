@@ -11,6 +11,7 @@ import pandas as pd
 import configobj
 import configobj.validate as validate
 
+from . import util as wutil
 
 CACHE = {"cfgspecs": {}}
 
@@ -28,13 +29,13 @@ def is_path(value):
 def is_datetime(value):
     if value is None:
         return
-    return pd.to_datetime(value).to_pydatetime()
+    return wutil.WoomDate(value)
 
 
 def is_timedelta(value):
     if value is None:
         return
-    return pd.to_timedelta(value).to_pytimedelta()
+    return pd.to_timedelta(value)
 
 
 VALIDATOR_FUNCTIONS = {
@@ -94,3 +95,22 @@ def keep_sections(cfg):
     for key in cfg.scalars:
         del cfgo[key]
     return cfgo
+
+
+def merge_args_with_config(cfg, args, names, prefix=None):
+    """Merge parser arguments with configuration items
+
+    .. note:: The configuration is modified in place
+
+    Parameters
+    ----------
+    cfg: configobj.ConfigObj
+    args: argparse.Namespace
+    names: list(str)
+    prefix: str
+        String to prepend to names in `args`
+    """
+    prefix = prefix or ""
+    for name in names:
+        if hasattr(args, name) is not None:
+            cfg[name] = getattr(args, prefix + name)
