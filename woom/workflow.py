@@ -215,9 +215,9 @@ class Workflow:
             "batch_script_content": submission_args["batch_script"]["content"],
         }
 
-    def run(self):
+    def run(self, dry=False):
         """Run the workflow by submiting all tasks"""
-        if self.config["stages"]["dry_run"]:
+        if dry:
             self.logger.debug("Running the workflow in fake mode")
         depend = []
         for stage in self.config["stages"].sections:
@@ -287,7 +287,7 @@ class Workflow:
                     for task_name in task_names:
                         long_task = f"{stage}/{sequence}/{task_name}"
                         self.logger.debug(f"Submitting task: {long_task}")
-                        if self.config["stages"]["dry_run"]:
+                        if dry:
                             res = self.export_task_to_dict(
                                 task_name,
                                 extra_params=cycle_params,

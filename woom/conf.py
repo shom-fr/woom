@@ -9,7 +9,11 @@ import pprint
 
 import pandas as pd
 import configobj
-import configobj.validate as validate
+
+try:
+    import configobj.validate as validate
+except ImportError:
+    import validate
 
 from . import util as wutil
 

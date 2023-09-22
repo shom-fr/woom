@@ -48,9 +48,8 @@ def main():
         parser.exit(
             0, "please use one of the subcommands: " f"{args.subcommands}\n"
         )
-
-    # Fallback to usage
-    parser.print_usage()
+    else:
+        parser.print_usage()
 
 
 def add_app_arguments(parser):
@@ -71,6 +70,11 @@ def add_app_arguments(parser):
 def add_parser_run(subparsers):
     # Setup argument parser
     parser_run = subparsers.add_parser("run", help="run a workflow")
+    parser_run.add_argument(
+        "--dry-run",
+        help="run in fake mode for testing purpose",
+        action="store_true",
+    )
     add_app_arguments(parser_run)
     parser_run.add_argument(
         "--workflow-cfg",
@@ -195,7 +199,7 @@ def main_run(parser, args):
 
     # Run the workflow
     logger.debug("Run the workflow")
-    workflow.run()
+    workflow.run(dry=args.dry_run)
     logger.info("Ran the workflow")
 
 
