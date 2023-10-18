@@ -1,0 +1,11 @@
+name: woom
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - configobj
+  - pandas
+  - platformdirs
+  

@@ -7,9 +7,9 @@ import logging
 import subprocess
 from enum import Enum
 import datetime
+import json
 
 # from .env import is_os_cmd_avail
-import json
 
 ALLOWED_SCHEDULERS = ["basic", "slurm", "pbspro"]
 
