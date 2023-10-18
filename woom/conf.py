@@ -66,7 +66,7 @@ def get_cfgspecs(cfgspecsfile):
     return CACHE["cfgspecs"][name]
 
 
-def load_cfg(cfgfile, cfgspecsfile):
+def load_cfg(cfgfile, cfgspecsfile, list_values=False):
     """Get a validated :class:`configobj.configObj` instance"""
     validator = get_validator()
     cfgspecs = get_cfgspecs(cfgspecsfile)
@@ -74,7 +74,7 @@ def load_cfg(cfgfile, cfgspecsfile):
         cfgfile or {},
         configspec=cfgspecs,
         interpolation=False,
-        list_values=False,
+        list_values=list_values,
     )
     success = cfg.validate(validator, preserve_errors=True)
     if success is not True:
@@ -118,3 +118,12 @@ def merge_args_with_config(cfg, args, names, prefix=None):
     for name in names:
         if hasattr(args, name) is not None:
             cfg[name] = getattr(args, prefix + name)
+
+
+def inherit_cfg(cfg, inherit_from):
+    """Inherit content from another config"""
+    for key, val in list(inherit_from.items()):
+        if key not in cfg or cfg[key] is None:
+            cfg[key] = val
+        elif isinstance(cfg[key], dict) and isinstance(val, dict):
+            inherit_cfg(cfg[key], val)

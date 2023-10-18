@@ -9,14 +9,15 @@ import secrets
 import datetime
 import functools
 import shlex
-
-import configobj
+import re
 
 from . import WoomError
 from . import conf as wconf
 from . import util as wutil
 
 CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "workflow.ini")
+
+RE_SPLIT_COMMAS = re.compile(r"\s*,\s*").split
 
 
 class WorkFlowError(Exception):
@@ -85,6 +86,7 @@ class Workflow:
 
         - [params] scalars
         - [app] scalars prepended with the "app_" prefix
+        - [cycles] scalars prepended with the "cycles_" prefix
         - Host specific params included directories appended with the "dir" diffix
         - Task [[<task>]] scalars
         - Task@Host [[<task>]]/[[[<host>]]] scalars
@@ -109,10 +111,10 @@ class Workflow:
         # Workflow generic params
         params = wconf.strip_out_sections(self._config["params"]).dict()
 
-        # App
-        for key, val in self.config["app"].items():
-            if val:
-                params["app_" + key] = val
+        # Subsections
+        for sec in "app", "cycles":
+            for key, val in self.config[sec].items():
+                params[f"{sec}_{key}"] = val
 
         # Get host params
         params.update(self.host.get_params())
@@ -145,15 +147,22 @@ class Workflow:
         # Get params
         params = self.get_task_params(task_name, extra_params=extra_params)
 
+        # Token
+        token = secrets.token_hex(8)
+        date = datetime.datetime.utcnow()
+
+        # Store params to json
+        json_name = f"batch-{task_name}-{date:%Y-%m-%d-%H-%M-%S}-{token}.json"
+        json_path = self.session.get_file_name("batch_scripts", json_name)
+        params["params_json"] = json_path
+
         # Get task bash code and submission options
         task_specs = self.taskmanager.export_task(task_name, params)
 
         # Create the bash submission script in cache
-        token = secrets.token_hex(8)
-        date = datetime.datetime.utcnow()
         script_name = f"batch-{task_name}-{date:%Y-%m-%d-%H-%M-%S}-{token}.sh"
 
-        # Submission optipns
+        # Submission options
         script_path = self.session.get_file_name("batch_scripts", script_name)
         opts = task_specs["scheduler_options"].copy()
         opts["session"] = str(self.session)
@@ -163,6 +172,7 @@ class Workflow:
                 "name": script_name,
                 "content": task_specs["script_content"],
             },
+            "params_json": {"name": json_name, "content": params},
             "submission": {
                 "script": script_path,
                 "opts": opts,
@@ -187,6 +197,11 @@ class Workflow:
         submission_args = self._get_submission_args_(
             task_name, extra_params=extra_params, depend=depend
         )
+
+        # Store paams as a json file in cache
+        json_name = submission_args["params_json"]["name"]
+        with self.session.open_file("batch_scripts", json_name, "w") as f:
+            f.write(submission_args["params_json"]["content"])
 
         # Create the bash submission script in cache
         script_name = submission_args["batch_script"]["name"]
@@ -213,13 +228,14 @@ class Workflow:
         return {
             "submission_commandline": cmdline,
             "batch_script_content": submission_args["batch_script"]["content"],
+            "params_json": submission_args["params_json"],
         }
 
     def run(self, dry=False):
         """Run the workflow by submiting all tasks"""
         if dry:
             self.logger.debug("Running the workflow in fake mode")
-        depend = []
+        sequence_depend = []
         for stage in self.config["stages"].sections:
             self.logger.debug(f"Entering stage: {stage}")
 
@@ -276,42 +292,89 @@ class Workflow:
                 for sequence, task_names in self.config["stages"][
                     stage
                 ].items():
+                    # List of tasks
+                    task_names = RE_SPLIT_COMMAS(task_names)
+
                     # Check that we have something to do
                     if not task_names:
                         self.debug("No task to submit")
                         continue
-                    self.logger.debug(f"Entering sequence: {sequence}")
-                    new_depend = []
 
-                    # Loop on task names
-                    for task_name in task_names:
-                        long_task = f"{stage}/{sequence}/{task_name}"
-                        self.logger.debug(f"Submitting task: {long_task}")
-                        if dry:
-                            res = self.export_task_to_dict(
-                                task_name,
-                                extra_params=cycle_params,
-                                depend=depend,
-                            )
-                            jobid = str(secrets.randbelow(1000000))
-                            content = "Fake submission:\n"
-                            content += (
-                                " submission command ".center(80, "-") + "\n"
-                            )
-                            content += res["submission_commandline"] + "\n"
-                            content += (
-                                " batch script content ".center(80, "-") + "\n"
-                            )
-                            content += res["batch_script_content"] + "\n"
-                            self.logger.debug(content)
+                    self.logger.debug(f"Entering sequence: {sequence}")
+                    new_sequence_depend = []
+
+                    # Loop on task or group of task names
+                    for task_group_name in task_names:
+                        if task_group_name not in self.config["groups"]:
+                            group = [task_group_name]
                         else:
-                            jobid = self.submit_task(
-                                task_name,
-                                extra_params=cycle_params,
-                                depend=depend,
+                            group = RE_SPLIT_COMMAS(
+                                self.config["groups"][task_group_name]
                             )
-                        self.logger.info(
-                            f"Submitted task: {long_task} with job id {jobid}"
-                        )
-                        new_depend.append(jobid)
-                    depend = new_depend
+                            long_task = f"{stage}/{sequence}/{task_group_name}"
+                            self.logger.debug(
+                                f"Group of ordered tasks: {long_task}"
+                            )
+
+                        # First task of group depend on last sequence
+                        task_depend = sequence_depend
+
+                        for task_name in group:
+                            long_task = f"{stage}/{sequence}/{task_name}"
+                            self.logger.debug(f"Submitting task: {long_task}")
+                            if dry:  # Fake mode
+                                res = self.export_task_to_dict(
+                                    task_name,
+                                    extra_params=cycle_params,
+                                    depend=task_depend,
+                                )
+                                jobid = str(secrets.randbelow(1000000))
+
+                                # Commandline
+                                content = "Fake submission:\n"
+                                content += (
+                                    " submission command ".center(80, "-")
+                                    + "\n"
+                                )
+                                content += res["submission_commandline"] + "\n"
+
+                                # Batch
+                                content += (
+                                    " batch script content ".center(80, "-")
+                                    + "\n"
+                                )
+                                content += res["batch_script_content"] + "\n"
+
+                                # Json
+                                content += (
+                                    " params as json ".center(80, "-") + "\n"
+                                )
+                                content += (
+                                    str(
+                                        res["params_json"]["content"][
+                                            "params_json"
+                                        ]
+                                    )
+                                    + "\n"
+                                )
+
+                                self.logger.debug(content)
+
+                            else:  # Real submission mode
+                                jobid = self.submit_task(
+                                    task_name,
+                                    extra_params=cycle_params,
+                                    depend=task_depend,
+                                )
+                            self.logger.info(
+                                f"Submitted task: {long_task} with job id {jobid}"
+                            )
+
+                            # The next task of group depend on this job
+                            task_depend = jobid
+
+                        # The last job is added for next stage dependency
+                        new_sequence_depend.append(jobid)
+
+                    # Dependencies for the next sequence
+                    sequence_depend = new_sequence_depend

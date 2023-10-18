@@ -181,8 +181,9 @@ class Host:
         """
         params = {}
         for dname, dval in self.config["dirs"].items():
-            dval = os.path.expanduser(os.path.expandvars(dval))
-            params[dname + "dir"] = dval
+            if dval is not None:
+                dval = os.path.expanduser(os.path.expandvars(dval))
+                params[dname + "dir"] = dval
         return params
 
     # def get_dir(self, name):

@@ -56,7 +56,6 @@ def format_commandline(line_format, named_arguments=None, subst=None):
                         f"Empty named argument:\nname: {name}\ncommandline: {line_format}"
                     )
             more_subst[name] = " ".join(setops)
-
     try:
         return line_format.format(**subst, **more_subst)
     except KeyError as e:
@@ -85,11 +84,26 @@ class TaskManager:
             for cfg in self._configs:
                 self._config.merge(cfg)
 
-            # # Apply inheritance
-            # for name, content in self._config.items():
-            #     if "inherit" in content.scalars:
-            #         inherit = content["inherit"]
-            #         if inherit in content.sections:
+            # Apply inheritance
+            not_complete = True
+            while not_complete:
+                not_complete = False
+                for name, content in self._config.items():
+                    if "inherit" in content.scalars:
+                        inherit = content["inherit"]
+                        if inherit:
+                            if inherit in self._config:
+                                wconf.inherit_cfg(
+                                    self._config[name], self._config[inherit]
+                                )
+                                if self._config[name]["inherit"] == inherit:
+                                    self._config[name]["inherit"] = None
+                                else:
+                                    not_complete = True
+                            else:
+                                raise TaskError(
+                                    f"Wrong task name to inherit from: {inherit}"
+                                )
 
     @property
     def host(self):

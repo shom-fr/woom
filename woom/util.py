@@ -49,13 +49,14 @@ def subst_dict(dict_in, dict_subst=None, maxiter=None):
                         changed = True
                         # print((key, val, val_new))
                     dict_out[key] = dict_subst[key] = val_new
-                except KeyError:
-                    # print("err")
-                    continue
+                except KeyError as err:
+                    raise WoomError(
+                        "Params substitution error: " + err.args[0]
+                    )
         if not changed:
             break
     else:
-        raise WoomError("Detected subsitution sloop")
+        raise WoomError("Detected subsitution loop")
     return dict_out
 
 

@@ -384,6 +384,8 @@ class BasicJobManager(object):
         # Finalize options
         opts.update(dict(script=script))
         if depend:
+            if isinstance(depend, str):
+                depend = [depend]
             opts["depend"] = ":".join(depend)
         if "extra " in opts:
             opts.update(opts.pop("extra"))
