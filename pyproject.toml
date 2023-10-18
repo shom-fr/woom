@@ -1,0 +1,55 @@
+[project]
+authors = [
+  {name = "Stephane Raynaud", email = "stephane.raynaud@shom.fr"},
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+description = "workflow manager for ocean models"
+dynamic = ["version"]
+license = {text = "Apache-2.0"}
+name = "woom"
+readme = "README.rst"
+requires-python = ">=3.9"
+dependencies = [
+  "colorlog",
+  "configobj",
+  "pandas",
+  "platformdirs"
+]
+
+[project.urls]
+issue-tracker = "https://github.com/shom-fr/woom/issues"
+source-code = "https://github.com/shom-fr/woom"
+
+[project.scripts]
+woom = "woom.cli:main"
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=42",
+  "setuptools-scm>=7",
+]
+
+[tool.setuptools]
+packages = ["woom"]
+
+[tool.setuptools_scm]
+fallback_version = "999"
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+skip-string-normalization = true
