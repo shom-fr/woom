@@ -68,10 +68,11 @@ def format_commandline(line_format, named_arguments=None, subst=None):
 
 
 class TaskManager:
-    def __init__(self, host):
+    def __init__(self, host, session):
         self._configs = []
         self._config = configobj.ConfigObj(interpolation=False)
         self._host = host
+        self._session = session
 
     def load_config(self, cfgfile):
         cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE)
@@ -108,6 +109,10 @@ class TaskManager:
     @property
     def host(self):
         return self._host
+
+    @property
+    def session(self):
+        return self._session
 
     def get_task(self, name, params):
         """Get a :class:`Task` instance
@@ -190,8 +195,10 @@ class Task:
 
     @functools.cached_property
     def env(self):
+        ss = f"export WOOM_SESSION_DIR='{self.path}'"
         if self.config["submit"]["env"]:
-            return self.host.get_env(self.config["submit"]["env"])
+            ss += self.host.get_env(self.config["submit"]["env"])
+        return ss
 
     def export_env(self):
         """Export the environment declarations as bash lines"""
@@ -212,6 +219,9 @@ class Task:
         if rundir:
             return f"mkdir -p {rundir} && cd {rundir}\n\n"
         return ""
+
+    # def export_epilog(self):
+    #     return "mkdir -p $WOOM_SESSION_DIR/
 
     def export_scheduler_options(self):
         if not self.host["scheduler"]:

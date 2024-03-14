@@ -25,7 +25,7 @@ class WorkFlowError(Exception):
 
 
 class Workflow:
-    def __init__(self, cfgfile, session, taskmanager):
+    def __init__(self, cfgfile, taskmanager):
         self.logger = logging.getLogger(__name__)
         if isinstance(cfgfile, str):
             self._cfgfile = cfgfile
@@ -34,7 +34,7 @@ class Workflow:
             self._config = cfgfile
             self._cfgfile = self._config.filename
         self._tm = taskmanager
-        self._session = session
+        self._session = session = taskmanager.session
         self._config["params"]["session_id"] = session.id
 
         # Checkp app
@@ -198,7 +198,7 @@ class Workflow:
             task_name, extra_params=extra_params, depend=depend
         )
 
-        # Store paams as a json file in cache
+        # Store params as a json file in cache
         json_name = submission_args["params_json"]["name"]
         with self.session.open_file("batch_scripts", json_name, "w") as f:
             f.write(submission_args["params_json"]["content"])
@@ -250,7 +250,7 @@ class Workflow:
                     cycles = wutil.get_cycles(**self.config["cycles"])
                 except Exception as err:
                     msg = (
-                        "Error while computing dates of cylces:\n"
+                        "Error while computing dates of cycles:\n"
                         + err.args[0]
                     )
                     self.logger.error(msg)

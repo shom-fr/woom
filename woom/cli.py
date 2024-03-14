@@ -186,7 +186,7 @@ def main_run(parser, args):
 
     # Init task manager
     logger.debug("Initialize the task manager")
-    taskmanager = wtasks.TaskManager(host)
+    taskmanager = wtasks.TaskManager(host, session)
     logger.info("Initialized the task manager")
     logger.debug("Load the task config file: " + args.tasks_cfg)
     taskmanager.load_config(args.tasks_cfg)
@@ -194,7 +194,7 @@ def main_run(parser, args):
 
     # Init workflow
     logger.debug("Initialize the workflow")
-    workflow = wworkflow.Workflow(workflow_config, session, taskmanager)
+    workflow = wworkflow.Workflow(workflow_config, taskmanager)
     logger.info("Initialized the workflow")
 
     # Run the workflow
