@@ -147,9 +147,7 @@ class Host:
     @functools.lru_cache
     def get_jobmanager(self, session):
         """Get a :mod:`~woom.job` manager instance"""
-        return wjob.BasicJobManager.from_scheduler(
-            self.config["scheduler"], session
-        )
+        return wjob.BasicJobManager.from_scheduler(self.config["scheduler"], session)
 
     @property
     def module_setup(self):
@@ -202,13 +200,18 @@ class Host:
     @functools.cache
     def get_env(self, name):
         """Get a :class:`EnvConfig` instance from a env config name"""
-        cfg = self.config["envs"][name]
-        return wenv.EnvConfig(
-            module_setup=self.config["module_setup"],
-            module_use=cfg["modules"]["use"],
-            module_load=cfg["modules"]["load"],
-            vars_forward=cfg["vars"]["forward"],
-            vars_set=cfg["vars"]["set"],
-            vars_append=cfg["vars"]["append"],
-            vars_prepend=cfg["vars"]["prepend"],
-        )
+        # Get registered env
+        if name in self.config["envs"]:
+            cfg = self.config["envs"][name]
+            return wenv.EnvConfig(
+                module_setup=self.config["module_setup"],
+                module_use=cfg["modules"]["use"],
+                module_load=cfg["modules"]["load"],
+                vars_forward=cfg["vars"]["forward"],
+                vars_set=cfg["vars"]["set"],
+                vars_append=cfg["vars"]["append"],
+                vars_prepend=cfg["vars"]["prepend"],
+            )
+
+        # Fall back to empty env
+        return wenv.EnvConfig()
