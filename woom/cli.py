@@ -45,9 +45,7 @@ def main():
     if hasattr(args, "func"):
         args.func(parser, args)
     elif hasattr(args, "subcommands"):
-        parser.exit(
-            0, "please use one of the subcommands: " f"{args.subcommands}\n"
-        )
+        parser.exit(0, "please use one of the subcommands: " f"{args.subcommands}\n")
     else:
         parser.print_usage()
 
@@ -86,20 +84,12 @@ def add_parser_run(subparsers):
         default="tasks.cfg",
         help="tasks configuration file",
     )
-    parser_run.add_argument(
-        "--hosts-cfg", help="hosts configuration file", default="hosts.cfg"
-    )
+    parser_run.add_argument("--hosts-cfg", help="hosts configuration file", default="hosts.cfg")
     parser_run.add_argument("--host", help="target host")
     parser_run.add_argument("--session", help="target session")
-    parser_run.add_argument(
-        "--begin-date", help="begin date", type=wconf.is_datetime
-    )
-    parser_run.add_argument(
-        "--end-date", help="end date", type=wconf.is_datetime
-    )
-    parser_run.add_argument(
-        "--freq", help="interval between cycles", type=wconf.is_timedelta
-    )
+    parser_run.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
+    parser_run.add_argument("--end-date", help="end date", type=wconf.is_datetime)
+    parser_run.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
     parser_run.add_argument("--ncycle", help="number of cycles", type=int)
     wlog.add_logging_parser_arguments(parser_run)
     parser_run.set_defaults(func=main_run)
@@ -114,15 +104,11 @@ def main_run(parser, args):
 
     # Load workflow config
     logger.debug("Load workflow config")
-    workflow_config = wconf.load_cfg(
-        args.workflow_cfg, wworkflow.CFGSPECS_FILE
-    )
+    workflow_config = wconf.load_cfg(args.workflow_cfg, wworkflow.CFGSPECS_FILE)
     logger.info("Loaded workflow config")
 
     # App
-    wconf.merge_args_with_config(
-        workflow_config, args, ["name", "conf", "exp"], prefix="app_"
-    )
+    wconf.merge_args_with_config(workflow_config, args, ["name", "conf", "exp"], prefix="app_")
     app_name = workflow_config["app"]["name"]
     app_conf = workflow_config["app"]["conf"]
     app_exp = workflow_config["app"]["exp"]
@@ -200,7 +186,7 @@ def main_run(parser, args):
     # Run the workflow
     logger.debug("Run the workflow")
     workflow.run(dry=args.dry_run)
-    logger.info("Ran the workflow")
+    logger.info("Successfully ran the workflow!")
 
 
 def add_parser_sessions(subparsers):
@@ -208,24 +194,16 @@ def add_parser_sessions(subparsers):
     parser_sessions = subparsers.add_parser("sessions", help="manage sessions")
     add_app_arguments(parser_sessions)
 
-    subparsers_sessions = parser_sessions.add_subparsers(
-        help="sessions sub-command help"
-    )
+    subparsers_sessions = parser_sessions.add_subparsers(help="sessions sub-command help")
 
     # list
     parser_list = subparsers_sessions.add_parser("list", help="list sessions")
     parser_list.set_defaults(func=main_sessions_list)
 
     # remove
-    parser_remove = subparsers_sessions.add_parser(
-        "remove", help="remove sessions"
-    )
-    parser_remove.add_argument(
-        "session_id", help="selected session ids", nargs="*"
-    )
-    parser_remove.add_argument(
-        "--max-age", help="Max allowed age", type=pd.to_timedelta
-    )
+    parser_remove = subparsers_sessions.add_parser("remove", help="remove sessions")
+    parser_remove.add_argument("session_id", help="selected session ids", nargs="*")
+    parser_remove.add_argument("--max-age", help="Max allowed age", type=pd.to_timedelta)
     parser_remove.set_defaults(func=main_sessions_remove)
 
 

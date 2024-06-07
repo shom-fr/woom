@@ -24,22 +24,16 @@ class SessionManager(object):
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         if "MTOOLDIR" in os.environ:
-            self.root_dir = (
-                pathlib.Path(os.environ["MTOOLDIR"])
-                / "cache"
-                / "woom"
-                / "sessions"
-            )
+            self.root_dir = pathlib.Path(os.environ["MTOOLDIR"]) / "cache" / "woom" / "sessions"
 
         else:
             self.root_dir = platformdirs.user_cache_path(
                 os.path.join("woom", "sessions"), ensure_exists=True
             )
+        os.environ["WOOM_SESSIONS_DIR"] = str(self.root_dir)
 
     def __repr__(self):
-        return (
-            f'<SessionManager(root_dir="{self.root_dir}", app="{self.app}")>'
-        )
+        return f'<SessionManager(root_dir="{self.root_dir}", app="{self.app}")>'
 
     @property
     def session_ids(self):
@@ -58,9 +52,7 @@ class SessionManager(object):
     @property
     def sessions(self):
         """List of all sessions"""
-        return [
-            self.get_session(session_id) for session_id in self.session_ids
-        ]
+        return [self.get_session(session_id) for session_id in self.session_ids]
 
     def get_matching_sessions(self, **matching_items):
         sessions = []
@@ -89,9 +81,7 @@ class SessionManager(object):
             self.logger.debug(f"New session id: {session_id}")
             session_id = secrets.token_hex(8)
         elif session_id in self:
-            self.logger.warning(
-                f"Session already exists: {session_id}. Using it."
-            )
+            self.logger.warning(f"Session already exists: {session_id}. Using it.")
             return Session(self, session_id)
         else:
             self.logger.debug(f"New explicit session id: {session_id}")
@@ -148,11 +138,7 @@ class SessionManager(object):
         if not sessions:
             print("No session to print")
         else:
-            print(
-                self.as_dataframe(sessions, extra_columns).to_string(
-                    justify="left"
-                )
-            )
+            print(self.as_dataframe(sessions, extra_columns).to_string(justify="left"))
 
     def find(self, max_age=None, **matching_items):
         """Interactively find a session macthing criteria"""
@@ -189,9 +175,7 @@ class SessionManager(object):
 
         # Matching content
         if matching_items:
-            sessions = set(sessions).intersection(
-                self.get_matching_sessions(**matching_items)
-            )
+            sessions = set(sessions).intersection(self.get_matching_sessions(**matching_items))
 
         # Max age for keeping
         if max_age:
@@ -226,9 +210,7 @@ class Session(collections.UserDict):
 
         # Date
         if "creation_date" not in self:
-            self["creation_date"] = self.data[
-                "modification_date"
-            ] = pd.Timestamp.now().isoformat()
+            self["creation_date"] = self.data["modification_date"] = pd.Timestamp.now().isoformat()
         self.dump()
 
     @property

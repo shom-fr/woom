@@ -5,7 +5,7 @@ Task manager
 """
 
 import os
-import shlex
+import re
 import functools
 
 import configobj
@@ -14,10 +14,70 @@ from . import conf as wconf
 from . import util as wutil
 
 CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "tasks.ini")
+RE_SPLIT_COMMAS = re.compile(r"\s*,\s*").split
 
 
 class TaskError(Exception):
     pass
+
+
+class TaskTree:
+    """Postprocess configuration to build a task tree"""
+
+    def __init__(self, stages, groups=None):
+        """
+        Parameters
+        ----------
+        stages: :class:`configobj.Section`
+        groups: None, :class:`configobj.Section`
+            Group of tasks that can be used in stages
+        """
+        self._stages = configobj.ConfigObj(stages)
+        self._groups = configobj.ConfigObj(groups)
+
+    @functools.cache
+    def to_dict(self):
+        all_tasks = []
+        tt = {}
+        for stage in self._stages.sections:  # prolog, cycles, epilog
+            tt[stage] = {}
+
+            # Loop on sub-stages
+            for substage, tasks_line in self._stages[stage].items():  # fetch=task1,group1,...
+                tasks = RE_SPLIT_COMMAS(tasks_line)
+                tt[stage][substage] = tasks
+
+                # Loop on parallel tasks
+                for i in range(len(tasks)):
+                    task = tasks[i]
+                    if task in self._groups:
+                        tasks[i] = RE_SPLIT_COMMAS(self._groups[task])
+                    else:
+                        tasks[i] = [task]  # as a single element group
+
+                    # Check unicity
+                    for task in tasks[i]:
+                        if task in all_tasks:
+                            raise TaskError(f"Duplicate tasks not allowed: {task}")
+                        all_tasks.append(task)
+        return tt
+
+    def __str__(self):
+        dd = self.to_dict()
+        ss = ""
+        for stage, scontent in dd.items():
+            ss += f"{stage}:\n"
+            for substage, sscontent in scontent.items():
+                ss += f"    - {substage}: "
+                tasks = []
+                for gt in sscontent:
+                    if len(gt) == 1:
+                        tasks.append(gt[0])
+                    else:
+                        tasks.append("[" + " -> ".join(gt) + "]")
+                ss += " // ".join(tasks) + "\n"
+            # ss += "\n"
+        return ss.strip("\n")
 
 
 def format_commandline(line_format, named_arguments=None, subst=None):
@@ -48,9 +108,7 @@ def format_commandline(line_format, named_arguments=None, subst=None):
                     value = None
                 if value is not None:
                     value = value.format(**subst)
-                    setops.append(
-                        specs["format"].format(name=name, value=value)
-                    )
+                    setops.append(specs["format"].format(name=name, value=value))
                 elif specs["required"]:
                     raise TaskError(
                         f"Empty named argument:\nname: {name}\ncommandline: {line_format}"
@@ -73,6 +131,7 @@ class TaskManager:
         self._config = configobj.ConfigObj(interpolation=False)
         self._host = host
         self._session = session
+        os.environ["WOOM_SESSION_DIR"] = str(session.path)
 
     def load_config(self, cfgfile):
         cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE)
@@ -94,17 +153,13 @@ class TaskManager:
                         inherit = content["inherit"]
                         if inherit:
                             if inherit in self._config:
-                                wconf.inherit_cfg(
-                                    self._config[name], self._config[inherit]
-                                )
+                                wconf.inherit_cfg(self._config[name], self._config[inherit])
                                 if self._config[name]["inherit"] == inherit:
                                     self._config[name]["inherit"] = None
                                 else:
                                     not_complete = True
                             else:
-                                raise TaskError(
-                                    f"Wrong task name to inherit from: {inherit}"
-                                )
+                                raise TaskError(f"Wrong task name to inherit from: {inherit}")
 
     @property
     def host(self):
@@ -135,7 +190,7 @@ class TaskManager:
         # Create instance
         return Task(self._config[name], self.host, params)
 
-    def export_task(self, name, params):
+    def export_task(self, name, params, token):
         """Export a task as a dict
 
         Parameters
@@ -144,6 +199,8 @@ class TaskManager:
             Known task name
         params: dict
             Dictionary for commandline substitution purpose
+        token: str
+            A unique token for submitting this task
 
         Return
         ------
@@ -158,7 +215,7 @@ class TaskManager:
         --------
         get_task
         """
-        return self.get_task(name, params).export()
+        return self.get_task(name, params).export(token)
 
 
 class Task:
@@ -195,15 +252,18 @@ class Task:
 
     @functools.cached_property
     def env(self):
-        ss = f"export WOOM_SESSION_DIR='{self.path}'"
-        if self.config["submit"]["env"]:
-            ss += self.host.get_env(self.config["submit"]["env"])
-        return ss
+        """Instance of :class:`woom.env.Env` specific to this task"""
+        # Get env from name, possibly empty
+        env = self.host.get_env(self.config["submit"].get("env")).copy()
 
-    def export_env(self):
+        # Add woom variables
+        env.vars_set.update(WOOM_TASK_NAME=self.name)
+        env.vars_forward.extend(["WOOM_WORKFLOW_DIR", "WOOM_SESSION_DIR"])
+        return env
+
+    def export_env(self, token):
         """Export the environment declarations as bash lines"""
-        if not self.env:
-            return ""
+        self.env.vars_set.update(WOOM_TASK_TOKEN=str(token))
         return str(self.env)
 
     def export_rundir(self):
@@ -237,10 +297,12 @@ class Task:
             opts["queue"] = self.host["queues"][self.config["submit"]["queue"]]
         return opts
 
-    def export(self):
+    def export(self, token):
         return {
-            "script_content": self.export_env()
+            "script_content": self.export_env(token)
+            + "\n# Run\n"
             + self.export_rundir()
-            + self.export_commandline(),
+            + self.export_commandline()
+            + "\n",
             "scheduler_options": self.export_scheduler_options(),
         }

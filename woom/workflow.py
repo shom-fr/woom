@@ -14,6 +14,7 @@ import re
 from . import WoomError
 from . import conf as wconf
 from . import util as wutil
+from . import tasks as wtasks
 
 CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "workflow.ini")
 
@@ -33,17 +34,19 @@ class Workflow:
         else:
             self._config = cfgfile
             self._cfgfile = self._config.filename
+        self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))
+        os.environ["WOOM_WORKFLOW_DIR"] = self._workflow_dir
         self._tm = taskmanager
         self._session = session = taskmanager.session
         self._config["params"]["session_id"] = session.id
+        self._task_tree = wtasks.TaskTree(self._config["stages"], self._config["groups"])
 
-        # Checkp app
+        # Checp app
         for key in "name", "conf", "exp":
             if self._config["app"][key]:
                 if (
                     session["app_" + key]
-                    and session["app_" + key].lower()
-                    != self._config["app"][key]
+                    and session["app_" + key].lower() != self._config["app"][key]
                 ):
                     msg = "Workflow config and session app names are incompatible: '{}' != '{}'".format(
                         self._config["app"][key], session["app_" + key]
@@ -53,10 +56,7 @@ class Workflow:
                 session["app_" + key] = self._config["app"][key]
 
     def __str__(self):
-        return (
-            f'<Workflow[cfgfile: "{self._cfgfile}", '
-            f'session: "{self.session.id}">\n'
-        )
+        return f'<Workflow[cfgfile: "{self._cfgfile}", ' f'session: "{self.session.id}">\n'
 
     @property
     def config(self):
@@ -78,6 +78,25 @@ class Workflow:
     def jobmanager(self):
         """The :mod:`~woom.job` manager instance"""
         return self.host.get_jobmanager(self.session)
+
+    @functools.cached_property
+    def task_tree(self):
+        return self._task_tree.to_dict()
+
+    @property
+    def workflow_dir(self):
+        return self._workflow_dir
+
+    def get_task_dir(self, task_name):
+        tdir = os.path.join(self.workflow_dir, "tasks", task_name)
+        os.makedirs(tdir, exist_ok=True)
+        return tdir
+
+    def get_submission_dir(self, task_name, date, token):
+        tdir = self.get_task_dir(task_name)
+        sdir = os.path.join(tdir, f"{task_name}-{date:%Y-%m-%d-%H-%M-%S}")
+        os.makedirs(sdir, exist_ok=True)
+        return sdir
 
     def get_task_params(self, task_name, extra_params=None):
         """Get the params dictionnary used to format a task command line
@@ -121,19 +140,13 @@ class Workflow:
 
         # Get task specific params
         if task_name in self._config["params"]:
-            params.update(
-                wconf.strip_out_sections(
-                    self._config["params"][task_name]
-                ).dict()
-            )
+            params.update(wconf.strip_out_sections(self._config["params"][task_name]).dict())
 
             # Task specific params for this host
             if self.host.name in self._config["params"][task_name]:
                 params.update(
                     wconf.strip_out_sections(
-                        self._config["params"][task_name][
-                            self.host.name
-                        ].dict()
+                        self._config["params"][task_name][self.host.name].dict()
                     )
                 )
 
@@ -148,30 +161,30 @@ class Workflow:
         params = self.get_task_params(task_name, extra_params=extra_params)
 
         # Token
-        token = secrets.token_hex(8)
+        hex_token = secrets.token_hex(8)
         date = datetime.datetime.utcnow()
+        task_token = f"{date:%Y-%m-%d-%H-%M-%S}-{hex_token}"
 
         # Store params to json
-        json_name = f"batch-{task_name}-{date:%Y-%m-%d-%H-%M-%S}-{token}.json"
+        json_name = f"batch-{task_name}-{task_token}.json"
         json_path = self.session.get_file_name("batch_scripts", json_name)
         params["params_json"] = json_path
 
         # Get task bash code and submission options
-        task_specs = self.taskmanager.export_task(task_name, params)
+        task_specs = self.taskmanager.export_task(task_name, params, task_token)
 
         # Create the bash submission script in cache
-        script_name = f"batch-{task_name}-{date:%Y-%m-%d-%H-%M-%S}-{token}.sh"
+        script_name = "batch.sh"
 
         # Submission options
-        script_path = self.session.get_file_name("batch_scripts", script_name)
+        script_path = os.path.join(
+            self.get_submission_dir(task_name, date, task_token), script_name
+        )
         opts = task_specs["scheduler_options"].copy()
         opts["session"] = str(self.session)
 
         return {
-            "batch_script": {
-                "name": script_name,
-                "content": task_specs["script_content"],
-            },
+            "batch_script": {"name": script_name, "content": task_specs["script_content"]},
             "params_json": {"name": json_name, "content": params},
             "submission": {
                 "script": script_path,
@@ -198,14 +211,13 @@ class Workflow:
             task_name, extra_params=extra_params, depend=depend
         )
 
-        # Store params as a json file in cache
+        # Store params as a json file in session cache
         json_name = submission_args["params_json"]["name"]
         with self.session.open_file("batch_scripts", json_name, "w") as f:
             f.write(submission_args["params_json"]["content"])
 
-        # Create the bash submission script in cache
-        script_name = submission_args["batch_script"]["name"]
-        with self.session.open_file("batch_scripts", script_name, "w") as f:
+        # Create the bash submission script
+        with open(submission_args["submission"]["script"], "w") as f:
             f.write(submission_args["batch_script"]["content"])
 
         # Submit it
@@ -215,14 +227,10 @@ class Workflow:
 
     def export_task_to_dict(self, task_name, extra_params=None, depend=None):
         # Get the submission arguments
-        submission_args = self._get_submission_args_(
-            task_name, extra_params, depend
-        )
+        submission_args = self._get_submission_args_(task_name, extra_params, depend)
 
         # Get submission command line
-        jobargs = self.jobmanager.get_submission_args(
-            **submission_args["submission"]
-        )
+        jobargs = self.jobmanager.get_submission_args(**submission_args["submission"])
         cmdline = shlex.join(jobargs)
 
         return {
@@ -236,11 +244,11 @@ class Workflow:
         if dry:
             self.logger.debug("Running the workflow in fake mode")
         sequence_depend = []
-        for stage in self.config["stages"].sections:
+        for stage in self.task_tree:
             self.logger.debug(f"Entering stage: {stage}")
 
             # Check that we have something to do
-            if not self.config["stages"][stage].scalars:
+            if not self.task_tree[stage]:
                 self.logger.debug("No sequence of task. Skipping...")
                 continue
 
@@ -249,17 +257,12 @@ class Workflow:
                 try:
                     cycles = wutil.get_cycles(**self.config["cycles"])
                 except Exception as err:
-                    msg = (
-                        "Error while computing dates of cycles:\n"
-                        + err.args[0]
-                    )
+                    msg = "Error while computing dates of cycles:\n" + err.args[0]
                     self.logger.error(msg)
                     raise WoomError(msg)
                 if "cycle_end_date" not in cycles[0]:
                     self.logger.info(
-                        "Single cycle with unique date: {}".format(
-                            cycles[0]["cycle_begin_date"]
-                        )
+                        "Single cycle with unique date: {}".format(cycles[0]["cycle_begin_date"])
                     )
                 else:
                     self.logger.info(
@@ -277,48 +280,32 @@ class Workflow:
             for cycle_params in cycles:
                 if stage == "cycles":
                     if "cycle_end_date" not in cycle_params:
-                        self.logger.debug(
-                            "Running cycle: {}".format(
-                                cycle_params["cycle_begin_date"]
-                            )
-                        )
+                        cycle_label = cycle_params["cycle_begin_date"]
                     else:
-                        self.logger.debug(
-                            "Running cycle: {} -> {}".format(
-                                cycle_params["cycle_begin_date"],
-                                cycle_params["cycle_end_date"],
-                            )
+                        cycle_label = "{} -> {}".format(
+                            cycle_params["cycle_begin_date"],
+                            cycle_params["cycle_end_date"],
                         )
-                for sequence, task_names in self.config["stages"][
-                    stage
-                ].items():
-                    # List of tasks
-                    task_names = RE_SPLIT_COMMAS(task_names)
+                    self.logger.debug("Running cycle: " + cycle_label)
 
+                for sequence, groups in self.task_tree[stage].items():
                     # Check that we have something to do
-                    if not task_names:
+                    if not groups:
                         self.debug("No task to submit")
                         continue
 
                     self.logger.debug(f"Entering sequence: {sequence}")
                     new_sequence_depend = []
 
-                    # Loop on task or group of task names
-                    for task_group_name in task_names:
-                        if task_group_name not in self.config["groups"]:
-                            group = [task_group_name]
-                        else:
-                            group = RE_SPLIT_COMMAS(
-                                self.config["groups"][task_group_name]
-                            )
-                            long_task = f"{stage}/{sequence}/{task_group_name}"
-                            self.logger.debug(
-                                f"Group of ordered tasks: {long_task}"
-                            )
+                    # Loop on parallel groups
+                    for group in groups:
+                        if len(group) > 1:
+                            self.logger.debug("Group of {} sequential tasks:".format(len(group)))
 
                         # First task of group depend on last sequence
                         task_depend = sequence_depend
 
+                        # Loop on sequential tasks
                         for task_name in group:
                             long_task = f"{stage}/{sequence}/{task_name}"
                             self.logger.debug(f"Submitting task: {long_task}")
@@ -332,31 +319,16 @@ class Workflow:
 
                                 # Commandline
                                 content = "Fake submission:\n"
-                                content += (
-                                    " submission command ".center(80, "-")
-                                    + "\n"
-                                )
+                                content += " submission command ".center(80, "-") + "\n"
                                 content += res["submission_commandline"] + "\n"
 
                                 # Batch
-                                content += (
-                                    " batch script content ".center(80, "-")
-                                    + "\n"
-                                )
+                                content += " batch script content ".center(80, "-") + "\n"
                                 content += res["batch_script_content"] + "\n"
 
                                 # Json
-                                content += (
-                                    " params as json ".center(80, "-") + "\n"
-                                )
-                                content += (
-                                    str(
-                                        res["params_json"]["content"][
-                                            "params_json"
-                                        ]
-                                    )
-                                    + "\n"
-                                )
+                                content += " params as json ".center(80, "-") + "\n"
+                                content += str(res["params_json"]["content"]["params_json"]) + "\n"
 
                                 self.logger.debug(content)
 
@@ -366,9 +338,7 @@ class Workflow:
                                     extra_params=cycle_params,
                                     depend=task_depend,
                                 )
-                            self.logger.info(
-                                f"Submitted task: {long_task} with job id {jobid}"
-                            )
+                            self.logger.info(f"Submitted task: {long_task} with job id {jobid}")
 
                             # The next task of group depend on this job
                             task_depend = jobid
@@ -378,3 +348,15 @@ class Workflow:
 
                     # Dependencies for the next sequence
                     sequence_depend = new_sequence_depend
+
+                if stage == "cycles":
+                    if "cycle_end_date" not in cycle_params:
+                        cycle_label = cycle_params["cycle_begin_date"]
+                    else:
+                        cycle_label = "{} -> {}".format(
+                            cycle_params["cycle_begin_date"],
+                            cycle_params["cycle_end_date"],
+                        )
+                    self.logger.info("Successfully submitted cycle: " + cycle_label)
+                else:
+                    self.logger.info("Successfully submitted stage: " + stage)
