@@ -37,6 +37,12 @@ class EnvConfig:
         cmds.append("module load " + self.module_load)
         return "\n# ENVIRONMENT MODULES\n" + "\n".join(cmds) + "\n"
 
+    @staticmethod
+    def _as_string_(value):
+        if isinstance(value, (list, tuple)):
+            return os.pathsep.join([str(v) for v in value])
+        return str(value)
+
     def export_vars(self):
         """Export env var declarations as bash lines"""
         cmds = []
@@ -45,14 +51,44 @@ class EnvConfig:
                 cmds.append(f"export {vname}='" + os.environ[vname] + "'")
         if self.vars_set:
             for vname, value in self.vars_set.items():
+                value = self._as_string_(value)
                 cmds.append(f"export {vname}='{value}'")
         if self.vars_append:
             for vname, value in self.vars_append.items():
+                value = self._as_string_(value)
                 cmds.append(f"export {vname}=${vname}" + os.pathsep + value)
         if self.vars_prepend:
             for vname, value in self.vars_prepend.items():
+                value = self._as_string_(value)
                 cmds.append(f"export {vname}=" + value + os.pathsep + f"${vname}")
         return "\n# ENVIRONMENT VARIABLES\n" + "\n".join(cmds) + "\n"
+
+    @staticmethod
+    def _check_path_(path):
+        if isinstance(path, str):
+            return path.split(os.pathsep)
+        return list(path)
+
+    def _update_path_(self, action, varname, path):
+        container = getattr(self, "vars_" + action)
+        current_paths = self._check_path_(container.setdefault(varname, []))
+        more_paths = self._check_path_(path)
+        container[varname] = current_paths + more_paths
+
+    def append_paths(self, **paths):
+        """Append paths to env variables"""
+        for varname, path in paths.items():
+            self._update_path_("append", varname, path)
+
+    def prepend_paths(self, **paths):
+        """Prepend paths to env variables"""
+        for varname, path in paths.items():
+            self._update_path_("prepend", varname, path)
+
+    def set_paths(self, **paths):
+        """Set paths in env variables"""
+        for varname, path in paths.items():
+            self._update_path_("set", varname, path)
 
     def __str__(self):
         return self.raw_text + "\n" + self.export_module() + self.export_vars()

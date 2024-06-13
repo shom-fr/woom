@@ -169,7 +169,7 @@ class TaskManager:
     def session(self):
         return self._session
 
-    def get_task(self, name, params):
+    def get_task(self, name, params, cycle=None):
         """Get a :class:`Task` instance
 
         Parameters
@@ -188,41 +188,15 @@ class TaskManager:
             raise TaskError(f"Invalid task name: {name}")
 
         # Create instance
-        return Task(self._config[name], self.host, params)
-
-    def export_task(self, name, params, token):
-        """Export a task as a dict
-
-        Parameters
-        ----------
-        name: str
-            Known task name
-        params: dict
-            Dictionary for commandline substitution purpose
-        token: str
-            A unique token for submitting this task
-
-        Return
-        ------
-        dict
-            Two keys:
-
-            ``script_content``
-                Bash code that must be insert in the submission script
-            ``scheduler_options``
-                Options that are given to the scheduler when submiting the script
-        See also
-        --------
-        get_task
-        """
-        return self.get_task(name, params).export(token)
+        return Task(self._config[name], self.host, params, cycle)
 
 
 class Task:
-    def __init__(self, taskconfig, host, params):
+    def __init__(self, taskconfig, host, params, cycle=None):
         self._config = taskconfig
         self._host = host
         self._params = wutil.subst_dict(params)
+        self._cycle = cycle
 
     @property
     def config(self):
@@ -239,6 +213,10 @@ class Task:
     @property
     def name(self):
         return self.config.name
+
+    @property
+    def cycle(self):
+        return self._cycle
 
     def export_commandline(self):
         """Export the commandline as an bash lines"""
@@ -261,9 +239,9 @@ class Task:
         env.vars_forward.extend(["WOOM_WORKFLOW_DIR", "WOOM_SESSION_DIR"])
         return env
 
-    def export_env(self, token):
+    def export_env(self):
         """Export the environment declarations as bash lines"""
-        self.env.vars_set.update(WOOM_TASK_TOKEN=str(token))
+        # self.env.vars_set.update(WOOM_TASK_TOKEN=str(token))
         return str(self.env)
 
     def export_rundir(self):
@@ -297,9 +275,9 @@ class Task:
             opts["queue"] = self.host["queues"][self.config["submit"]["queue"]]
         return opts
 
-    def export(self, token):
+    def export(self):
         return {
-            "script_content": self.export_env(token)
+            "script_content": self.export_env()
             + "\n# Run\n"
             + self.export_rundir()
             + self.export_commandline()

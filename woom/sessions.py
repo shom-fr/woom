@@ -15,6 +15,8 @@ import collections
 import pandas as pd
 import platformdirs
 
+from . import util as wutil
+
 
 class SessionError(Exception):
     pass
@@ -206,6 +208,7 @@ class Session(collections.UserDict):
                 data = json.load(f)
         else:
             data = {}
+        data["id"] = session_id
         super().__init__(data)
 
         # Date
@@ -294,10 +297,8 @@ class Session(collections.UserDict):
         return [p for p in (self.path / subdir).glob(pattern)]
 
     def get_file_name(self, subdir, fname):
-        subdir = self.path / subdir
-        if not subdir.exists():
-            os.makedirs(subdir)
-        return subdir / fname
+        path = wutil.check_dir(os.path.join(self.path, subdir, fname), logger=self.logger)
+        return pathlib.Path(path)
 
     def open_file(self, subdir, fname, mode):
         if "w" in mode:

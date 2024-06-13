@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Sep  5 17:18:58 2023
-
-@author: lsraynaud
+Commandline interface
 """
 
+import os
 import argparse
-from pathlib import Path
-import logging
 
+# from pathlib import Path
+import logging
+import shutil
 import pandas as pd
 
+from . import util as wutil
 from . import hosts as whosts
 from . import sessions as wsessions
-from . import job as wjob
+
+# from . import job as wjob
 from . import tasks as wtasks
 from . import workflow as wworkflow
 from . import conf as wconf
@@ -73,6 +75,11 @@ def add_parser_run(subparsers):
         help="run in fake mode for testing purpose",
         action="store_true",
     )
+    parser_run.add_argument(
+        "--clean",
+        help="remove output directory first, like log/ and tasks/",
+        action="store_true",
+    )
     add_app_arguments(parser_run)
     parser_run.add_argument(
         "--workflow-cfg",
@@ -98,13 +105,27 @@ def add_parser_run(subparsers):
 
 
 def main_run(parser, args):
+    # Workflow dir from workflow config file
+    workflow_cfg = os.path.abspath(args.workflow_cfg)
+    if not os.path.exists(workflow_cfg):
+        parser.error(f"Workflow configuration file not found: {args.workflow_cfg}")
+    workflow_dir = os.path.dirname(workflow_cfg)
+
+    # Clean
+    if args.clean:
+        for subdir in wworkflow.Workflow.output_directories:
+            path = os.path.join(workflow_dir, subdir)
+            if os.path.exists(path):
+                shutil.rmtree(path, ignore_errors=True)
+
     # Setup logging
-    wlog.main_setup_logging(args)
+    log_file = wutil.check_dir(os.path.join(workflow_dir, "log", "woom.log"), logger=False)
+    wlog.main_setup_logging(args, to_file=log_file)
     logger = logging.getLogger(__name__)
 
     # Load workflow config
-    logger.debug("Load workflow config")
-    workflow_config = wconf.load_cfg(args.workflow_cfg, wworkflow.CFGSPECS_FILE)
+    logger.debug(f"Load workflow config: {workflow_cfg}")
+    workflow_config = wconf.load_cfg(workflow_cfg, wworkflow.CFGSPECS_FILE)
     logger.info("Loaded workflow config")
 
     # App

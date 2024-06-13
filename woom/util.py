@@ -4,6 +4,11 @@
 Misc utilities
 """
 import re
+import os
+import logging
+import json
+import collections
+import subprocess
 
 import pandas as pd
 
@@ -50,9 +55,7 @@ def subst_dict(dict_in, dict_subst=None, maxiter=None):
                         # print((key, val, val_new))
                     dict_out[key] = dict_subst[key] = val_new
                 except KeyError as err:
-                    raise WoomError(
-                        "Params substitution error: " + err.args[0]
-                    )
+                    raise WoomError("Params substitution error: " + err.args[0])
         if not changed:
             break
     else:
@@ -60,18 +63,46 @@ def subst_dict(dict_in, dict_subst=None, maxiter=None):
     return dict_out
 
 
+class Cycle(collections.UserDict):
+    """Useful container for a time cycle that can be used as dict"""
+
+    def __init__(self, begin_date, end_date=None):
+        super().__init__()
+        self.begin_date = WoomDate(begin_date)
+        self.data.update(cycle_begin_date=self.begin_date)
+        self.is_interval = end_date is not None
+        if not self.is_interval:
+            self.end_date = self.duration = None
+        else:
+            self.end_date = WoomDate(end_date)
+            self.duration = self.end_date - self.begin_date
+            self.data.update(cycle_end_date=self.end_date, cycle_duration=self.duration)
+
+        # Label
+        if self.is_interval:
+            self.label = f"{self.begin_date} -> {self.end_date} ({self.duration})"
+        else:
+            self.label = str(self.begin_date)
+
+        # Token
+        fmt = "%Y%m%dT%H%M%S"
+        if self.is_interval:
+            self.token = f"{self.begin_date:{fmt}}-{self.end_date:{fmt}}"
+        else:
+            self.token = f"{self.begin_date:{fmt}}"
+
+    def __str__(self):
+        return self.token
+
+
 def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):
     """Get a list of cycles given time specifications
 
-    One cycle is a dictionary that contains the following items:
+    One cycle is a :class:`Cycle` instance that contains the following keys:
 
     - ``"cycle_begin_date"``: Begin date [:class:`pandas.Timestamp`]
-    - ``"cycle_end_date"``: End date [:class:`pandas.Timestamp`]
-    - ``"cycle_begin_julian"``: Begin date as the number of
-      days since 1950 [:class:`int`]
-    - ``"cycle_end_julian"``: End date as the number of
-      days since 1950 [:class:`int`]
-    - ``"duration"``: Difference between begin and end [:class:`pandas.Timedelta`]
+    - ``"cycle_end_date"`` (optional): End date [:class:`pandas.Timestamp`]
+    - ``"cycle_duration"`` (optional): Difference between begin and end [:class:`pandas.Timedelta`]
     """
     if begin_date is None:
         raise WoomError("begin_date must be a valid date")
@@ -107,21 +138,13 @@ def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):
 
     # Single date
     if len(rundates) == 1:
-        return [{"cycle_begin_date": WoomDate(rundates[0])}]
+        return [Cycle(rundates[0])]
 
     # A list of time intervals
     cycles = []
-    # julian_ref = pd.to_datetime("1950-01-01")
     for i, date0 in enumerate(rundates[:-1]):
         date1 = rundates[i + 1]
-        cycle = {
-            "cycle_begin_date": WoomDate(date0),
-            "cycle_end_date": WoomDate(date1),
-            # "cycle_begin_from_julian": (date0 - julian_ref).days,
-            # "cycle_end_from_julian": (date1 - julian_ref).days,
-            "cycle_duration": date1 - date0,
-        }
-        cycles.append(cycle)
+        cycles.append(Cycle(date0, date1))
     return cycles
 
 
@@ -138,8 +161,65 @@ class WoomDate(pd.Timestamp):
         m = RE_MATCH_SINCE(spec)
         if m:
             units, origin = m.groups()
-            return "{:g}".format(
-                (self - pd.to_datetime(origin)) / pd.to_timedelta(1, units)
-            )
+            return "{:g}".format((self - pd.to_datetime(origin)) / pd.to_timedelta(1, units))
 
         return super().__format__(spec)
+
+
+def check_dir(filepath, dry=False, logger=None):
+    """Make sure that the directory that contains file exists
+
+    Parameters
+    ----------
+    filepath: str
+        File path
+    dry: bool
+        Fake mode. Do not create the directory
+    logger: logging.Logger
+        To inform that we create the directory, even in dry mode
+
+    Return
+    ------
+    """
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    filepath = os.path.abspath(filepath)
+    dirname = os.path.dirname(filepath)
+    if not os.path.exists(dirname):
+        if logger:
+            logger.debug(f"Creating directory: {dirname}")
+        if not dry:
+            os.makedirs(dirname)
+        if logger:
+            logger.info(f"Created directory: {dirname}")
+    return filepath
+
+
+def make_latest(path, logger=None):
+    """Create symbolic link to `path` named "latest"""
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    path = os.path.abspath(path)
+    latest = os.path.join(os.path.dirname(path), "latest")
+    if os.path.exists(latest):
+        if os.path.islink(latest):
+            logger.debug(f"Removed link: {latest}")
+            os.remove(latest)
+        else:
+            raise Exception(f"Can't remove since not a link: {latest}")
+    logger.debug(f"Create symbolic link: {path} -> {latest}")
+    os.symlink(path, latest)
+    logger.info(f"Created symbolic link: {path} -> {latest}")
+    return latest
+
+
+class WoomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, collections.UserDict):
+            return dict(obj)
+        if isinstance(obj, subprocess.Popen):
+            return obj.pid
+        try:
+            return super().default(obj)
+        except TypeError:
+            return str(obj)

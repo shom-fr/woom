@@ -116,8 +116,9 @@ def merge_args_with_config(cfg, args, names, prefix=None):
     """
     prefix = prefix or ""
     for name in names:
-        if hasattr(args, name) is not None:
-            cfg[name] = getattr(args, prefix + name)
+        value = getattr(args, prefix + name, None)
+        if value is not None:
+            cfg[name] = value
 
 
 def inherit_cfg(cfg, inherit_from):

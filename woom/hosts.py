@@ -147,7 +147,7 @@ class Host:
     @functools.lru_cache
     def get_jobmanager(self, session):
         """Get a :mod:`~woom.job` manager instance"""
-        return wjob.BasicJobManager.from_scheduler(self.config["scheduler"], session)
+        return wjob.BackgroundJobManager.from_scheduler(self.config["scheduler"], session)
 
     @property
     def module_setup(self):

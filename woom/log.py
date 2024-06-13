@@ -53,13 +53,7 @@ DEFAULT_LOGGING_CONFIG = {
 }
 
 
-def setup_logging(
-    console_level=None,
-    to_file=True,
-    no_color=False,
-    show_init_msg=False,
-    **kwargs
-):
+def setup_logging(console_level=None, to_file=True, no_color=False, show_init_msg=False, **kwargs):
     """Setup the logging"""
 
     #    for handler in logging.root.handlers:
@@ -85,16 +79,12 @@ def setup_logging(
     # Load it
     logging.config.dictConfig(logging_config)
     if show_init_msg:
-        logging.getLogger(__name__).debug(
-            "*** INITIALISED LOGGING SESSION ***"
-        )
+        logging.getLogger(__name__).debug("*** INITIALISED LOGGING SESSION ***")
 
 
 def add_logging_parser_arguments(parser, default_level="info"):
     add_log_level_parser_arguments(parser, default_level=default_level)
-    parser.add_argument(
-        "--log-file", help="logging file name", default="woom.log"
-    )
+    # parser.add_argument("--log-file", help="logging file name", default=default_log_file)
     parser.add_argument(
         "--log-no-color",
         help="suppress colors in console",
@@ -111,9 +101,9 @@ def add_log_level_parser_arguments(parser, default_level="info"):
     )
 
 
-def main_setup_logging(args):
+def main_setup_logging(args, to_file=True):
     setup_logging(
         console_level=args.log_level,
-        to_file=args.log_file,
+        to_file=to_file,
         no_color=args.log_no_color,
     )
