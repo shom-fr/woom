@@ -51,5 +51,5 @@ fallback_version = "999"
 
 [tool.black]
 line-length = 100
-target-version = ['py39']
+target-version = ['py311']
 skip-string-normalization = true

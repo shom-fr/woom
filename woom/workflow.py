@@ -53,6 +53,7 @@ class Workflow:
             "LIBRARY_PATH": os.path.join(self._workflow_dir, "lib"),
             "INCLUDE_PATH": os.path.join(self._workflow_dir, "include"),
         }
+        self._app_path = ""
 
         # Check app
         for key in "name", "conf", "exp":
@@ -67,6 +68,7 @@ class Workflow:
                     self.logger.error(msg)
                     raise WorkFlowError(msg)
                 session["app_" + key] = self._config["app"][key]
+                self._app_path = os.path.join(self._app_path, self._config["app"][key])
 
     def __str__(self):
         return f'<Workflow[cfgfile: "{self._cfgfile}", ' f'session: "{self.session.id}">\n'
@@ -98,24 +100,34 @@ class Workflow:
 
     @property
     def workflow_dir(self):
+        """Where we are running the workflow"""
         return self._workflow_dir
 
+    @property
+    def app_path(self):
+        """Typically `app/conf/exp` or ''"""
+        return self._app_path
+
+    def get_task_path(self, task_name):
+        """Concatenate the :attr:`app_path` and the `task_name`"""
+        return os.path.join(self.app_path, task_name)
+
     def get_submission_dir(self, task_name, task_cycle):
-        # tdir = self.get_task_dir(task_name)
-        sdir = os.path.join(self.workflow_dir, "tasks", task_name)
+        """Get where batch script is created and submitted"""
+        sdir = os.path.join(self.workflow_dir, "tasks", self.get_task_path(task_name))
         if task_cycle:
             sdir = os.path.join(sdir, task_cycle)
-        print("check dir", sdir)
         return wutil.check_dir(sdir, dry=self._dry, logger=self.logger)
 
     def get_task_params(self, task_name, extra_params=None):
-        """Get the params dictionnary used to format a task command line
+        """Get the params dictionary used to format a task command line
 
         Order with the last crushing the first:
 
         - [params] scalars
         - [app] scalars prepended with the "app_" prefix
         - [cycles] scalars prepended with the "cycles_" prefix
+        - App path and task path
         - Host specific params included directories appended with the "dir" diffix
         - Task [[<task>]] scalars
         - Task@Host [[<task>]]/[[[<host>]]] scalars
@@ -144,6 +156,10 @@ class Workflow:
         for sec in "app", "cycles":
             for key, val in self.config[sec].items():
                 params[f"{sec}_{key}"] = val
+
+        # App and task paths
+        params["app_path"] = self.app_path
+        params["task_path"] = self.get_task_path(task_name)
 
         # Get host params
         params.update(self.host.get_params())
@@ -179,7 +195,7 @@ class Workflow:
         params["params_json"] = json_path
 
         # Submission script
-        submission_dir = os.path.join(self.workflow_dir, "tasks", task_name)
+        submission_dir = os.path.join(self.workflow_dir, "tasks", params["task_path"])
         if cycle:
             submission_dir = os.path.join(submission_dir, cycle.token)
 
@@ -194,6 +210,8 @@ class Workflow:
         # Export paths in task environment variables
         task.env.prepend_paths(**self._paths)
         task.env.vars_set["WOOM_SUBMISSION_DIR"] = submission_dir
+        task.env.vars_set["WOOM_APP_PATH"] = params["app_path"]
+        task.env.vars_set["WOOM_TASK_PATH"] = params["task_path"]
         if cycle:
             task.env.vars_set["WOOM_CYCLE_BEGIN_DATE"] = cycle["cycle_begin_date"]
             if cycle.is_interval:
@@ -353,7 +371,7 @@ class Workflow:
                                 + ", ".join([str(job.jobid) for job in task_depend])
                             )
                             if dry:  # Fake mode
-                                jobid = self.display_task_fake(
+                                jobid = self.submit_task_fake(
                                     task_name, cycle=cycle, depend=task_depend
                                 )
 

@@ -222,10 +222,14 @@ class Task:
         """Export the commandline as an bash lines"""
         cc = self.config["commandline"]
         named_arguments = wconf.keep_sections(cc)
-        return format_commandline(
-            cc["format"],
-            named_arguments=named_arguments,
-            subst=self.params,
+        return (
+            "\n# Run the commandline(s)\n"
+            + format_commandline(
+                cc["format"],
+                named_arguments=named_arguments,
+                subst=self.params,
+            )
+            + "\n"
         )
 
     @functools.cached_property
@@ -255,7 +259,7 @@ class Task:
             rundir = rundir.format(**self.params)
         rundir = rundir.strip()
         if rundir:
-            return f"mkdir -p {rundir} && cd {rundir}\n\n"
+            return f"\n# Got to run dir\nmkdir -p {rundir} && cd {rundir}\n\n"
         return ""
 
     # def export_epilog(self):
@@ -277,8 +281,8 @@ class Task:
 
     def export(self):
         return {
-            "script_content": self.export_env()
-            + "\n# Run\n"
+            "script_content": "#!/bin/bash\n\n"
+            + self.export_env()
             + self.export_rundir()
             + self.export_commandline()
             + "\n",

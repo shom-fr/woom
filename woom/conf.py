@@ -66,7 +66,7 @@ def get_cfgspecs(cfgspecsfile):
     return CACHE["cfgspecs"][name]
 
 
-def load_cfg(cfgfile, cfgspecsfile, list_values=False):
+def load_cfg(cfgfile, cfgspecsfile, list_values=True):
     """Get a validated :class:`configobj.configObj` instance"""
     validator = get_validator()
     cfgspecs = get_cfgspecs(cfgspecsfile)

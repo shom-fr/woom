@@ -18,7 +18,7 @@ class EnvConfig:
         vars_append=None,
         vars_prepend=None,
     ):
-        self.raw_text = raw_text or ""
+        self.raw_text = raw_text
         self.module_setup = module_setup
         self.module_use = module_use
         self.module_load = module_load
@@ -26,6 +26,12 @@ class EnvConfig:
         self.vars_set = {} if vars_set is None else vars_set.copy()
         self.vars_append = {} if vars_forward is None else vars_append.copy()
         self.vars_prepend = {} if vars_prepend is None else vars_prepend.copy()
+
+    def export_raw_text(self):
+        """export raw bash lines to declare env"""
+        if self.raw_text:
+            return "\n" + self.raw_text + "\n\n"
+        return ""
 
     def export_module(self):
         """Export env module call as bash lines"""
@@ -35,7 +41,7 @@ class EnvConfig:
         if self.module_use:
             cmds.append("module use " + self.module_use)
         cmds.append("module load " + self.module_load)
-        return "\n# ENVIRONMENT MODULES\n" + "\n".join(cmds) + "\n"
+        return "\n# Environment modules\n" + "\n".join(cmds) + "\n\n"
 
     @staticmethod
     def _as_string_(value):
@@ -61,7 +67,9 @@ class EnvConfig:
             for vname, value in self.vars_prepend.items():
                 value = self._as_string_(value)
                 cmds.append(f"export {vname}=" + value + os.pathsep + f"${vname}")
-        return "\n# ENVIRONMENT VARIABLES\n" + "\n".join(cmds) + "\n"
+        if not cmds:
+            return ""
+        return "\n# Environment variables\n" + "\n".join(cmds) + "\n\n"
 
     @staticmethod
     def _check_path_(path):
@@ -91,7 +99,7 @@ class EnvConfig:
             self._update_path_("set", varname, path)
 
     def __str__(self):
-        return self.raw_text + "\n" + self.export_module() + self.export_vars()
+        return self.export_raw_text() + self.export_module() + self.export_vars()
 
     def copy(self):
         return EnvConfig(
