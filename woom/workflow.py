@@ -54,7 +54,7 @@ class Workflow:
             "LIBRARY_PATH": os.path.join(self._workflow_dir, "lib"),
             "INCLUDE_PATH": os.path.join(self._workflow_dir, "include"),
         }
-        self._app_path = ""
+        self._app_path = []
 
         # Check app
         for key in "name", "conf", "exp":
@@ -69,7 +69,7 @@ class Workflow:
                     self.logger.error(msg)
                     raise WorkFlowError(msg)
                 session["app_" + key] = self._config["app"][key]
-                self._app_path = os.path.join(self._app_path, self._config["app"][key])
+                self._app_path.append(self._config["app"][key])
 
     def __str__(self):
         return f'<Workflow[cfgfile: "{self._cfgfile}", ' f'session: "{self.session.id}">\n'
@@ -104,14 +104,13 @@ class Workflow:
         """Where we are running the workflow"""
         return self._workflow_dir
 
-    @property
-    def app_path(self):
+    def get_app_path(self, sep=os.path.sep):
         """Typically `app/conf/exp` or ''"""
-        return self._app_path
+        return sep.join(self._app_path)
 
-    def get_task_path(self, task_name):
+    def get_task_path(self, task_name, sep=os.path.sep):
         """Concatenate the :attr:`app_path` and the `task_name`"""
-        return os.path.join(self.app_path, task_name)
+        return sep.join([task_name] + self._app_path)
 
     def get_submission_dir(self, task_name, task_cycle):
         """Get where batch script is created and submitted"""
@@ -159,7 +158,7 @@ class Workflow:
                 params[f"{sec}_{key}"] = val
 
         # App and task paths
-        params["app_path"] = self.app_path
+        params["app_path"] = self.get_app_path()
         params["task_path"] = self.get_task_path(task_name)
 
         # Get host params
@@ -205,14 +204,18 @@ class Workflow:
         wutil.check_dir(script_path, dry=self._dry, logger=self.logger)
 
         # Create task
-        task_cycle = cycle.token if cycle else None
-        task = self.taskmanager.get_task(task_name, params, task_cycle)
+        task_token = self.get_task_path(task_name, "-")
+        if cycle:
+            task_token = "-".join([task_token, cycle.token])
+        params["task_token"] = task_token
+        task = self.taskmanager.get_task(task_name, params, task_token)
 
         # Export paths in task environment variables
         task.env.prepend_paths(**self._paths)
         task.env.vars_set["WOOM_SUBMISSION_DIR"] = submission_dir
         task.env.vars_set["WOOM_APP_PATH"] = params["app_path"]
         task.env.vars_set["WOOM_TASK_PATH"] = params["task_path"]
+        task.env.vars_set["WOOM_TASK_TOKEN"] = task_token
         if cycle:
             task.env.vars_set["WOOM_CYCLE_BEGIN_DATE"] = cycle["cycle_begin_date"]
             if cycle.is_interval:
@@ -228,7 +231,7 @@ class Workflow:
         opts = task_specs["scheduler_options"].copy()
         opts["session"] = str(self.session)
         opts["name"] = task.name
-        opts["cycle"] = task.cycle
+        opts["token"] = task_token
 
         return {
             "batch_script": {"name": script_name, "content": task_specs["script_content"]},
@@ -252,14 +255,13 @@ class Workflow:
         # Get the submission arguments
         submission_args = self._get_submission_args_(task_name, cycle, depend, extra_params)
 
-        # Store params as a json file in session cache (useful?)
-        json_name = submission_args["params_json"]["name"]
-        with self.session.open_file("batch_scripts", json_name, "w") as f:
-            json.dump(
-                submission_args["params_json"]["content"], f, indent=4, cls=wutil.WoomJSONEncoder
-            )
-            # json_path = f.name
-        # wutil.make_latest(json_path)
+        ## Store params as a json file in session cache (useful?)
+        # json_name = submission_args["params_json"]["name"]
+        # with self.session.open_file("batch_scripts", json_name, "w") as f:
+        # json.dump(
+        # submission_args["params_json"]["content"], f, indent=4, cls=wutil.WoomJSONEncoder
+        # )
+        ## json_path = f.name
 
         # Create the bash submission script
         batch_script = submission_args["submission"]["script"]
@@ -267,7 +269,6 @@ class Workflow:
         with open(batch_script, "w") as f:
             f.write(submission_args["batch_script"]["content"])
         self.logger.info(f"Created batch script: {batch_script}")
-        # wutil.make_latest(os.path.dirname(json_path))
 
         # Submit it
         job = self.jobmanager.submit(**submission_args["submission"])

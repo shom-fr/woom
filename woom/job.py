@@ -48,7 +48,7 @@ class Job:
         time="5",
         status="10",
         submission_date="20",
-        cycle="15",
+        token="70",
     )
 
     def __init__(
@@ -60,7 +60,7 @@ class Job:
         jobid=None,
         # session=None,
         submission_date=None,
-        cycle=None,
+        token=None,
         subproc=None,
     ):
         self.manager = manager
@@ -74,15 +74,49 @@ class Job:
         self.memory = None
         self.session = manager.session
         self.submission_date = submission_date
-        self.cycle = cycle
+        self.token = token
         self.subproc = subproc
+
+    @classmethod
+    def load(cls, manager, json_file):
+        """Load a job into a manager from a json file"""
+        with open(json_file) as jsonf:
+            content = json.load(jsonf)
+        job = cls(
+            manager=manager,
+            name=content["name"],
+            args=content["args"],
+            jobid=content["jobid"],
+            queue=content["queue"],
+            # session=content["session"],
+            submission_date=content["submission_date"],
+            token=content["token"],
+        )
+        manager.jobs.append(job)
+
+    def dump(self):
+        """Export to json in session's cache"""
+        jobdict = self.to_dict()
+        if not jobdict["name"] and not jobdict["token"]:
+            logger.warning("Can't dump to json a job with no name or token")
+            return
+        if jobdict["token"]:
+            json_file = jobdict["token"]
+        else:
+            json_file = jobdict["name"]
+        json_file += ".json"
+        with self.session.open_file("jobs", json_file, "w") as f:
+            json.dump(jobdict, f, indent=4, cls=wutil.WoomJSONEncoder)
+            json_path = f.name
+        # wutil.make_latest(json_path)
+        return json_path
 
     def __str__(self):
         return self.jobid
 
     def __repr__(self):
-        return "<Job(name={}, status={}, jobid={}, session={}, cycle={})>".format(
-            self.name, self.status.name, self.jobid, self.session, self.cycle
+        return "<Job(name={}, status={}, jobid={}, session={}, token={})>".format(
+            self.name, self.status.name, self.jobid, self.session, self.token
         )
 
     def _get_proc_(self):
@@ -154,7 +188,7 @@ class Job:
         status = self.status.name
         session = self.session
         submission_date = self.submission_date
-        cycle = self.cycle
+        token = self.token
         if self.time is not None:
             hours = self.time.seconds // 3600
             minutes = (self.time.seconds - hours * 3600) // 60
@@ -185,39 +219,6 @@ class Job:
                 dict_job[key] = value
 
         return dict_job
-
-    def dump(self):
-        """Export to json in session's cache"""
-        jobdict = self.to_dict()
-        if not jobdict["name"]:
-            logger.warning("Can't dump to json a job with no name")
-            return
-        # jobdict = self.to_dict(job)
-        json_file = jobdict["name"]
-        if jobdict["cycle"]:
-            json_file += "-" + jobdict["cycle"]
-        json_file += ".json"
-        with self.session.open_file("jobs", json_file, "w") as f:
-            json.dump(jobdict, f, indent=4, cls=wutil.WoomJSONEncoder)
-            json_path = f.name
-        # wutil.make_latest(json_path)
-        return json_path
-
-    @classmethod
-    def load(cls, manager, json_file):
-        with open(json_file) as jsonf:
-            content = json.load(jsonf)
-        job = cls(
-            manager=manager,
-            name=content["name"],
-            args=content["args"],
-            jobid=content["jobid"],
-            queue=content["queue"],
-            # session=content["session"],
-            submission_date=content["submission_date"],
-            cycle=content["cycle"],
-        )
-        manager.jobs.append(job)
 
 
 class BackgroundJobManager(object):
@@ -253,7 +254,7 @@ class BackgroundJobManager(object):
     def dump(self):
         """Store jobs to session files"""
         for job in self.jobs:
-            job.to_json()
+            job.dump()
 
     def __repr__(self):
         return f"<{self.__class__.__name__}(session={self.session})>"
@@ -282,7 +283,7 @@ class BackgroundJobManager(object):
     # queue=content["queue"],
     # session=content["session"],
     # submission_date=content["submission_date"],
-    # cycle=content["cycle"],
+    # token=content["token"],
     # )
     # self.jobs.append(job)
     # return self.jobs
@@ -495,7 +496,7 @@ class BackgroundJobManager(object):
             jobid=str(subproc.pid),
             # session=self.session,
             submission_date=str(datetime.datetime.now())[:-7],
-            cycle=opts.get("cycle"),
+            token=opts.get("token"),
             subproc=subproc,
         )
         job.dump()
@@ -686,7 +687,6 @@ class PbsproJobManager(_Scheduler_):
     def _parse_submit_job_(job, stdout):
         # job.jobid = job.subproc.stdout.read().decode("utf-8", errors="ignore").split(".")[0]
         job.jobid = stdout.split(".")[0]
-        print("PARSE JOB ID", job.jobid)
 
     def _extra_status_args_(self, args):
         args.append("-x")

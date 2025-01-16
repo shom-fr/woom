@@ -39,7 +39,7 @@ class TaskTree:
     def to_dict(self):
         all_tasks = []
         tt = {}
-        for stage in self._stages.sections:  # prolog, cycles, epilog
+        for stage in self._stages.sections:  # prolog, tokens, epilog
             tt[stage] = {}
 
             # Loop on sub-stages
@@ -169,7 +169,7 @@ class TaskManager:
     def session(self):
         return self._session
 
-    def get_task(self, name, params, cycle=None):
+    def get_task(self, name, params, token=None):
         """Get a :class:`Task` instance
 
         Parameters
@@ -178,6 +178,8 @@ class TaskManager:
             Known task name
         params: dict
             Dictionary for commandline substitution purpose
+        token: str, None
+            A signature that helps defining this task
 
         Return
         ------
@@ -188,15 +190,15 @@ class TaskManager:
             raise TaskError(f"Invalid task name: {name}")
 
         # Create instance
-        return Task(self._config[name], self.host, params, cycle)
+        return Task(self._config[name], self.host, params, token)
 
 
 class Task:
-    def __init__(self, taskconfig, host, params, cycle=None):
+    def __init__(self, taskconfig, host, params, token=None):
         self._config = taskconfig
         self._host = host
         self._params = wutil.subst_dict(params)
-        self._cycle = cycle
+        self._token = token
 
     @property
     def config(self):
@@ -215,8 +217,8 @@ class Task:
         return self.config.name
 
     @property
-    def cycle(self):
-        return self._cycle
+    def token(self):
+        return self._token
 
     def export_commandline(self):
         """Export the commandline as an bash lines"""

@@ -217,10 +217,10 @@ class Session(collections.UserDict):
         # Scalars
         self._json_file = self.path / "content.json"
         if self._json_file.exists():
-            self.logger.debug("Loading session file: " + self._json_file)
+            self.logger.debug(f"Loading session file: {self._json_file}")
             with open(self._json_file) as f:
                 data = json.load(f)
-            self.logger.debug("Loaded session file: " + self._json_file)
+            self.logger.debug(f"Loaded session file: {self._json_file}")
         else:
             data = {}
             dump = True
@@ -292,7 +292,7 @@ class Session(collections.UserDict):
             shutil.rmtree(self.path)
         self._path_exists_()
         self.dump()
-        self.logger.info(f"Cleaning session: {self}")
+        self.logger.info(f"Cleaned session: {self}")
 
     def _modified_(self):
         self.data["modification_date"] = pd.Timestamp.now().isoformat()
