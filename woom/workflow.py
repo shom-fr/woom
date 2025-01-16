@@ -46,6 +46,7 @@ class Workflow:
 
         # Paths
         self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))
+        self._session["workflow_dir"] = self._workflow_dir
         os.environ["WOOM_WORKFLOW_DIR"] = self._workflow_dir
         self._paths = {
             "PATH": os.path.join(self._workflow_dir, "bin"),

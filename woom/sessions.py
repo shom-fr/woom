@@ -212,6 +212,7 @@ class Session(collections.UserDict):
         self._id = session_id
         self.logger = manager.logger
         self.logger.debug(f"Instantiated session: {self._id} ({self.path})")
+        dump = False
 
         # Scalars
         self._json_file = self.path / "content.json"
@@ -222,13 +223,16 @@ class Session(collections.UserDict):
             self.logger.debug("Loaded session file: " + self._json_file)
         else:
             data = {}
+            dump = True
         data["id"] = session_id
         super().__init__(data)
 
         # Date
         if "creation_date" not in self:
             self["creation_date"] = self.data["modification_date"] = pd.Timestamp.now().isoformat()
-        self.dump()
+            dump = True
+        if dump:
+            self.dump()
 
     @property
     def id(self):

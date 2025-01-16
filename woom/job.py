@@ -587,6 +587,7 @@ class _Scheduler_(BackgroundJobManager):
         # "Job submit stdout: " + job.subproc.stdout.read().decode("utf-8", errors="ignore")
         # )
         self._parse_submit_job_(job, stdout)  # update jobid
+        job.dump()
         # self.check_status(show=False)
         return job
 
