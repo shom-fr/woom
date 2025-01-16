@@ -11,6 +11,7 @@ import secrets
 import json
 import fnmatch
 import collections
+import shutil
 
 import pandas as pd
 import platformdirs
@@ -46,10 +47,18 @@ class SessionManager(object):
     def get_session(self, session_id):
         """Get a :class:`Session` instance from a session id"""
         if str(session_id) not in self.session_ids:
-            raise SessionError("Invalid session id")
+            raise SessionError(f"Invalid session id: {session_id}")
         if isinstance(session_id, str):
             return Session(self, session_id)
-        return session_id
+        return session_id  # already a Session object
+
+    def as_sessions(self, sessions):
+        """Make sure to have a list of :class:`Session` objects"""
+        if sessions is None:
+            return []
+        if not isinstance(sessions, list):
+            sessions = [sessions]
+        return [self.get_session(session) for session in sessions]
 
     @property
     def sessions(self):
@@ -67,7 +76,7 @@ class SessionManager(object):
         return self.get_session(session_id)
 
     def __contains__(self, session_id):
-        return session_id in self.session_ids
+        return str(session_id) in self.session_ids
 
     # def get_session_dir(self, session):
     #     if not os.path.isdir(session):
@@ -157,12 +166,13 @@ class SessionManager(object):
             return sessions[0]
 
     def get_latest(self, **matching_items):
-        """Get the latest modified session"""
+        """Get the latest modified session or None"""
         sessions = self.get_matching_sessions(**matching_items)
         if not sessions:
-            msg = "No available session"
-            self.logger.error(msg)
-            raise SessionError(msg)
+            return
+            # msg = "No available session"
+            # self.logger.error(msg)
+            # raise SessionError(msg)
         last_session = sessions[0]
         for session in sessions[1:]:
             if session.modification_date > last_session.modification_date:
@@ -174,6 +184,8 @@ class SessionManager(object):
         # Explicit list
         if sessions is None:
             sessions = self.sessions
+        else:
+            sessions = self.as_sessions(sessions)
 
         # Matching content
         if matching_items:
@@ -204,8 +216,10 @@ class Session(collections.UserDict):
         # Scalars
         self._json_file = self.path / "content.json"
         if self._json_file.exists():
+            self.logger.debug("Loading session file: " + self._json_file)
             with open(self._json_file) as f:
                 data = json.load(f)
+            self.logger.debug("Loaded session file: " + self._json_file)
         else:
             data = {}
         data["id"] = session_id
@@ -264,11 +278,17 @@ class Session(collections.UserDict):
 
     def remove(self):
         self.logger.debug(f"Removing session: {self}")
-        path = self.root_dir / self.id
-        if path.exists():
-            print("rm", path)
-            # shutil.rmtree(self.path)
+        if self.path.exists():
+            shutil.rmtree(self.path)
         self.logger.info(f"Removed session: {self}")
+
+    def clean(self):
+        self.logger.debug(f"Cleaning session: {self}")
+        if self.path.exists():
+            shutil.rmtree(self.path)
+        self._path_exists_()
+        self.dump()
+        self.logger.info(f"Cleaning session: {self}")
 
     def _modified_(self):
         self.data["modification_date"] = pd.Timestamp.now().isoformat()

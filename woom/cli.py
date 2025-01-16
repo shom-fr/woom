@@ -77,7 +77,7 @@ def add_parser_run(subparsers):
     )
     parser_run.add_argument(
         "--clean",
-        help="remove output directory first, like log/ and tasks/",
+        help="remove session directory and output directory first, like log/ and tasks/",
         action="store_true",
     )
     add_app_arguments(parser_run)
@@ -171,10 +171,11 @@ def main_run(parser, args):
     logger.info("Initialized the session manager")
     if args.session:
         if args.session.lower() == "latest":
-            logger.debug("Load latest session")
-            session = session_manager.get_latest_session(**app)
-            logger.info(f"Loaded lession: {session}")
-        elif args.session not in session_manager:
+            logger.debug("Finding latest session")
+            args.session = session_manager.get_latest(**app)
+            if args.session:
+                logger.info(f"Found latest session: {args.session}")
+        if args.session not in session_manager:
             logger.debug("Create explicit new session: " + args.session)
             session = session_manager.create_session(args.session)
             logger.info("Created new session: " + session.id)
@@ -185,6 +186,8 @@ def main_run(parser, args):
             if not session.check_matching_items(**app):
                 raise Exception("Loaded session is incompatible with app")
             logger.info(f"Loaded session: {session}")
+            if args.clean:
+                session.clean()
     else:
         logger.debug("Create new session")
         session = session_manager.create_session()
@@ -214,6 +217,7 @@ def add_parser_sessions(subparsers):
     # Setup argument parser
     parser_sessions = subparsers.add_parser("sessions", help="manage sessions")
     add_app_arguments(parser_sessions)
+    wlog.add_logging_parser_arguments(parser_sessions)
 
     subparsers_sessions = parser_sessions.add_subparsers(help="sessions sub-command help")
 
@@ -229,7 +233,7 @@ def add_parser_sessions(subparsers):
 
 
 def main_sessions_list(parser, args):
-    print("main_sessions_list")
+    wlog.main_setup_logging(args, to_file=False)
     session_manager = wsessions.SessionManager()
     sessions = session_manager.get_matching_sessions(
         app_name=args.app_name, app_conf=args.app_conf, app_exp=args.app_exp
@@ -238,7 +242,7 @@ def main_sessions_list(parser, args):
 
 
 def main_sessions_remove(parser, args):
-    print("main_sessions_remove")
+    wlog.main_setup_logging(args, to_file=False)
     session_manager = wsessions.SessionManager()
     session_manager.remove(
         args.session_id or None,
