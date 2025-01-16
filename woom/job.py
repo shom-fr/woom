@@ -217,7 +217,7 @@ class Job:
             submission_date=content["submission_date"],
             cycle=content["cycle"],
         )
-        self.jobs.append(job)
+        manager.jobs.append(job)
 
 
 class BackgroundJobManager(object):
@@ -383,12 +383,12 @@ class BackgroundJobManager(object):
     def get_overview(self, jobids=None, name=None, queue=None):
         jobs = self.update_status(jobids=jobids, name=name, queue=queue)
         header = Job.get_overview_header()
-        overviews = [job.get_overview(update=False) for job in self.jobs]
+        overviews = [job.get_overview(update=False) for job in jobs]
         return header + "\n" + "\n".join(overviews)
 
     def check_status(self, show=True):
         """Update jobs status and show them"""
-        overview = self.get_overview(jobids=[job.jobid for job in self.jobs])
+        overview = self.get_overview()
         if show:
             print(overview)
 
@@ -593,7 +593,7 @@ class _Scheduler_(BackgroundJobManager):
     def update_status(self, jobids=None, name=None, queue=None):
         """Query status"""
         jobs = self.get_jobids(jobids=jobids, name=name, queue=queue)
-        jobids = [job.id for jor in jobs]
+        jobids = [job.id for job in jobs]
         args = self._extra_status_args_(
             self.get_command_args("status", jobid=self.jobid_sep.join(jobids))
         )

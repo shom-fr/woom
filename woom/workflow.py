@@ -251,7 +251,7 @@ class Workflow:
         # Get the submission arguments
         submission_args = self._get_submission_args_(task_name, cycle, depend, extra_params)
 
-        # Store params as a json file in session cache
+        # Store params as a json file in session cache (useful?)
         json_name = submission_args["params_json"]["name"]
         with self.session.open_file("batch_scripts", json_name, "w") as f:
             json.dump(
