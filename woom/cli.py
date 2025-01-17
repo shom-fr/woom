@@ -31,7 +31,7 @@ def get_parser():
     subparsers = parser.add_subparsers(help="sub-command help")
 
     add_parser_run(subparsers)
-    add_parser_sessions(subparsers)
+    # add_parser_sessions(subparsers)
 
     return parser
 
@@ -67,44 +67,7 @@ def add_app_arguments(parser):
     )
 
 
-def add_parser_run(subparsers):
-    # Setup argument parser
-    parser_run = subparsers.add_parser("run", help="run a workflow")
-    parser_run.add_argument(
-        "--dry-run",
-        help="run in fake mode for testing purpose",
-        action="store_true",
-    )
-    parser_run.add_argument(
-        "--clean",
-        help="remove session directory and output directory first, like log/ and tasks/",
-        action="store_true",
-    )
-    add_app_arguments(parser_run)
-    parser_run.add_argument(
-        "--workflow-cfg",
-        default="workflow.cfg",
-        help="workflow configuration file",
-    )
-    parser_run.add_argument(
-        "--tasks-cfg",
-        default="tasks.cfg",
-        help="tasks configuration file",
-    )
-    parser_run.add_argument("--hosts-cfg", help="hosts configuration file", default="hosts.cfg")
-    parser_run.add_argument("--host", help="target host")
-    parser_run.add_argument("--session", help="target session")
-    parser_run.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
-    parser_run.add_argument("--end-date", help="end date", type=wconf.is_datetime)
-    parser_run.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
-    parser_run.add_argument("--ncycle", help="number of cycles", type=int)
-    wlog.add_logging_parser_arguments(parser_run)
-    parser_run.set_defaults(func=main_run)
-
-    return parser_run
-
-
-def main_run(parser, args):
+def setup_workflow(parser, args, clean):
     # Workflow dir from workflow config file
     workflow_cfg = os.path.abspath(args.workflow_cfg)
     if not os.path.exists(workflow_cfg):
@@ -112,7 +75,7 @@ def main_run(parser, args):
     workflow_dir = os.path.dirname(workflow_cfg)
 
     # Clean
-    if args.clean:
+    if clean:
         for subdir in wworkflow.Workflow.output_directories:
             path = os.path.join(workflow_dir, subdir)
             if os.path.exists(path):
@@ -165,38 +128,38 @@ def main_run(parser, args):
         host = hostmanager.infer_host()
         logger.info("Infered host: " + host.name)
 
-    # Get session
-    logger.debug("Initialize the session manager")
-    session_manager = wsessions.SessionManager()
-    logger.info("Initialized the session manager")
-    if args.session:
-        if args.session.lower() == "latest":
-            logger.debug("Finding latest session")
-            args.session = session_manager.get_latest(**app)
-            if args.session:
-                logger.info(f"Found latest session: {args.session}")
-        if args.session not in session_manager:
-            logger.debug("Create explicit new session: " + args.session)
-            session = session_manager.create_session(args.session)
-            logger.info("Created new session: " + session.id)
-            session.update(app)
-        else:
-            logger.debug("Load session: " + args.session)
-            session = session_manager.get_session(args.session)
-            if not session.check_matching_items(**app):
-                raise Exception("Loaded session is incompatible with app")
-            logger.info(f"Loaded session: {session}")
-            if args.clean:
-                session.clean()
-    else:
-        logger.debug("Create new session")
-        session = session_manager.create_session()
-        logger.info("Created new session: " + session.id)
-        session.update(app)
+    ## Get session
+    # logger.debug("Initialize the session manager")
+    # session_manager = wsessions.SessionManager()
+    # logger.info("Initialized the session manager")
+    # if args.session:
+    # if args.session.lower() == "latest":
+    # logger.debug("Finding latest session")
+    # args.session = session_manager.get_latest(**app)
+    # if args.session:
+    # logger.info(f"Found latest session: {args.session}")
+    # if args.session not in session_manager:
+    # logger.debug("Create explicit new session: " + args.session)
+    # session = session_manager.create_session(args.session)
+    # logger.info("Created new session: " + session.id)
+    # session.update(app)
+    # else:
+    # logger.debug("Load session: " + args.session)
+    # session = session_manager.get_session(args.session)
+    # if not session.check_matching_items(**app):
+    # raise Exception("Loaded session is incompatible with app")
+    # logger.info(f"Loaded session: {session}")
+    # if args.clean:
+    # session.clean()
+    # else:
+    # logger.debug("Create new session")
+    # session = session_manager.create_session()
+    # logger.info("Created new session: " + session.id)
+    # session.update(app)
 
     # Init task manager
     logger.debug("Initialize the task manager")
-    taskmanager = wtasks.TaskManager(host, session)
+    taskmanager = wtasks.TaskManager(host)  # , session)
     logger.info("Initialized the task manager")
     logger.debug("Load the task config file: " + args.tasks_cfg)
     taskmanager.load_config(args.tasks_cfg)
@@ -207,47 +170,122 @@ def main_run(parser, args):
     workflow = wworkflow.Workflow(workflow_config, taskmanager)
     logger.info("Initialized the workflow")
 
+    return workflow, logger
+
+
+def add_parser_run(subparsers):
+    # Setup argument parser
+    parser_run = subparsers.add_parser("run", help="run a workflow")
+    parser_run.add_argument(
+        "--dry-run",
+        help="run in fake mode for testing purpose",
+        action="store_true",
+    )
+    parser_run.add_argument(
+        "--clean",
+        help="remove session directory and output directory first, like log/ and tasks/",
+        action="store_true",
+    )
+    add_app_arguments(parser_run)
+    parser_run.add_argument(
+        "--workflow-cfg",
+        default="workflow.cfg",
+        help="workflow configuration file",
+    )
+    parser_run.add_argument(
+        "--tasks-cfg",
+        default="tasks.cfg",
+        help="tasks configuration file",
+    )
+    parser_run.add_argument("--hosts-cfg", help="hosts configuration file", default="hosts.cfg")
+    parser_run.add_argument("--host", help="target host")
+    parser_run.add_argument("--session", help="target session")
+    parser_run.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
+    parser_run.add_argument("--end-date", help="end date", type=wconf.is_datetime)
+    parser_run.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
+    parser_run.add_argument("--ncycle", help="number of cycles", type=int)
+    wlog.add_logging_parser_arguments(parser_run)
+    parser_run.set_defaults(func=main_run)
+
+    return parser_run
+
+
+def main_run(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args, args.clean)
+
     # Run the workflow
     logger.debug("Run the workflow")
     workflow.run(dry=args.dry_run)
     logger.info("Successfully ran the workflow!")
 
 
-def add_parser_sessions(subparsers):
+def add_parser_status(subparsers):
     # Setup argument parser
-    parser_sessions = subparsers.add_parser("sessions", help="manage sessions")
-    add_app_arguments(parser_sessions)
-    wlog.add_logging_parser_arguments(parser_sessions)
-
-    subparsers_sessions = parser_sessions.add_subparsers(help="sessions sub-command help")
-
-    # list
-    parser_list = subparsers_sessions.add_parser("list", help="list sessions")
-    parser_list.set_defaults(func=main_sessions_list)
-
-    # remove
-    parser_remove = subparsers_sessions.add_parser("remove", help="remove sessions")
-    parser_remove.add_argument("session_id", help="selected session ids", nargs="*")
-    parser_remove.add_argument("--max-age", help="Max allowed age", type=pd.to_timedelta)
-    parser_remove.set_defaults(func=main_sessions_remove)
-
-
-def main_sessions_list(parser, args):
-    wlog.main_setup_logging(args, to_file=False)
-    session_manager = wsessions.SessionManager()
-    sessions = session_manager.get_matching_sessions(
-        app_name=args.app_name, app_conf=args.app_conf, app_exp=args.app_exp
+    parser_status = subparsers.add_parser("status", help="run a workflow")
+    parser_status.add_argument(
+        "--dry-run",
+        help="run in fake mode for testing purpose",
+        action="store_true",
     )
-    session_manager.nice_print(sessions)
-
-
-def main_sessions_remove(parser, args):
-    wlog.main_setup_logging(args, to_file=False)
-    session_manager = wsessions.SessionManager()
-    session_manager.remove(
-        args.session_id or None,
-        max_age=args.max_age,
-        app_name=args.app_name,
-        app_conf=args.app_conf,
-        app_exp=args.app_exp,
+    add_app_arguments(parser_status)
+    parser_status.add_argument(
+        "--workflow-cfg",
+        default="workflow.cfg",
+        help="workflow configuration file",
     )
+    parser_status.add_argument(
+        "--tasks-cfg",
+        default="tasks.cfg",
+        help="tasks configuration file",
+    )
+    parser_status.add_argument("--hosts-cfg", help="hosts configuration file", default="hosts.cfg")
+    parser_status.add_argument("--host", help="target host")
+    parser_status.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
+    parser_status.add_argument("--end-date", help="end date", type=wconf.is_datetime)
+    parser_status.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
+    parser_status.add_argument("--ncycle", help="number of cycles", type=int)
+    wlog.add_logging_parser_arguments(parser_status)
+    parser_status.set_defaults(func=main_run)
+
+    return parser_status
+
+
+# def add_parser_sessions(subparsers):
+## Setup argument parser
+# parser_sessions = subparsers.add_parser("sessions", help="manage sessions")
+# add_app_arguments(parser_sessions)
+# wlog.add_logging_parser_arguments(parser_sessions)
+
+# subparsers_sessions = parser_sessions.add_subparsers(help="sessions sub-command help")
+
+## list
+# parser_list = subparsers_sessions.add_parser("list", help="list sessions")
+# parser_list.set_defaults(func=main_sessions_list)
+
+## remove
+# parser_remove = subparsers_sessions.add_parser("remove", help="remove sessions")
+# parser_remove.add_argument("session_id", help="selected session ids", nargs="*")
+# parser_remove.add_argument("--max-age", help="Max allowed age", type=pd.to_timedelta)
+# parser_remove.set_defaults(func=main_sessions_remove)
+
+
+# def main_sessions_list(parser, args):
+# wlog.main_setup_logging(args, to_file=False)
+# session_manager = wsessions.SessionManager()
+# sessions = session_manager.get_matching_sessions(
+# app_name=args.app_name, app_conf=args.app_conf, app_exp=args.app_exp
+# )
+# session_manager.nice_print(sessions)
+
+
+# def main_sessions_remove(parser, args):
+# wlog.main_setup_logging(args, to_file=False)
+# session_manager = wsessions.SessionManager()
+# session_manager.remove(
+# args.session_id or None,
+# max_age=args.max_age,
+# app_name=args.app_name,
+# app_conf=args.app_conf,
+# app_exp=args.app_exp,
+# )

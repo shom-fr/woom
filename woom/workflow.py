@@ -38,15 +38,24 @@ class Workflow:
             self._config = cfgfile
             self._cfgfile = self._config.filename
         self._tm = taskmanager
-        self._session = session = taskmanager.session
-        self._config["params"]["session_id"] = session.id
+        # self._session = session = taskmanager.session
+        # self._config["params"]["session_id"] = session.id
         self._task_tree = wtasks.TaskTree(self._config["stages"], self._config["groups"])
         self.logger.debug("Task tree:\n" + str(self._task_tree))
         self._dry = False
 
+        # Cylces
+        if self.task_tree["cycles"]:
+            try:
+                self._cycles = wutil.get_cycles(**self.config["cycles"])
+            except Exception as err:
+                msg = "Error while computing dates of cycles:\n" + err.args[0]
+                self.logger.error(msg)
+                raise WoomError(msg)
+
         # Paths
         self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))
-        self._session["workflow_dir"] = self._workflow_dir
+        # self._session["workflow_dir"] = self._workflow_dir
         os.environ["WOOM_WORKFLOW_DIR"] = self._workflow_dir
         self._paths = {
             "PATH": os.path.join(self._workflow_dir, "bin"),
@@ -59,20 +68,21 @@ class Workflow:
         # Check app
         for key in "name", "conf", "exp":
             if self._config["app"][key]:
-                if (
-                    session["app_" + key]
-                    and session["app_" + key].lower() != self._config["app"][key]
-                ):
-                    msg = "Workflow config and session app names are incompatible: '{}' != '{}'".format(
-                        self._config["app"][key], session["app_" + key]
-                    )
-                    self.logger.error(msg)
-                    raise WorkFlowError(msg)
-                session["app_" + key] = self._config["app"][key]
+                # if (
+                # session["app_" + key]
+                # and session["app_" + key].lower() != self._config["app"][key]
+                # ):
+                # msg = "Workflow config and session app names are incompatible: '{}' != '{}'".format(
+                # self._config["app"][key], session["app_" + key]
+                # )
+                # self.logger.error(msg)
+                # raise WorkFlowError(msg)
+                # session["app_" + key] = self._config["app"][key]
                 self._app_path.append(self._config["app"][key])
 
     def __str__(self):
-        return f'<Workflow[cfgfile: "{self._cfgfile}", ' f'session: "{self.session.id}">\n'
+        return f'<Workflow[cfgfile: "{self._cfgfile}">\n'
+        # return f'<Workflow[cfgfile: "{self._cfgfile}", ' f'session: "{self.session.id}">\n'
 
     @property
     def config(self):
@@ -86,18 +96,22 @@ class Workflow:
     def host(self):
         return self.taskmanager.host
 
-    @property
-    def session(self):
-        return self._session
+    # @property
+    # def session(self):
+    # return self._session
 
     @functools.cached_property
     def jobmanager(self):
         """The :mod:`~woom.job` manager instance"""
-        return self.host.get_jobmanager(self.session)
+        return self.host.get_jobmanager()  # self.session)
 
     @functools.cached_property
     def task_tree(self):
         return self._task_tree.to_dict()
+
+    @property
+    def cycles(self):
+        return self._cycles
 
     @property
     def workflow_dir(self):
@@ -112,11 +126,13 @@ class Workflow:
         """Concatenate the :attr:`app_path` and the `task_name`"""
         return sep.join([task_name] + self._app_path)
 
-    def get_submission_dir(self, task_name, task_cycle):
+    def get_submission_dir(self, task_name, task_cycle=None, create=True):
         """Get where batch script is created and submitted"""
         sdir = os.path.join(self.workflow_dir, "tasks", self.get_task_path(task_name))
         if task_cycle:
             sdir = os.path.join(sdir, task_cycle)
+        if not create:
+            return sdir
         return wutil.check_dir(sdir, dry=self._dry, logger=self.logger)
 
     def get_task_params(self, task_name, extra_params=None):
@@ -186,36 +202,39 @@ class Workflow:
         # Get params
         params = self.get_task_params(task_name, extra_params=extra_params)
 
-        # Store params to json
-        if cycle:
-            json_name = f"batch-{task_name}-{cycle.token}.json"
-        else:
-            json_name = f"batch-{task_name}.json"
-        json_path = self.session.get_file_name("tasks", json_name)
-        params["params_json"] = json_path
+        ## Store params to json
+        # if cycle:
+        # json_name = f"batch-{task_name}-{cycle.token}.json"
+        # else:
+        # json_name = f"batch-{task_name}.json"
+        # json_path = self.session.get_file_name("tasks", json_name)
+        # params["params_json"] = json_path
 
         # Submission script
-        submission_dir = os.path.join(self.workflow_dir, "tasks", params["task_path"])
-        if cycle:
-            submission_dir = os.path.join(submission_dir, cycle.token)
-
-        script_name = "batch.sh"
+        submission_dir = self.get_submission_dir(task_name, cycle)
+        script_name = "job.sh"
         script_path = os.path.join(submission_dir, script_name)
+        # json_path = os.path.join(submission_dir, "params.json")
+        # params["params_json"] = json_path
         wutil.check_dir(script_path, dry=self._dry, logger=self.logger)
 
         # Create task
-        task_token = self.get_task_path(task_name, "-")
-        if cycle:
-            task_token = "-".join([task_token, cycle.token])
-        params["task_token"] = task_token
-        task = self.taskmanager.get_task(task_name, params, task_token)
+        # task_token = self.get_task_path(task_name, "-")
+        # if cycle:
+        # task_token = "-".join([task_token, cycle.token])
+        # params["task_token"] = task_token
+        task = self.taskmanager.get_task(task_name, params)  # , task_token)
 
         # Export paths in task environment variables
         task.env.prepend_paths(**self._paths)
         task.env.vars_set["WOOM_SUBMISSION_DIR"] = submission_dir
-        task.env.vars_set["WOOM_APP_PATH"] = params["app_path"]
+        task.env.vars_set["WOOM_TASK_NAME"] = task_name
         task.env.vars_set["WOOM_TASK_PATH"] = params["task_path"]
-        task.env.vars_set["WOOM_TASK_TOKEN"] = task_token
+        task.env.vars_set["WOOM_APP_PATH"] = params["app_path"]
+        for key in "app_name", "app_conf", "app_exp":
+            if params[key] is not None:
+                task.env.vars_set["WOOM_" + key.upper()] = params[key]
+        # task.env.vars_set["WOOM_TASK_TOKEN"] = task_token
         if cycle:
             task.env.vars_set["WOOM_CYCLE_BEGIN_DATE"] = cycle["cycle_begin_date"]
             if cycle.is_interval:
@@ -229,15 +248,21 @@ class Workflow:
 
         # Submission options
         opts = task_specs["scheduler_options"].copy()
-        opts["session"] = str(self.session)
+        # opts["session"] = str(self.session)
         opts["name"] = task.name
-        opts["token"] = task_token
+        # opts["token"] = task_token
 
         return {
-            "batch_script": {"name": script_name, "content": task_specs["script_content"]},
-            "params_json": {"name": json_name, "content": params},
-            "submission": {"script": script_path, "opts": opts, "depend": depend},
+            "script": script_path,
+            "content": task_specs["script_content"],
+            "opts": opts,
+            "depend": depend,
         }
+        # return {
+        # "batch_script": {"name": script_name, "content": task_specs["script_content"]},
+        ##"params_json": {"name": json_name, "content": params},
+        # "submission": {"script": script_path, "opts": opts, "depend": depend},
+        # }
 
     def submit_task(self, task_name, cycle=None, depend=None, extra_params=None):
         """Submit a task
@@ -264,14 +289,15 @@ class Workflow:
         ## json_path = f.name
 
         # Create the bash submission script
-        batch_script = submission_args["submission"]["script"]
+        batch_script = submission_args["script"]
         self.logger.debug(f"Create bash script: {batch_script}")
         with open(batch_script, "w") as f:
-            f.write(submission_args["batch_script"]["content"])
+            f.write(submission_args["content"])
         self.logger.info(f"Created batch script: {batch_script}")
+        del submission_args["content"]  # no longer needed since on disk
 
         # Submit it
-        job = self.jobmanager.submit(**submission_args["submission"])
+        job = self.jobmanager.submit(**submission_args)
 
         return job
 
@@ -280,9 +306,10 @@ class Workflow:
 
         # Get the submission arguments
         submission_args = self._get_submission_args_(task_name, cycle, depend, extra_params)
+        batch_content = submission_args.pop("content")
 
         # Get submission command line
-        jobargs = self.jobmanager.get_submission_args(**submission_args["submission"])
+        jobargs = self.jobmanager.get_submission_args(**submission_args)
         cmdline = shlex.join(jobargs)
 
         jobid = str(secrets.randbelow(1000000))
@@ -294,11 +321,11 @@ class Workflow:
 
         # Batch
         content += " batch script content ".center(80, "-") + "\n"
-        content += submission_args["batch_script"]["content"] + "\n"
+        content += batch_content + "\n"
 
-        # Json
-        content += " params as json ".center(80, "-") + "\n"
-        content += str(submission_args["params_json"]["content"]["params_json"]) + "\n"
+        ## Json
+        # content += " params as json ".center(80, "-") + "\n"
+        # content += str(submission_args["params_json"]["content"]["params_json"]) + "\n"
 
         self.logger.debug(content)
         return jobid
@@ -319,12 +346,7 @@ class Workflow:
 
             # Get cycles for looping in time
             if stage == "cycles":
-                try:
-                    cycles = wutil.get_cycles(**self.config["cycles"])
-                except Exception as err:
-                    msg = "Error while computing dates of cycles:\n" + err.args[0]
-                    self.logger.error(msg)
-                    raise WoomError(msg)
+                cycles = self._cycles
                 if cycles[0].is_interval:
                     self.logger.info(
                         "Cycling from {} to {} in {} time(s)".format(
@@ -394,3 +416,20 @@ class Workflow:
                     self.logger.info("Successfully submitted cycle: " + cycle.label)
                 else:
                     self.logger.info("Successfully submitted stage: " + stage)
+
+    @property
+    def submission_dirs(self):
+        """Generator of submission directories computed from the task tree"""
+        submission_dirs = []
+        for stage in self.task_tree:
+            if not self.task_tree[stage]:
+                continue
+            cycles = self.cycles if stage == "cycles" else [None]
+            for cycle in cycles:
+                for sequence, groups in self.task_tree[stage].items():
+                    if not groups:
+                        continue
+                    for group in groups:
+                        for task_name in group:
+                            yield self.get_submission_dir(task_name, cycle, create=False)
+                            submission_dirs.append(submission_dir)

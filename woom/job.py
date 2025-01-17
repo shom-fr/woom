@@ -48,33 +48,38 @@ class Job:
         time="5",
         status="10",
         submission_date="20",
-        token="70",
+        # token="70",
+        script="120",
     )
 
     def __init__(
         self,
         manager,
         name,
+        script,
         args,
         queue=None,
         jobid=None,
         # session=None,
         submission_date=None,
-        token=None,
+        # submission_dir=None,
+        # token=None,
         subproc=None,
     ):
         self.manager = manager
         self.name = name
         self.queue = queue
         self.jobid = jobid
+        self.script = script
         self.args = args
         self.status = JobStatus.UNKOWN
         self.realqueue = None
         self.time = None
         self.memory = None
-        self.session = manager.session
+        # self.session = manager.session
         self.submission_date = submission_date
-        self.token = token
+        # self.submission_dir = submission_dir
+        # self.token = token
         self.subproc = subproc
 
     @classmethod
@@ -85,27 +90,32 @@ class Job:
         job = cls(
             manager=manager,
             name=content["name"],
+            script=content["script"],
             args=content["args"],
             jobid=content["jobid"],
             queue=content["queue"],
             # session=content["session"],
             submission_date=content["submission_date"],
-            token=content["token"],
+            # submission_dir=content["submission_dir"],
+            # token=content["token"],
         )
         manager.jobs.append(job)
 
     def dump(self):
         """Export to json in session's cache"""
         jobdict = self.to_dict()
-        if not jobdict["name"] and not jobdict["token"]:
-            logger.warning("Can't dump to json a job with no name or token")
-            return
-        if jobdict["token"]:
-            json_file = jobdict["token"]
-        else:
-            json_file = jobdict["name"]
-        json_file += ".json"
-        with self.session.open_file("jobs", json_file, "w") as f:
+        # if not jobdict["name"] and not jobdict["token"]:
+        # logger.warning("Can't dump to json a job with no name or token")
+        # return
+        # if jobdict["token"]:
+        # json_file = jobdict["token"]
+        # else:
+        # json_file = jobdict["name"]
+        # json_file += ".json"
+        # with self.session.open_file("jobs", json_file, "w") as f:
+        json_file = os.path.splitext(self.script)[0] + ".json"
+        # with self.session.open_file("jobs", json_file, "w") as f:
+        with open(json_file, "w") as f:
             json.dump(jobdict, f, indent=4, cls=wutil.WoomJSONEncoder)
             json_path = f.name
         # wutil.make_latest(json_path)
@@ -115,8 +125,8 @@ class Job:
         return self.jobid
 
     def __repr__(self):
-        return "<Job(name={}, status={}, jobid={}, session={}, token={})>".format(
-            self.name, self.status.name, self.jobid, self.session, self.token
+        return "<Job(name={}, status={}, jobid={}, script={})>".format(
+            self.name, self.status.name, self.jobid, self.script
         )
 
     def _get_proc_(self):
@@ -186,7 +196,7 @@ class Job:
         queue = self.queue
         realqueue = self.realqueue
         status = self.status.name
-        session = self.session
+        # session = self.session
         submission_date = self.submission_date
         token = self.token
         if self.time is not None:
@@ -240,16 +250,27 @@ class BackgroundJobManager(object):
 
     job_class = Job
 
-    def __init__(self, session):
+    # def __init__(self, session):
+    def __init__(self):
         self.jobs = []
-        self.session = session
-        logger.info(f"Started job manager: {self.__class__.__name__}(session='{self.session}')")
-        self.load()
+        # self.session = session
+        # logger.info(f"Started job manager: {self.__class__.__name__}(session='{self.session}')")
+        # self.load()
+        logger.info(f"Started job manager: {self.__class__.__name__}()")
 
-    def load(self):
-        """Load jobs from session files"""
-        json_files = self.session.get_files("jobs", "*.json")
-        self.jobs = [self.job_class.load(self, json_file) for json_file in json_files]
+    # def load(self):
+    # """Load jobs from session files"""
+    # json_files = self.session.get_files("jobs", "*.json")
+    # self.jobs = [self.job_class.load(self, json_file) for json_file in json_files]
+
+    def load_job(self, json_file):
+        """Load a single job from its json dump file"""
+        self.jobs.append(Job.load(self, json_file))
+
+    def load(self, json_files):
+        """Load jobs from json dump files"""
+        for json_file in json_file:
+            self.load_job(json_file)
 
     def dump(self):
         """Store jobs to session files"""
@@ -260,7 +281,7 @@ class BackgroundJobManager(object):
         return f"<{self.__class__.__name__}(session={self.session})>"
 
     @staticmethod
-    def from_scheduler(scheduler, session):
+    def from_scheduler(scheduler):  # , session):
         scheduler = scheduler.lower()
         assert (
             scheduler in ALLOWED_SCHEDULERS
@@ -268,7 +289,7 @@ class BackgroundJobManager(object):
         cls_name = scheduler.title() + "JobManager"
         from . import job
 
-        return getattr(job, cls_name)(session)
+        return getattr(job, cls_name)()  # session)
 
     # def load_json(self, json_files):
     # """Load jobs from json files"""
@@ -467,9 +488,9 @@ class BackgroundJobManager(object):
         # Get submission arguments
         jobargs = self.get_submission_args(script, opts, depend=depend)
 
-        # Submission directory = where the script is
-        if submdir is None:
-            submdir = os.path.dirname(script)
+        ## Submission directory = where the script is
+        # if submdir is None:
+        # submdir = os.path.dirname(script)
 
         # stdout and stderr
         if isinstance(stdout, str):
@@ -490,13 +511,15 @@ class BackgroundJobManager(object):
         # Init Job instance
         job = self.job_class(
             manager=self,
+            script=script,
             name=opts.get("name"),
             queue=opts.get("queue"),
             args=subproc.args,
             jobid=str(subproc.pid),
             # session=self.session,
             submission_date=str(datetime.datetime.now())[:-7],
-            token=opts.get("token"),
+            # submission_dir=submdir,
+            # token=opts.get("token"),
             subproc=subproc,
         )
         job.dump()

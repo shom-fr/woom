@@ -10,6 +10,7 @@ import functools
 
 import configobj
 
+from .__init__ import WoomError
 from . import job as wjob
 from . import env as wenv
 from . import conf as wconf
@@ -19,6 +20,10 @@ thisdir = os.path.dirname(__file__)
 CFGSPECS_FILE = os.path.join(thisdir, "hosts.ini")
 
 CFG_DEFAULT_FILE = os.path.join(thisdir, "hosts.cfg")
+
+
+class HostError(WoomError):
+    pass
 
 
 class HostManager:
@@ -145,9 +150,9 @@ class Host:
         return self.config[key]
 
     @functools.lru_cache
-    def get_jobmanager(self, session):
+    def get_jobmanager(self):  # , session):
         """Get a :mod:`~woom.job` manager instance"""
-        return wjob.BackgroundJobManager.from_scheduler(self.config["scheduler"], session)
+        return wjob.BackgroundJobManager.from_scheduler(self.config["scheduler"])  # , session)
 
     @property
     def module_setup(self):
@@ -200,18 +205,24 @@ class Host:
     @functools.cache
     def get_env(self, name):
         """Get a :class:`EnvConfig` instance from a env config name"""
-        # Get registered env
-        if name in self.config["envs"]:
-            cfg = self.config["envs"][name]
-            return wenv.EnvConfig(
-                module_setup=self.config["module_setup"],
-                module_use=cfg["modules"]["use"],
-                module_load=cfg["modules"]["load"],
-                vars_forward=cfg["vars"]["forward"],
-                vars_set=cfg["vars"]["set"],
-                vars_append=cfg["vars"]["append"],
-                vars_prepend=cfg["vars"]["prepend"],
-            )
 
-        # Fall back to empty env
-        return wenv.EnvConfig()
+        # Default env
+        if name is None:
+            return wenv.EnvConfig()
+
+        # Unregistered env
+        if name not in self.config["envs"]:
+            available = ', '.join(self.config["envs"])
+            raise HostError(f"Invalid environment: {name}. Please choose one of: {available}")
+
+        # Get registered env
+        cfg = self.config["envs"][name]
+        return wenv.EnvConfig(
+            module_setup=self.config["module_setup"],
+            module_use=cfg["modules"]["use"],
+            module_load=cfg["modules"]["load"],
+            vars_forward=cfg["vars"]["forward"],
+            vars_set=cfg["vars"]["set"],
+            vars_append=cfg["vars"]["append"],
+            vars_prepend=cfg["vars"]["prepend"],
+        )

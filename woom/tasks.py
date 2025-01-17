@@ -10,6 +10,7 @@ import functools
 
 import configobj
 
+from .__init__ import WoomError
 from . import conf as wconf
 from . import util as wutil
 
@@ -17,7 +18,7 @@ CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "tasks.ini")
 RE_SPLIT_COMMAS = re.compile(r"\s*,\s*").split
 
 
-class TaskError(Exception):
+class TaskError(WoomError):
     pass
 
 
@@ -126,12 +127,12 @@ def format_commandline(line_format, named_arguments=None, subst=None):
 
 
 class TaskManager:
-    def __init__(self, host, session):
+    def __init__(self, host):  # , session):
         self._configs = []
         self._config = configobj.ConfigObj(interpolation=False)
         self._host = host
-        self._session = session
-        os.environ["WOOM_SESSION_DIR"] = str(session.path)
+        # self._session = session
+        # os.environ["WOOM_SESSION_DIR"] = str(session.path)
 
     def load_config(self, cfgfile):
         cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE)
@@ -165,9 +166,9 @@ class TaskManager:
     def host(self):
         return self._host
 
-    @property
-    def session(self):
-        return self._session
+    # @property
+    # def session(self):
+    # return self._session
 
     def get_task(self, name, params, token=None):
         """Get a :class:`Task` instance
@@ -222,7 +223,7 @@ class Task:
 
     def export_commandline(self):
         """Export the commandline as an bash lines"""
-        cc = self.config["commandline"]
+        cc = self.config["content"]["commandline"]
         named_arguments = wconf.keep_sections(cc)
         return (
             "\n# Run the commandline(s)\n"
@@ -237,12 +238,13 @@ class Task:
     @functools.cached_property
     def env(self):
         """Instance of :class:`woom.env.Env` specific to this task"""
+
         # Get env from name, possibly empty
-        env = self.host.get_env(self.config["submit"].get("env")).copy()
+        env = self.host.get_env(self.config["content"].get("env")).copy()
 
         # Add woom variables
         env.vars_set.update(WOOM_TASK_NAME=self.name)
-        env.vars_forward.extend(["WOOM_WORKFLOW_DIR", "WOOM_SESSION_DIR"])
+        env.vars_forward.extend(["WOOM_WORKFLOW_DIR"])  # , "WOOM_SESSION_DIR"])
         return env
 
     def export_env(self):
@@ -252,7 +254,7 @@ class Task:
 
     def export_rundir(self):
         """Export the bash line to move to the running directory"""
-        rundir = self.config["submit"]["rundir"]
+        rundir = self.config["content"]["rundir"]
         if rundir is None:
             return ""
         if rundir == "current":
@@ -281,12 +283,24 @@ class Task:
             opts["queue"] = self.host["queues"][self.config["submit"]["queue"]]
         return opts
 
+    def export_prolog(self):
+        prolog = "\n# Prolog\n"
+        prolog += f'trap "false" {self.config["content"]["trap"]}\n\n'
+        return prolog
+
+    def export_epilog(self):
+        epilog = "\n# Epilog\n"
+        epilog += "echo $? > $WOOM_SUBMISSION_DIR/EXIT_STATUS.txt\n"
+        return epilog
+
     def export(self):
         return {
             "script_content": "#!/bin/bash\n\n"
+            + self.export_prolog()
             + self.export_env()
             + self.export_rundir()
             + self.export_commandline()
+            + self.export_epilog()
             + "\n",
             "scheduler_options": self.export_scheduler_options(),
         }
