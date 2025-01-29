@@ -2,7 +2,6 @@ name: woom
 
 channels:
   - conda-forge
-  - defaults
 
 dependencies:
   - colorlog

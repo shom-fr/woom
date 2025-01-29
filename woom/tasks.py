@@ -240,7 +240,20 @@ class Task:
         """Instance of :class:`woom.env.Env` specific to this task"""
 
         # Get env from name, possibly empty
-        env = self.host.get_env(self.config["content"].get("env")).copy()
+        env = self.host.get_env(self.config["content"]["env"]["name"]).copy()
+
+        # Add task env variables with substitutions
+        cfgvars = self.config["content"]["env"]["vars"]
+        for action in "set", "prepend", "append":
+            for name, value in cfgvars[action].items():
+                value = value.format(**self.params)
+                cfgvars[action][name] = value
+        if cfgvars["set"]:
+            env.vars_set.update(cfgvars["set"])
+        if cfgvars["prepend"]:
+            env.vars_prepend.update(cfgvars["prepend"])
+        if cfgvars["append"]:
+            env.vars_append.update(cfgvars["append"])
 
         # Add woom variables
         env.vars_set.update(WOOM_TASK_NAME=self.name)
@@ -290,7 +303,7 @@ class Task:
 
     def export_epilog(self):
         epilog = "\n# Epilog\n"
-        epilog += "echo $? > $WOOM_SUBMISSION_DIR/EXIT_STATUS.txt\n"
+        epilog += "echo $? > $WOOM_SUBMISSION_DIR/job.status\n"
         return epilog
 
     def export(self):

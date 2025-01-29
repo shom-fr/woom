@@ -14,9 +14,7 @@ import pandas as pd
 
 from . import WoomError
 
-RE_MATCH_SINCE = re.compile(
-    r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I
-).match
+RE_MATCH_SINCE = re.compile(r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I).match
 
 
 def subst_dict(dict_in, dict_subst=None, maxiter=None):
@@ -94,6 +92,34 @@ class Cycle(collections.UserDict):
     def __str__(self):
         return self.token
 
+    def get_params(self, suffix=None):
+        """Export a dict of substitution parameters about this cycle"""
+        if suffix:
+            if not suffix.startswith("_"):
+                suffix = "_" + suffix
+        else:
+            suffix = ""
+        params = {
+            "cycle_begin_date" + suffix: self["cycle_begin_date"],
+            "cycle_label" + suffix: self.label,
+            "cycle_token" + suffix: self.token,
+        }
+        if self.is_interval:
+            params.update(
+                {
+                    "cycle_end_date" + suffix: self["cycle_end_date"],
+                    "cycle_duration" + suffix: self["cycle_duration"],
+                }
+            )
+        else:
+            params["cycle_date"] = params["cycle_begin_date"]
+        return params
+
+    def get_env_vars(self, suffix=None):
+        """Export a dict of WOOM env variables about this cycle"""
+        params = self.get_params(suffix=suffix)
+        return {("WOOM_" + k.upper(), v) for (k, v) in params.items()}
+
 
 def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):
     """Get a list of cycles given time specifications
@@ -150,7 +176,7 @@ def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):
 
 class WoomDate(pd.Timestamp):
     def __new__(cls, date, round=None):
-        date = pd.to_datetime(date)
+        date = pd.to_datetime(date, utc=True)
         if round:
             date = date.round(round)
         instance = super().__new__(cls, date)
@@ -161,7 +187,7 @@ class WoomDate(pd.Timestamp):
         m = RE_MATCH_SINCE(spec)
         if m:
             units, origin = m.groups()
-            return "{:g}".format((self - pd.to_datetime(origin)) / pd.to_timedelta(1, units))
+            return "{:g}".format((self - pd.to_datetime(origin, utc=True)) / pd.to_timedelta(1, units))
 
         return super().__format__(spec)
 

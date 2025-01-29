@@ -83,7 +83,7 @@ class Job:
         self.subproc = subproc
 
     @classmethod
-    def load(cls, manager, json_file):
+    def load(cls, manager, json_file, append=True):
         """Load a job into a manager from a json file"""
         with open(json_file) as jsonf:
             content = json.load(jsonf)
@@ -99,7 +99,9 @@ class Job:
             # submission_dir=content["submission_dir"],
             # token=content["token"],
         )
-        manager.jobs.append(job)
+        if append:
+            manager.jobs.append(job)
+        return job
 
     def dump(self):
         """Export to json in session's cache"""
@@ -263,14 +265,14 @@ class BackgroundJobManager(object):
     # json_files = self.session.get_files("jobs", "*.json")
     # self.jobs = [self.job_class.load(self, json_file) for json_file in json_files]
 
-    def load_job(self, json_file):
+    def load_job(self, json_file, append=True):
         """Load a single job from its json dump file"""
-        self.jobs.append(Job.load(self, json_file))
+        return Job.load(self, json_file, append)
 
     def load(self, json_files):
         """Load jobs from json dump files"""
-        for json_file in json_file:
-            self.load_job(json_file)
+        for json_file in json_files:
+            self.load_job(json_file, append=True)
 
     def dump(self):
         """Store jobs to session files"""
@@ -351,9 +353,7 @@ class BackgroundJobManager(object):
                     jobs.append(job)
         elif queue:
             for job in self.jobs:
-                if (name is not None and job.name != name) or (
-                    queue is not None and job.queue != queue
-                ):
+                if (name is not None and job.name != name) or (queue is not None and job.queue != queue):
                     continue
                 jobs.append(job)
         else:
@@ -619,9 +619,7 @@ class _Scheduler_(BackgroundJobManager):
         """Query status"""
         jobs = self.get_jobids(jobids=jobids, name=name, queue=queue)
         jobids = [job.id for job in jobs]
-        args = self._extra_status_args_(
-            self.get_command_args("status", jobid=self.jobid_sep.join(jobids))
-        )
+        args = self._extra_status_args_(self.get_command_args("status", jobid=self.jobid_sep.join(jobids)))
         if args:
             logger.debug("Get status: " + " ".join(args))
             res = subprocess.run(args, capture_output=True, check=True)

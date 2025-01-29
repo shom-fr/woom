@@ -9,12 +9,14 @@ import argparse
 
 # from pathlib import Path
 import logging
-import shutil
-import pandas as pd
+
+# import shutil
+# import pandas as pd
 
 from . import util as wutil
 from . import hosts as whosts
-from . import sessions as wsessions
+
+# from . import sessions as wsessions
 
 # from . import job as wjob
 from . import tasks as wtasks
@@ -28,9 +30,46 @@ def get_parser():
         description="woom interface",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    parser.add_argument(
+        "--app-name",
+        help="application name",
+    )
+    parser.add_argument(
+        "--app-conf",
+        help="application configuration",
+    )
+    parser.add_argument(
+        "--app-exp",
+        help="application experiment",
+    )
+    parser.add_argument(
+        "--workflow-cfg",
+        default="workflow.cfg",
+        help="workflow configuration file",
+    )
+    parser.add_argument(
+        "--tasks-cfg",
+        default="tasks.cfg",
+        help="tasks configuration file",
+    )
+    parser.add_argument("--hosts-cfg", help="hosts configuration file", default="hosts.cfg")
+    parser.add_argument("--host", help="target host")
+    parser.add_argument("--session", help="target session")
+    parser.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
+    parser.add_argument("--end-date", help="end date", type=wconf.is_datetime)
+    parser.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
+    parser.add_argument("--ncycle", help="number of cycles", type=int)
+    parser.add_argument(
+        "--dry-run",
+        help="run in fake mode for testing purpose",
+        action="store_true",
+    )
+
     subparsers = parser.add_subparsers(help="sub-command help")
 
     add_parser_run(subparsers)
+    add_parser_status(subparsers)
+    add_parser_kill(subparsers)
     # add_parser_sessions(subparsers)
 
     return parser
@@ -52,22 +91,7 @@ def main():
         parser.print_usage()
 
 
-def add_app_arguments(parser):
-    parser.add_argument(
-        "--app-name",
-        help="application name",
-    )
-    parser.add_argument(
-        "--app-conf",
-        help="application configuration",
-    )
-    parser.add_argument(
-        "--app-exp",
-        help="application experiment",
-    )
-
-
-def setup_workflow(parser, args, clean):
+def setup_workflow(parser, args):  # , clean):
     # Workflow dir from workflow config file
     workflow_cfg = os.path.abspath(args.workflow_cfg)
     if not os.path.exists(workflow_cfg):
@@ -75,11 +99,11 @@ def setup_workflow(parser, args, clean):
     workflow_dir = os.path.dirname(workflow_cfg)
 
     # Clean
-    if clean:
-        for subdir in wworkflow.Workflow.output_directories:
-            path = os.path.join(workflow_dir, subdir)
-            if os.path.exists(path):
-                shutil.rmtree(path, ignore_errors=True)
+    # if clean:
+    #     for subdir in wworkflow.Workflow.output_directories:
+    #         path = os.path.join(workflow_dir, subdir)
+    #         if os.path.exists(path):
+    #             shutil.rmtree(path, ignore_errors=True)
 
     # Setup logging
     log_file = wutil.check_dir(os.path.join(workflow_dir, "log", "woom.log"), logger=False)
@@ -88,7 +112,7 @@ def setup_workflow(parser, args, clean):
 
     # Load workflow config
     logger.debug(f"Load workflow config: {workflow_cfg}")
-    workflow_config = wconf.load_cfg(workflow_cfg, wworkflow.CFGSPECS_FILE)
+    workflow_config = wconf.load_cfg(workflow_cfg, wworkflow.CFGSPECS_FILE, list_values=False)
     logger.info("Loaded workflow config")
 
     # App
@@ -102,7 +126,7 @@ def setup_workflow(parser, args, clean):
         logger.info(f"App conf: {app_conf}")
     if app_exp:
         logger.info(f"App exp: {app_exp}")
-    app = dict(app_name=app_name, app_conf=app_conf, app_exp=app_exp)
+    # app = dict(app_name=app_name, app_conf=app_conf, app_exp=app_exp)
 
     # Cycles
     wconf.merge_args_with_config(
@@ -175,35 +199,16 @@ def setup_workflow(parser, args, clean):
 
 def add_parser_run(subparsers):
     # Setup argument parser
-    parser_run = subparsers.add_parser("run", help="run a workflow")
+    parser_run = subparsers.add_parser(
+        "run",
+        help="run a workflow",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser_run.add_argument(
-        "--dry-run",
-        help="run in fake mode for testing purpose",
+        "--update",
+        help="do not run if it has already been run",
         action="store_true",
     )
-    parser_run.add_argument(
-        "--clean",
-        help="remove session directory and output directory first, like log/ and tasks/",
-        action="store_true",
-    )
-    add_app_arguments(parser_run)
-    parser_run.add_argument(
-        "--workflow-cfg",
-        default="workflow.cfg",
-        help="workflow configuration file",
-    )
-    parser_run.add_argument(
-        "--tasks-cfg",
-        default="tasks.cfg",
-        help="tasks configuration file",
-    )
-    parser_run.add_argument("--hosts-cfg", help="hosts configuration file", default="hosts.cfg")
-    parser_run.add_argument("--host", help="target host")
-    parser_run.add_argument("--session", help="target session")
-    parser_run.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
-    parser_run.add_argument("--end-date", help="end date", type=wconf.is_datetime)
-    parser_run.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
-    parser_run.add_argument("--ncycle", help="number of cycles", type=int)
     wlog.add_logging_parser_arguments(parser_run)
     parser_run.set_defaults(func=main_run)
 
@@ -212,43 +217,60 @@ def add_parser_run(subparsers):
 
 def main_run(parser, args):
     # Setup the workflow
-    workflow, logger = setup_workflow(parser, args, args.clean)
+    workflow, logger = setup_workflow(parser, args)  # , args.clean)
 
     # Run the workflow
     logger.debug("Run the workflow")
-    workflow.run(dry=args.dry_run)
+    workflow.run(dry=args.dry_run, update=args.update)
     logger.info("Successfully ran the workflow!")
 
 
 def add_parser_status(subparsers):
     # Setup argument parser
-    parser_status = subparsers.add_parser("status", help="run a workflow")
-    parser_status.add_argument(
-        "--dry-run",
-        help="run in fake mode for testing purpose",
-        action="store_true",
-    )
-    add_app_arguments(parser_status)
-    parser_status.add_argument(
-        "--workflow-cfg",
-        default="workflow.cfg",
-        help="workflow configuration file",
+    parser_status = subparsers.add_parser(
+        "status",
+        help="get the status of all worklow tasks",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_status.add_argument(
-        "--tasks-cfg",
-        default="tasks.cfg",
-        help="tasks configuration file",
+        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
     )
-    parser_status.add_argument("--hosts-cfg", help="hosts configuration file", default="hosts.cfg")
-    parser_status.add_argument("--host", help="target host")
-    parser_status.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
-    parser_status.add_argument("--end-date", help="end date", type=wconf.is_datetime)
-    parser_status.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
-    parser_status.add_argument("--ncycle", help="number of cycles", type=int)
-    wlog.add_logging_parser_arguments(parser_status)
-    parser_status.set_defaults(func=main_run)
+    wlog.add_logging_parser_arguments(parser_status, default_level="error")
+    parser_status.set_defaults(func=main_status)
 
     return parser_status
+
+
+def main_status(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)  # , args.clean)
+
+    # Show the status
+    workflow.show_status(args.tablefmt)
+
+
+def add_parser_kill(subparsers):
+    # Setup argument parser
+    parser_kill = subparsers.add_parser(
+        "kill",
+        help="kill one or all workflow jobs",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser_kill.add_argument("jobid", help="job id", nargs="*")
+    parser_kill.add_argument("--task", help="kill this task only", default=None)
+    parser_kill.add_argument("--cycle", help="kill this cycle only", default=None)
+    wlog.add_logging_parser_arguments(parser_kill, default_level="error")
+    parser_kill.set_defaults(func=main_kill)
+
+    return parser_kill
+
+
+def main_kill(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)  # , args.clean)
+
+    # Show the status
+    workflow.kill(jobid=args.jobid, task_name=args.task, cycle=args.cycle)
 
 
 # def add_parser_sessions(subparsers):

@@ -210,19 +210,27 @@ class Host:
         if name is None:
             return wenv.EnvConfig()
 
-        # Unregistered env
+        # Registered?
         if name not in self.config["envs"]:
             available = ', '.join(self.config["envs"])
             raise HostError(f"Invalid environment: {name}. Please choose one of: {available}")
+        cfg = self.config["envs"][name]
+
+        # Declare directories as woom env variables
+        env_vars = {}
+        for dname, dval in self.config["dirs"].items():
+            if dval is not None:
+                dval = os.path.expanduser(os.path.expandvars(dval))
+                env_vars["WOOM_" + dname.upper() + "DIR"] = dval
+        env_vars.update(cfg["vars"]["set"])
 
         # Get registered env
-        cfg = self.config["envs"][name]
         return wenv.EnvConfig(
             module_setup=self.config["module_setup"],
             module_use=cfg["modules"]["use"],
             module_load=cfg["modules"]["load"],
             vars_forward=cfg["vars"]["forward"],
-            vars_set=cfg["vars"]["set"],
+            vars_set=env_vars,
             vars_append=cfg["vars"]["append"],
             vars_prepend=cfg["vars"]["prepend"],
         )

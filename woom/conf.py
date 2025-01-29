@@ -30,10 +30,12 @@ def is_path(value):
     return pathlib.Path(value)
 
 
-def is_datetime(value):
+def is_datetime(value, round=None):
     if value is None:
         return
-    return wutil.WoomDate(value)
+    # utc = validate.is_boolean(utc)
+    round = None if str(round).lower() == "none" else round
+    return wutil.WoomDate(value, round=round)
 
 
 def is_timedelta(value):
@@ -60,9 +62,7 @@ def get_cfgspecs(cfgspecsfile):
     """Get a configuration specification instance"""
     name = pathlib.Path(cfgspecsfile).stem
     if name not in CACHE["cfgspecs"]:
-        CACHE["cfgspecs"][name] = configobj.ConfigObj(
-            cfgspecsfile, interpolation=False, list_values=False
-        )
+        CACHE["cfgspecs"][name] = configobj.ConfigObj(cfgspecsfile, interpolation=False, list_values=False)
     return CACHE["cfgspecs"][name]
 
 

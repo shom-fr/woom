@@ -9,8 +9,8 @@ import secrets
 import functools
 import shlex
 import re
-import json
-import shutil
+
+import pandas as pd
 
 from . import WoomError
 from . import conf as wconf
@@ -33,7 +33,7 @@ class Workflow:
         self.logger = logging.getLogger(__name__)
         if isinstance(cfgfile, str):
             self._cfgfile = cfgfile
-            self._config = wconf.load_cfg(cfgfile, CFGSPECS_FILE)
+            self._config = wconf.load_cfg(cfgfile, CFGSPECS_FILE, list_values=False)
         else:
             self._config = cfgfile
             self._cfgfile = self._config.filename
@@ -43,6 +43,7 @@ class Workflow:
         self._task_tree = wtasks.TaskTree(self._config["stages"], self._config["groups"])
         self.logger.debug("Task tree:\n" + str(self._task_tree))
         self._dry = False
+        self._upate = False
 
         # Cylces
         if self.task_tree["cycles"]:
@@ -122,20 +123,22 @@ class Workflow:
         """Typically `app/conf/exp` or ''"""
         return sep.join(self._app_path)
 
-    def get_task_path(self, task_name, sep=os.path.sep):
-        """Concatenate the :attr:`app_path` and the `task_name`"""
-        return sep.join([task_name] + self._app_path)
+    def get_task_path(self, task_name, cycle=None, sep=os.path.sep):
+        """Concatenate the :attr:`app_path`, the cycle and the `task_name`"""
+        parts = self._app_path.copy()
+        if cycle:
+            parts.append(str(cycle))
+        parts.append(task_name)
+        return sep.join(parts)
 
-    def get_submission_dir(self, task_name, task_cycle=None, create=True):
+    def get_submission_dir(self, task_name, cycle=None, create=True):
         """Get where batch script is created and submitted"""
-        sdir = os.path.join(self.workflow_dir, "tasks", self.get_task_path(task_name))
-        if task_cycle:
-            sdir = os.path.join(sdir, task_cycle)
+        sdir = os.path.join(self.workflow_dir, "tasks", self.get_task_path(task_name, cycle))
         if not create:
             return sdir
         return wutil.check_dir(sdir, dry=self._dry, logger=self.logger)
 
-    def get_task_params(self, task_name, extra_params=None):
+    def get_task_params(self, task_name, cycle=None, extra_params=None):
         """Get the params dictionary used to format a task command line
 
         Order with the last crushing the first:
@@ -153,6 +156,8 @@ class Workflow:
         ----------
         task_name: str
             A valid task name
+        cycle: woom.utils.Cycle, None
+            Current cycle or None
         extra_params: dict
             Extra parameters to include in params
 
@@ -175,7 +180,7 @@ class Workflow:
 
         # App and task paths
         params["app_path"] = self.get_app_path()
-        params["task_path"] = self.get_task_path(task_name)
+        params["task_path"] = self.get_task_path(task_name, cycle)
 
         # Get host params
         params.update(self.host.get_params())
@@ -187,9 +192,7 @@ class Workflow:
             # Task specific params for this host
             if self.host.name in self._config["params"][task_name]:
                 params.update(
-                    wconf.strip_out_sections(
-                        self._config["params"][task_name][self.host.name].dict()
-                    )
+                    wconf.strip_out_sections(self._config["params"][task_name][self.host.name].dict())
                 )
 
         # Extra parameters
@@ -198,9 +201,19 @@ class Workflow:
 
         return params
 
-    def _get_submission_args_(self, task_name, cycle, depend, extra_params=None):
+    def _get_submission_args_(
+        self, task_name, cycle, depend, extra_params=None, cycle_prev=None, cycle_next=None
+    ):
         # Get params
-        params = self.get_task_params(task_name, extra_params=extra_params)
+        params = self.get_task_params(task_name, cycle=cycle, extra_params=extra_params)
+
+        # Update with cycles
+        if cycle:
+            params.update(cycle.get_params())
+        if cycle_prev:
+            params.update(cycle.get_params(suffix="prev"))
+        if cycle_next:
+            params.update(cycle.get_params(suffix="next"))
 
         ## Store params to json
         # if cycle:
@@ -236,12 +249,11 @@ class Workflow:
                 task.env.vars_set["WOOM_" + key.upper()] = params[key]
         # task.env.vars_set["WOOM_TASK_TOKEN"] = task_token
         if cycle:
-            task.env.vars_set["WOOM_CYCLE_BEGIN_DATE"] = cycle["cycle_begin_date"]
-            if cycle.is_interval:
-                task.env.vars_set["WOOM_CYCLE_END_DATE"] = cycle["cycle_end_date"]
-                task.env.vars_set["WOOM_CYCLE_DURATION"] = cycle["cycle_duration"]
-                task.env.vars_set["WOOM_CYCLE_LABEL"] = cycle.label
-                task.env.vars_set["WOOM_CYCLE_TOKEN"] = cycle.token
+            task.env.vars_set.update(cycle.get_env_vars())
+            if cycle_prev:
+                task.env.vars_set.update(cycle_prev.get_env_vars("prev"))
+            if cycle_next:
+                task.env.vars_set.update(cycle_next.get_env_vars("next"))
 
         # Get task bash code and submission options
         task_specs = task.export()
@@ -264,7 +276,15 @@ class Workflow:
         # "submission": {"script": script_path, "opts": opts, "depend": depend},
         # }
 
-    def submit_task(self, task_name, cycle=None, depend=None, extra_params=None):
+    def submit_task(
+        self,
+        task_name,
+        cycle=None,
+        depend=None,
+        extra_params=None,
+        cycle_prev=None,
+        cycle_next=None,
+    ):
         """Submit a task
 
         Parameters
@@ -278,7 +298,9 @@ class Workflow:
             Job id
         """
         # Get the submission arguments
-        submission_args = self._get_submission_args_(task_name, cycle, depend, extra_params)
+        submission_args = self._get_submission_args_(
+            task_name, cycle, depend, extra_params, cycle_prev, cycle_next
+        )
 
         ## Store params as a json file in session cache (useful?)
         # json_name = submission_args["params_json"]["name"]
@@ -301,11 +323,21 @@ class Workflow:
 
         return job
 
-    def submit_task_fake(self, task_name, cycle=None, depend=None, extra_params=None):
+    def submit_task_fake(
+        self,
+        task_name,
+        cycle=None,
+        depend=None,
+        extra_params=None,
+        cycle_prev=None,
+        cycle_next=None,
+    ):
         """Don't submit a task, just display it"""
 
         # Get the submission arguments
-        submission_args = self._get_submission_args_(task_name, cycle, depend, extra_params)
+        submission_args = self._get_submission_args_(
+            task_name, cycle, depend, extra_params, cycle_prev, cycle_next
+        )
         batch_content = submission_args.pop("content")
 
         # Get submission command line
@@ -330,11 +362,60 @@ class Workflow:
         self.logger.debug(content)
         return jobid
 
-    def run(self, dry=False):
+    def get_task_status(self, task_name, cycle=None, as_id=False):
+        submission_dir = self.get_submission_dir(task_name, cycle, create=False)
+
+        # Not submitted
+        if not os.path.exists(submission_dir):
+            return "NOTSUBMIT"
+
+        # Finish with success
+        status_file = os.path.join(submission_dir, "job.status")
+        if os.path.exists(status_file):
+            with open(status_file) as f:
+                status = int(f.read())
+            if status:
+                return "ERROR"
+            else:
+                return "SUCCESS"
+
+        # Running
+        json_file = os.path.join(submission_dir, "job.json")
+        if os.path.exists(json_file):
+            job = self.jobmanager.load_job(json_file, append=False)
+            if job.is_running():
+                return "RUNNING" if not as_id else job.jobid
+
+        return "UNKNOWN"
+
+    def clean_task(self, task_name, cycle=None):
+        """Remove job specific files for this task
+
+        The following files are removed:
+
+        - :file:`job.sh`
+        - :file:`job.err`
+        - :file:`job.out`
+        - :file:`job.json`
+        - :file:`job.status`
+        """
+        submission_dir = self.get_submission_dir(task_name, cycle)
+        for ext in ("sh", "err", "out", "json", "status"):
+            fname = os.path.join(submission_dir, "job." + ext)
+            if os.path.exists(fname):
+                self.logger.debug(f"Remove: {fname}")
+                if not self._dry:
+                    os.remove(fname)
+                self.logger.info(f"Removed: {fname}")
+
+    def run(self, dry=False, update=False):
         """Run the workflow by submiting all tasks"""
         self._dry = dry
+        self._update = update
         if dry:
             self.logger.debug("Running the workflow in fake mode")
+        if update:
+            self.logger.debug("Running the workflow in update mode")
         sequence_depend = []
         for stage in self.task_tree:
             self.logger.debug(f"Entering stage: {stage}")
@@ -361,12 +442,22 @@ class Workflow:
                     )
 
             else:
-                cycles = [None]
+                cycles = [stage]
 
             # Only the "cycles" stage is really looping
-            for cycle in cycles:
+            for i, cycle in enumerate(cycles):
                 if stage == "cycles":
                     self.logger.debug("Running cycle: " + cycle.label)
+                    if i == 0:
+                        cycle_prev = None
+                    else:
+                        cycle_prev = cycles[i - 1]
+                    if i == len(cycles) - 1:
+                        cycle_next = None
+                    else:
+                        cycle_next = cycles[i + 1]
+                else:
+                    cycle_prev = cycle_next = None
 
                 # Sequential loop on sequences aka substages
                 for sequence, groups in self.task_tree[stage].items():
@@ -387,27 +478,59 @@ class Workflow:
                         task_depend = sequence_depend
 
                         # Sequential sequential on group tasks
+                        jobid = None
                         for task_name in group:
                             long_task = f"{stage}/{sequence}/{task_name}"
+                            self.logger.debug(f"Dealing with task: {long_task}")
+
+                            # Check status
+                            status = self.get_task_status(task_name, cycle, as_id=True)
+                            if status.isdigit():
+                                msg = "Can't run a task that is already running. Aborting... Run 'woom kill {status}' to kill the associated job before re-running."
+                                self.logger.error(msg)
+                                raise WoomError(msg)
+
+                            if update:
+
+                                if status in "SUCCESS":
+                                    self.logger.debug(f"Skip update of task: {long_task}")
+                                    continue
+
+                                elif status == "ERROR":
+                                    self.logger.warning("Existing job task led to error. Re-running...")
+                                elif status == "UNKNOWN":
+                                    self.logger.warning(
+                                        "Unknown status for existing task job task. Re-running..."
+                                    )
+
+                            # Clean
+                            self.clean_task(task_name, cycle)
+
+                            # Submit
                             self.logger.debug(f"Submitting task: {long_task}")
                             self.logger.debug(
-                                "  Dependencies: "
-                                + ", ".join([str(job.jobid) for job in task_depend])
+                                "  Dependencies: " + ", ".join([str(job) for job in task_depend])
+                            )
+                            kwtask = dict(
+                                task_name=task_name,
+                                cycle=cycle,
+                                depend=task_depend,
+                                cycle_prev=cycle_prev,
+                                cycle_next=cycle_next,
                             )
                             if dry:  # Fake mode
-                                jobid = self.submit_task_fake(
-                                    task_name, cycle=cycle, depend=task_depend
-                                )
+                                jobid = self.submit_task_fake(**kwtask)
 
                             else:  # Real submission mode
-                                jobid = self.submit_task(task_name, cycle=cycle, depend=task_depend)
+                                jobid = str(self.submit_task(**kwtask))
                             self.logger.info(f"Submitted task: {long_task} with job id {jobid}")
 
                             # The next task of group depend on this job
                             task_depend = [jobid]
 
                         # The last job is added for next stage dependency
-                        new_sequence_depend.append(jobid)
+                        if jobid:
+                            new_sequence_depend.append(jobid)
 
                     # Dependencies for the next sequence
                     sequence_depend = new_sequence_depend
@@ -417,19 +540,82 @@ class Workflow:
                 else:
                     self.logger.info("Successfully submitted stage: " + stage)
 
-    @property
-    def submission_dirs(self):
-        """Generator of submission directories computed from the task tree"""
-        submission_dirs = []
+    def iter_tasks(self):
+        """Generator of iterating over the tasks and cycles
+
+        Yield
+        -----
+        task_name, cycle
+        """
         for stage in self.task_tree:
             if not self.task_tree[stage]:
                 continue
-            cycles = self.cycles if stage == "cycles" else [None]
+            cycles = self.cycles if stage == "cycles" else [stage]
             for cycle in cycles:
                 for sequence, groups in self.task_tree[stage].items():
                     if not groups:
                         continue
                     for group in groups:
                         for task_name in group:
-                            yield self.get_submission_dir(task_name, cycle, create=False)
-                            submission_dirs.append(submission_dir)
+                            yield task_name, cycle
+
+    __iter__ = iter_tasks
+
+    @property
+    def submission_dirs(self):
+        """Generator of submission directories computed from the task tree"""
+        for task_name, cycle in self.iter_tasks():
+            yield self.get_submission_dir(task_name, cycle, create=False)
+
+    def get_status(self):
+        """Get the workflow task status as a :class:`pandas.DataFrame`"""
+        data = []
+        # index = []
+        columns = ["STATUS/JOBID", "TASK", "CYCLE", "SUBMISSION DIR"]
+        for task_name, cycle in self:
+            status = self.get_task_status(task_name, cycle, as_id=True)
+            submdir = self.get_submission_dir(task_name, cycle)[len(self._workflow_dir) + 1 :]
+            row = [status, task_name, cycle, submdir]
+            data.append(row)
+        return pd.DataFrame(data, columns=columns)
+
+    def show_status(self, tablefmt="rounded_outline"):
+        """Show the status of all the tasks of the wokflow"""
+        print(self.get_status().to_markdown(index=False, tablefmt=tablefmt))
+
+    def kill(self, jobid=None, task_name=None, cycle=None):
+        """Kill all running jobs specific to this workflow
+
+        Parameters
+        ----------
+        jobid: str, list(str), None
+            KIll only this jobid if it belongs to the workflow
+        task_name: str, None:
+            Select this task
+        cycle: str, woom.util.Cycle, None
+            Select this cycle
+        """
+        if not jobid:
+            jobids = []
+        elif isinstance(jobid, str):
+            jobids = [jobid]
+        else:
+            jobids = jobid
+        for task_name_, cycle_ in self.iter_tasks():
+            if task_name and task_name_ != task_name:
+                continue
+            if cycle and str(cycle) != str(cycle_):
+                continue
+            submdir = self.get_submission_dir(task_name_, cycle_, create=False)
+            task_path = self.get_task_path(task_name_, cycle_)
+            json_file = os.path.join(submdir, "job.json")
+            if os.path.exists(json_file):
+                job = self.jobmanager.load_job(json_file, append=False)
+                if jobids and job.jobid not in jobids:
+                    continue
+                if job.is_running():
+                    self.logger.debug(f"Killing jobid: {jobid} ({task_path})")
+                    job.kill()
+                    self.logger.info(f"Killed jobid: {jobid} ({task_path})")
+        else:
+            self.logger.info("No job to kill")
