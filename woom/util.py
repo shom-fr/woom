@@ -14,8 +14,6 @@ import pandas as pd
 
 from . import WoomError
 
-RE_MATCH_SINCE = re.compile(r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I).match
-
 
 def subst_dict(dict_in, dict_subst=None, maxiter=None):
     """Perform recursive string substitutions in a dictionary
@@ -131,7 +129,7 @@ def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):
     - ``"cycle_duration"`` (optional): Difference between begin and end [:class:`pandas.Timedelta`]
     """
     if begin_date is None:
-        raise WoomError("begin_date must be a valid date")
+        raise WoomError("begin_date must be None to generate cycles")
     begin_date = WoomDate(begin_date, round)
 
     if end_date:
@@ -171,10 +169,19 @@ def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):
     for i, date0 in enumerate(rundates[:-1]):
         date1 = rundates[i + 1]
         cycles.append(Cycle(date0, date1))
+
+    if not cycles:
+        raise WoomError(
+            f"Unable to generate cycles with these specs: begin_date={begin_date}, end_date={end_date}, freq={freq}, ncycle={ncycle}, round={round}"
+        )
     return cycles
 
 
 class WoomDate(pd.Timestamp):
+
+    re_match_since = re.compile(r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I).match
+    # re_match_add = re.compile(r"^([+\-].+)$").match
+
     def __new__(cls, date, round=None):
         date = pd.to_datetime(date, utc=True)
         if round:
@@ -184,12 +191,16 @@ class WoomDate(pd.Timestamp):
         return instance
 
     def __format__(self, spec):
-        m = RE_MATCH_SINCE(spec)
+        m = self.re_match_since(spec)
         if m:
             units, origin = m.groups()
             return "{:g}".format((self - pd.to_datetime(origin, utc=True)) / pd.to_timedelta(1, units))
 
         return super().__format__(spec)
+
+    def add(self, *args, **kwargs):
+        """Add time delta"""
+        return self + pd.to_timedelta(*args, **kwargs)
 
 
 def check_dir(filepath, dry=False, logger=None):

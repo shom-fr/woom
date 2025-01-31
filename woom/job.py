@@ -177,8 +177,12 @@ class Job:
         if self.is_running():
             p = self._get_proc_()
             logger.debug(f"Waiting for process to finish: {p.pid}")
-            p.wait()
-            logger.debug("Ok, finished!")
+            status = p.wait()
+            if status:
+                logger.error(f"Finished with exit status: {status}")
+            else:
+                logger.debug("Ok, finished!")
+            return status
 
     @classmethod
     def get_overview_header(cls):
@@ -482,8 +486,12 @@ class BackgroundJobManager(object):
     def submit(self, script, opts, depend=None, submdir=None, stdout=".out", stderr=".err"):
         # Wait for dependencies
         if depend:
+            status = None
             for job in depend:
-                job.wait()
+                status = job.wait()
+                if status:
+                    logger.error(f"Can't submit job because one of the parent job failed: {job}")
+                    return
 
         # Get submission arguments
         jobargs = self.get_submission_args(script, opts, depend=depend)

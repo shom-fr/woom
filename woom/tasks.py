@@ -13,6 +13,7 @@ import configobj
 from .__init__ import WoomError
 from . import conf as wconf
 from . import util as wutil
+from . import render as wrender
 
 CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "tasks.ini")
 RE_SPLIT_COMMAS = re.compile(r"\s*,\s*").split
@@ -45,14 +46,14 @@ class TaskTree:
 
             # Loop on sub-stages
             for substage, tasks_line in self._stages[stage].items():  # fetch=task1,group1,...
-                tasks = RE_SPLIT_COMMAS(tasks_line)
+                tasks = tasks_line  # RE_SPLIT_COMMAS(tasks_line)
                 tt[stage][substage] = tasks
 
                 # Loop on parallel tasks
                 for i in range(len(tasks)):
                     task = tasks[i]
                     if task in self._groups:
-                        tasks[i] = RE_SPLIT_COMMAS(self._groups[task])
+                        tasks[i] = self._groups[task]  # RE_SPLIT_COMMAS(self._groups[task])
                     else:
                         tasks[i] = [task]  # as a single element group
 
@@ -81,49 +82,49 @@ class TaskTree:
         return ss.strip("\n")
 
 
-def format_commandline(line_format, named_arguments=None, subst=None):
-    """Format a commandline call
+# def format_commandline(line_format, named_arguments=None, subst=None):
+#     """Format a commandline call
 
-    Parameters
-    ----------
-    line_format: str
-        The commandline call with substitution patterns for named arguments
-        that need a value
-    named_options: None, dict
-        Dictionary the contains the specifications of named arguments
-    subst: None, dict
-        A dictionary used of substitutions, updated with the named options.
+#     Parameters
+#     ----------
+#     line_format: str
+#         The commandline call with substitution patterns for named arguments
+#         that need a value
+#     named_options: None, dict
+#         Dictionary the contains the specifications of named arguments
+#     subst: None, dict
+#         A dictionary used of substitutions, updated with the named options.
 
-    Return
-    ------
-    str
-    """
+#     Return
+#     ------
+#     str
+#     """
+#     subst = subst or {}
+#     return wrender.render(line_format, **subst)
 
-    more_subst = {}
-    if named_arguments:
-        for name, specs in named_arguments.items():
-            setops = []
-            for value in specs["value"]:
-                value = value.strip()
-                if value.lower() == "none" or not value:
-                    value = None
-                if value is not None:
-                    value = value.format(**subst)
-                    setops.append(specs["format"].format(name=name, value=value))
-                elif specs["required"]:
-                    raise TaskError(
-                        f"Empty named argument:\nname: {name}\ncommandline: {line_format}"
-                    )
-            more_subst[name] = " ".join(setops)
-    try:
-        return line_format.format(**subst, **more_subst)
-    except KeyError as e:
-        raise TaskError(
-            f"Error while performing substitions in commandline: {line_format}\n"
-            + f"Please add the '{e.args[0]}' key to the [params] section of the workflow configuration."
-        )
-    except Exception as e:
-        raise Exception(*e.args)
+#     more_subst = {}
+#     if named_arguments:
+#         for name, specs in named_arguments.items():
+#             setops = []
+#             for value in specs["value"]:
+#                 value = value.strip()
+#                 if value.lower() == "none" or not value:
+#                     value = None
+#                 if value is not None:
+#                     value = value.format(**subst)
+#                     setops.append(specs["format"].format(name=name, value=value))
+#                 elif specs["required"]:
+#                     raise TaskError(f"Empty named argument:\nname: {name}\ncommandline: {line_format}")
+#             more_subst[name] = " ".join(setops)
+#     try:
+#         return line_format.format(**subst, **more_subst)
+#     except KeyError as e:
+#         raise TaskError(
+#             f"Error while performing substitions in commandline: {line_format}\n"
+#             + f"Please add the '{e.args[0]}' key to the [params] section of the workflow configuration."
+#         )
+#     except Exception as e:
+#         raise Exception(*e.args)
 
 
 class TaskManager:
@@ -224,16 +225,14 @@ class Task:
     def export_commandline(self):
         """Export the commandline as an bash lines"""
         cc = self.config["content"]["commandline"]
-        named_arguments = wconf.keep_sections(cc)
-        return (
-            "\n# Run the commandline(s)\n"
-            + format_commandline(
-                cc["format"],
-                named_arguments=named_arguments,
-                subst=self.params,
-            )
-            + "\n"
-        )
+        # named_arguments = wconf.keep_sections(cc)
+        return "# Run the commandline(s)\n" + wrender.render(cc["format"], **self.params) + "\n"
+        # + format_commandline(
+        #     cc["format"],
+        #     named_arguments=named_arguments,
+        #     subst=self.params,
+        # )
+        # )
 
     @functools.cached_property
     def env(self):
@@ -246,7 +245,7 @@ class Task:
         cfgvars = self.config["content"]["env"]["vars"]
         for action in "set", "prepend", "append":
             for name, value in cfgvars[action].items():
-                value = value.format(**self.params)
+                value = wrender.render(value, **self.params)
                 cfgvars[action][name] = value
         if cfgvars["set"]:
             env.vars_set.update(cfgvars["set"])
@@ -258,6 +257,9 @@ class Task:
         # Add woom variables
         env.vars_set.update(WOOM_TASK_NAME=self.name)
         env.vars_forward.extend(["WOOM_WORKFLOW_DIR"])  # , "WOOM_SESSION_DIR"])
+        rundir = self.get_rundir()
+        if rundir:
+            env.vars_set.update(WOOM_RUNDIR=rundir)
         return env
 
     def export_env(self):
@@ -265,8 +267,8 @@ class Task:
         # self.env.vars_set.update(WOOM_TASK_TOKEN=str(token))
         return str(self.env)
 
-    def export_rundir(self):
-        """Export the bash line to move to the running directory"""
+    def get_rundir(self):
+        """Get the run directory"""
         rundir = self.config["content"]["rundir"]
         if rundir is None:
             return ""
@@ -274,9 +276,13 @@ class Task:
             rundir = os.getcwd()
         elif "{" in rundir:
             rundir = rundir.format(**self.params)
-        rundir = rundir.strip()
+        return rundir.strip()
+
+    def export_rundir(self):
+        """Export the bash line to move to the running directory"""
+        rundir = self.get_rundir()
         if rundir:
-            return f"\n# Got to run dir\nmkdir -p {rundir} && cd {rundir}\n\n"
+            return f"# Got to run dir\nmkdir -p {rundir} && cd {rundir}\n\n"
         return ""
 
     # def export_epilog(self):
@@ -297,13 +303,14 @@ class Task:
         return opts
 
     def export_prolog(self):
-        prolog = "\n# Prolog\n"
+        prolog = "# Prolog\n"
         prolog += f'trap "false" {self.config["content"]["trap"]}\n\n'
         return prolog
 
     def export_epilog(self):
-        epilog = "\n# Epilog\n"
+        epilog = "# Epilog\n"
         epilog += "echo $? > $WOOM_SUBMISSION_DIR/job.status\n"
+        epilog += "exit $?\n"
         return epilog
 
     def export(self):
@@ -313,7 +320,6 @@ class Task:
             + self.export_env()
             + self.export_rundir()
             + self.export_commandline()
-            + self.export_epilog()
-            + "\n",
+            + self.export_epilog(),
             "scheduler_options": self.export_scheduler_options(),
         }

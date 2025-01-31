@@ -33,26 +33,24 @@ class Workflow:
         self.logger = logging.getLogger(__name__)
         if isinstance(cfgfile, str):
             self._cfgfile = cfgfile
-            self._config = wconf.load_cfg(cfgfile, CFGSPECS_FILE, list_values=False)
+            self._config = wconf.load_cfg(cfgfile, CFGSPECS_FILE, list_values=True)
         else:
             self._config = cfgfile
             self._cfgfile = self._config.filename
+        stages = {}
+        for stage in "prolog", "cycles", "epilog":  # re-order
+            stages[stage] = self._config["stages"][stage]
         self._tm = taskmanager
         # self._session = session = taskmanager.session
         # self._config["params"]["session_id"] = session.id
-        self._task_tree = wtasks.TaskTree(self._config["stages"], self._config["groups"])
+        self._task_tree = wtasks.TaskTree(stages, self._config["groups"])
         self.logger.debug("Task tree:\n" + str(self._task_tree))
         self._dry = False
         self._upate = False
 
         # Cylces
         if self.task_tree["cycles"]:
-            try:
-                self._cycles = wutil.get_cycles(**self.config["cycles"])
-            except Exception as err:
-                msg = "Error while computing dates of cycles:\n" + err.args[0]
-                self.logger.error(msg)
-                raise WoomError(msg)
+            self._cycles = wutil.get_cycles(**self.config["cycles"])
 
         # Paths
         self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))
@@ -133,7 +131,7 @@ class Workflow:
 
     def get_submission_dir(self, task_name, cycle=None, create=True):
         """Get where batch script is created and submitted"""
-        sdir = os.path.join(self.workflow_dir, "tasks", self.get_task_path(task_name, cycle))
+        sdir = os.path.join(self.workflow_dir, "jobs", self.get_task_path(task_name, cycle))
         if not create:
             return sdir
         return wutil.check_dir(sdir, dry=self._dry, logger=self.logger)
@@ -172,6 +170,7 @@ class Workflow:
 
         # Workflow generic params
         params = wconf.strip_out_sections(self._config["params"]).dict()
+        env_vars = dict((key.upper(), value) for key, value in params.items())
 
         # Subsections
         for sec in "app", "cycles":
@@ -185,19 +184,30 @@ class Workflow:
         # Get host params
         params.update(self.host.get_params())
 
-        # Get task specific params
-        if task_name in self._config["params"]:
-            params.update(wconf.strip_out_sections(self._config["params"][task_name]).dict())
+        # Task specific params
+        if task_name in self._config["params"]["tasks"]:
+            task_params = wconf.strip_out_sections(self._config["params"]["tasks"][task_name]).dict()
+            env_vars.update((key.upper(), value) for key, value in task_params.items())
+            params.update(task_params)
+
+            # if self.host.name in self._config["params"]["tasks"][task_name]:
+            #     params.update(
+            #         wconf.strip_out_sections(self._config["params"]["tasks"][task_name][self.host.name].dict())
+            #     )
+
+        # Host specific params
+        if self.host.name in self._config["params"]["hosts"]:
+            host_params = wconf.strip_out_sections(self._config["params"]["hosts"][self.host.name]).dict()
+            env_vars.update((key.upper(), value) for key, value in host_params.items())
+            params.update(host_params)
 
             # Task specific params for this host
-            if self.host.name in self._config["params"][task_name]:
-                params.update(
-                    wconf.strip_out_sections(self._config["params"][task_name][self.host.name].dict())
-                )
-
         # Extra parameters
         if extra_params:
             params.update(extra_params)
+
+        # User params as environment variables
+        params.update(env_vars=env_vars)
 
         return params
 
@@ -206,13 +216,14 @@ class Workflow:
     ):
         # Get params
         params = self.get_task_params(task_name, cycle=cycle, extra_params=extra_params)
+        env_vars = params.pop("env_vars")
 
         # Update with cycles
-        if cycle:
+        if isinstance(cycle, wutil.Cycle):
             params.update(cycle.get_params())
-        if cycle_prev:
+        if isinstance(cycle_prev, wutil.Cycle):
             params.update(cycle.get_params(suffix="prev"))
-        if cycle_next:
+        if isinstance(cycle_next, wutil.Cycle):
             params.update(cycle.get_params(suffix="next"))
 
         ## Store params to json
@@ -241,14 +252,16 @@ class Workflow:
         # Export paths in task environment variables
         task.env.prepend_paths(**self._paths)
         task.env.vars_set["WOOM_SUBMISSION_DIR"] = submission_dir
+        task.env.vars_set["WOOM_LOG_DIR"] = os.path.join(submission_dir, "log")
         task.env.vars_set["WOOM_TASK_NAME"] = task_name
         task.env.vars_set["WOOM_TASK_PATH"] = params["task_path"]
         task.env.vars_set["WOOM_APP_PATH"] = params["app_path"]
+        task.env.vars_set.update(env_vars)
         for key in "app_name", "app_conf", "app_exp":
             if params[key] is not None:
                 task.env.vars_set["WOOM_" + key.upper()] = params[key]
         # task.env.vars_set["WOOM_TASK_TOKEN"] = task_token
-        if cycle:
+        if isinstance(cycle, wutil.Cycle):
             task.env.vars_set.update(cycle.get_env_vars())
             if cycle_prev:
                 task.env.vars_set.update(cycle_prev.get_env_vars("prev"))
@@ -399,14 +412,14 @@ class Workflow:
         - :file:`job.json`
         - :file:`job.status`
         """
+        # self.logger.debug(f"Cleaning task: {task_name}")
         submission_dir = self.get_submission_dir(task_name, cycle)
         for ext in ("sh", "err", "out", "json", "status"):
             fname = os.path.join(submission_dir, "job." + ext)
             if os.path.exists(fname):
-                self.logger.debug(f"Remove: {fname}")
                 if not self._dry:
                     os.remove(fname)
-                self.logger.info(f"Removed: {fname}")
+                self.logger.debug(f"Removed: {fname}")
 
     def run(self, dry=False, update=False):
         """Run the workflow by submiting all tasks"""
@@ -478,7 +491,7 @@ class Workflow:
                         task_depend = sequence_depend
 
                         # Sequential sequential on group tasks
-                        jobid = None
+                        job = None
                         for task_name in group:
                             long_task = f"{stage}/{sequence}/{task_name}"
                             self.logger.debug(f"Dealing with task: {long_task}")
@@ -486,9 +499,9 @@ class Workflow:
                             # Check status
                             status = self.get_task_status(task_name, cycle, as_id=True)
                             if status.isdigit():
-                                msg = "Can't run a task that is already running. Aborting... Run 'woom kill {status}' to kill the associated job before re-running."
-                                self.logger.error(msg)
-                                raise WoomError(msg)
+                                raise WorkFlowError(
+                                    "Can't run a task that is already running. Aborting... Run 'woom kill {status}' to kill the associated job before re-running."
+                                )
 
                             if update:
 
@@ -504,6 +517,7 @@ class Workflow:
                                     )
 
                             # Clean
+                            self.logger.debug(f"Cleaning task: {long_task}")
                             self.clean_task(task_name, cycle)
 
                             # Submit
@@ -519,18 +533,22 @@ class Workflow:
                                 cycle_next=cycle_next,
                             )
                             if dry:  # Fake mode
-                                jobid = self.submit_task_fake(**kwtask)
+                                job = self.submit_task_fake(**kwtask)
 
                             else:  # Real submission mode
-                                jobid = str(self.submit_task(**kwtask))
-                            self.logger.info(f"Submitted task: {long_task} with job id {jobid}")
+                                job = self.submit_task(**kwtask)
+                                if job is None:
+                                    raise WorkFlowError(
+                                        "Task submission aborted: {long_task}. Stopping workflow..."
+                                    )
+                            self.logger.info(f"Submitted task: {long_task} with job id {job}")
 
                             # The next task of group depend on this job
-                            task_depend = [jobid]
+                            task_depend = [job]
 
                         # The last job is added for next stage dependency
-                        if jobid:
-                            new_sequence_depend.append(jobid)
+                        if job:
+                            new_sequence_depend.append(job)
 
                     # Dependencies for the next sequence
                     sequence_depend = new_sequence_depend
@@ -616,6 +634,6 @@ class Workflow:
                 if job.is_running():
                     self.logger.debug(f"Killing jobid: {jobid} ({task_path})")
                     job.kill()
-                    self.logger.info(f"Killed jobid: {jobid} ({task_path})")
+                    self.logger.warning(f"Killed jobid: {jobid} ({task_path})")
         else:
             self.logger.info("No job to kill")

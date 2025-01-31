@@ -112,7 +112,7 @@ def setup_workflow(parser, args):  # , clean):
 
     # Load workflow config
     logger.debug(f"Load workflow config: {workflow_cfg}")
-    workflow_config = wconf.load_cfg(workflow_cfg, wworkflow.CFGSPECS_FILE, list_values=False)
+    workflow_config = wconf.load_cfg(workflow_cfg, wworkflow.CFGSPECS_FILE, list_values=True)
     logger.info("Loaded workflow config")
 
     # App
@@ -217,12 +217,19 @@ def add_parser_run(subparsers):
 
 def main_run(parser, args):
     # Setup the workflow
-    workflow, logger = setup_workflow(parser, args)  # , args.clean)
+    try:
+        workflow, logger = setup_workflow(parser, args)
+    except Exception:
+        logger.exception("Failed setting up the workflow")
 
     # Run the workflow
     logger.debug("Run the workflow")
-    workflow.run(dry=args.dry_run, update=args.update)
-    logger.info("Successfully ran the workflow!")
+    try:
+        workflow.run(dry=args.dry_run, update=args.update)
+    except Exception:
+        logger.exception("Workflow failed")
+    else:
+        logger.info("Successfully ran the workflow!")
 
 
 def add_parser_status(subparsers):
@@ -235,7 +242,7 @@ def add_parser_status(subparsers):
     parser_status.add_argument(
         "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
     )
-    wlog.add_logging_parser_arguments(parser_status, default_level="error")
+    wlog.add_logging_parser_arguments(parser_status, default_level="warning")
     parser_status.set_defaults(func=main_status)
 
     return parser_status
@@ -243,10 +250,16 @@ def add_parser_status(subparsers):
 
 def main_status(parser, args):
     # Setup the workflow
-    workflow, logger = setup_workflow(parser, args)  # , args.clean)
+    try:
+        workflow, logger = setup_workflow(parser, args)
+    except Exception:
+        logger.exception("Failed setting up the workflow")
 
     # Show the status
-    workflow.show_status(args.tablefmt)
+    try:
+        workflow.show_status(args.tablefmt)
+    except Exception:
+        logger.exception("Failed querying the status")
 
 
 def add_parser_kill(subparsers):
@@ -259,7 +272,7 @@ def add_parser_kill(subparsers):
     parser_kill.add_argument("jobid", help="job id", nargs="*")
     parser_kill.add_argument("--task", help="kill this task only", default=None)
     parser_kill.add_argument("--cycle", help="kill this cycle only", default=None)
-    wlog.add_logging_parser_arguments(parser_kill, default_level="error")
+    wlog.add_logging_parser_arguments(parser_kill, default_level="warning")
     parser_kill.set_defaults(func=main_kill)
 
     return parser_kill
@@ -267,10 +280,16 @@ def add_parser_kill(subparsers):
 
 def main_kill(parser, args):
     # Setup the workflow
-    workflow, logger = setup_workflow(parser, args)  # , args.clean)
+    try:
+        workflow, logger = setup_workflow(parser, args)
+    except Exception:
+        logger.exception("Failed to setup the workflow")
 
     # Show the status
-    workflow.kill(jobid=args.jobid, task_name=args.task, cycle=args.cycle)
+    try:
+        workflow.kill(jobid=args.jobid, task_name=args.task, cycle=args.cycle)
+    except Exception:
+        logger.exception("Failed to kill jobs")
 
 
 # def add_parser_sessions(subparsers):

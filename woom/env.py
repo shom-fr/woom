@@ -30,7 +30,7 @@ class EnvConfig:
     def export_raw_text(self):
         """export raw bash lines to declare env"""
         if self.raw_text:
-            return "\n" + self.raw_text + "\n\n"
+            return self.raw_text + "\n\n"
         return ""
 
     def export_module(self):
@@ -41,7 +41,7 @@ class EnvConfig:
         if self.module_use:
             cmds.append("module use " + self.module_use)
         cmds.append("module load " + self.module_load)
-        return "\n# Environment modules\n" + "\n".join(cmds) + "\n\n"
+        return "# Environment modules\n" + "\n".join(cmds) + "\n\n"
 
     @staticmethod
     def _as_string_(value):
@@ -69,7 +69,7 @@ class EnvConfig:
                 cmds.append(f"export {vname}=" + value + os.pathsep + f"${vname}")
         if not cmds:
             return ""
-        return "\n# Environment variables\n" + "\n".join(cmds) + "\n\n"
+        return "# Environment variables\n" + "\n".join(cmds) + "\n\n"
 
     @staticmethod
     def _check_path_(path):
