@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+To generate the woom logos
+"""
+import os
+import logging
+
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.transforms as mtransforms
+
+shomlightblue = (90, 194, 231)
+shomdarkblue = (0, 36, 84)
+
+
+def genlogo(outfile, dark=False):
+    """Generate a woom logo and save it"""
+    font = "Cantarell"
+    # font = "Noto sans"
+    width, height = (6, 2.7)
+
+    if dark:
+        fontcolor = "w"
+    else:
+        fontcolor = tuple(c / 255 for c in shomdarkblue)
+    circlecolor = tuple(c / 255 for c in shomlightblue)
+
+    with plt.rc_context({"font.sans-serif": [font]}):
+        fig = plt.figure(figsize=(width, height))
+        ax = plt.axes([0, 0, 1, 1], aspect=1, facecolor="b")
+        kw = dict(
+            family="sans-serif",
+            size=100,
+            color=fontcolor,
+            va="center_baseline",
+            weight="extra bold",
+            transform=ax.transAxes,
+        )
+        ax.text(0.05, 0.515, "W", ha="left", **kw)
+        ax.text(0.95, 0.515, "OM", ha="right", **kw)
+        ax.set_xlim(0, width)
+        ax.set_ylim(0, height)
+
+        clip_height = 0.26
+        for y0 in (0, 1 - clip_height):
+            circle = mpatches.Circle(
+                (0.43 * width, height / 2),
+                radius=height * 0.5 * 0.81,
+                facecolor="none",
+                linewidth=14,
+                ec=circlecolor,
+            )
+
+            ax.add_patch(circle)
+
+            clip = mtransforms.TransformedBbox(
+                mtransforms.Bbox([[0, y0], [1, y0 + clip_height]]), ax.transAxes
+            )
+            circle.set_clip_box(clip)
+
+        ax.axis("off")
+        fig.savefig(outfile, transparent=True)
+        plt.close(fig)
+        del fig
+
+
+def genlogos(app):
+    """Generate light and dark woom logo during doc compilation"""
+    srcdir = app.env.srcdir
+    gendir = os.path.join(srcdir, "_static")
+
+    logging.debug("Generating light woom logo...")
+    genlogo(os.path.join(gendir, "woom-logo-light.png"))
+    logging.info("Generated light woom logo")
+
+    logging.debug("Generating dark woom logo...")
+    genlogo(os.path.join(gendir, "woom-logo-dark.png"), dark=True)
+    logging.info("Generated dark woom logo")
+
+
+def setup(app):
+    app.connect("builder-inited", genlogos)
+    return {"version": "0.1"}
+
+
+if __name__ == "__main__":
+    genlogo("../_static/woom-logo-light.png")
+    genlogo("../_static/woom-logo-dark.png", dark=True)

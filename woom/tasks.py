@@ -68,6 +68,8 @@ class TaskTree:
         dd = self.to_dict()
         ss = ""
         for stage, scontent in dd.items():
+            if not scontent:
+                continue
             ss += f"{stage}:\n"
             for substage, sscontent in scontent.items():
                 ss += f"    - {substage}: "
@@ -79,6 +81,8 @@ class TaskTree:
                         tasks.append("[" + " -> ".join(gt) + "]")
                 ss += " // ".join(tasks) + "\n"
             # ss += "\n"
+        if not ss:
+            ss = "Empty workflow!"
         return ss.strip("\n")
 
 
@@ -226,7 +230,7 @@ class Task:
         """Export the commandline as an bash lines"""
         cc = self.config["content"]["commandline"]
         # named_arguments = wconf.keep_sections(cc)
-        return "# Run the commandline(s)\n" + wrender.render(cc["format"], **self.params) + "\n"
+        return "# Run the commandline(s)\n" + wrender.render(cc, **self.params) + "\n\n"
         # + format_commandline(
         #     cc["format"],
         #     named_arguments=named_arguments,
@@ -239,24 +243,24 @@ class Task:
         """Instance of :class:`woom.env.Env` specific to this task"""
 
         # Get env from name, possibly empty
-        env = self.host.get_env(self.config["content"]["env"]["name"]).copy()
+        env = self.host.get_env(self.config["content"]["env"]).copy()
 
-        # Add task env variables with substitutions
-        cfgvars = self.config["content"]["env"]["vars"]
-        for action in "set", "prepend", "append":
-            for name, value in cfgvars[action].items():
-                value = wrender.render(value, **self.params)
-                cfgvars[action][name] = value
-        if cfgvars["set"]:
-            env.vars_set.update(cfgvars["set"])
-        if cfgvars["prepend"]:
-            env.vars_prepend.update(cfgvars["prepend"])
-        if cfgvars["append"]:
-            env.vars_append.update(cfgvars["append"])
+        # # Add task env variables with substitutions
+        # cfgvars = self.config["content"]["env"]["vars"]
+        # for action in "set", "prepend", "append":
+        #     for name, value in cfgvars[action].items():
+        #         value = wrender.render(value, **self.params)
+        #         cfgvars[action][name] = value
+        # if cfgvars["set"]:
+        #     env.vars_set.update(cfgvars["set"])
+        # if cfgvars["prepend"]:
+        #     env.vars_prepend.update(cfgvars["prepend"])
+        # if cfgvars["append"]:
+        #     env.vars_append.update(cfgvars["append"])
 
         # Add woom variables
         env.vars_set.update(WOOM_TASK_NAME=self.name)
-        env.vars_forward.extend(["WOOM_WORKFLOW_DIR"])  # , "WOOM_SESSION_DIR"])
+        # env.vars_forward.extend(["WOOM_WORKFLOW_DIR"])  # , "WOOM_SESSION_DIR"])
         rundir = self.get_rundir()
         if rundir:
             env.vars_set.update(WOOM_RUNDIR=rundir)

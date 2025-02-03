@@ -141,13 +141,11 @@ class Workflow:
 
         Order with the last crushing the first:
 
-        - [params] scalars
-        - [app] scalars prepended with the "app_" prefix
-        - [cycles] scalars prepended with the "cycles_" prefix
+        - ``[params]`` scalars
+        - ``[app]`` scalars prepended with the "app_" prefix
+        - ``[cycles]`` scalars prepended with the "cycles_" prefix
         - App path and task path
         - Host specific params included directories appended with the "dir" diffix
-        - Task [[<task>]] scalars
-        - Task@Host [[<task>]]/[[[<host>]]] scalars
         - Extra
 
         Parameters
@@ -251,6 +249,7 @@ class Workflow:
 
         # Export paths in task environment variables
         task.env.prepend_paths(**self._paths)
+        task.env.vars_set["WOOM_WORKFLOW_DIR"] = self._workflow_dir
         task.env.vars_set["WOOM_SUBMISSION_DIR"] = submission_dir
         task.env.vars_set["WOOM_LOG_DIR"] = os.path.join(submission_dir, "log")
         task.env.vars_set["WOOM_TASK_NAME"] = task_name
@@ -557,6 +556,20 @@ class Workflow:
                     self.logger.info("Successfully submitted cycle: " + cycle.label)
                 else:
                     self.logger.info("Successfully submitted stage: " + stage)
+
+    def show_overview(self):
+        """Display an overview of the workflow, like its task tree and cycles"""
+        if self._app_path:
+            print("{:#^80}".format(" APP "))
+            for key in ["name", "conf", "exp"]:
+                value = self._config["app"][key]
+                if value:
+                    print(f"{key}: {value}")
+        print("{:#^80}".format(" TASK TREE "))
+        print(str(self._task_tree))
+        print("{:#^80}".format(" CYCLES "))
+        for cycle in self._cycles:
+            print(cycle.label)
 
     def iter_tasks(self):
         """Generator of iterating over the tasks and cycles

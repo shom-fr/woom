@@ -3,10 +3,13 @@
 """
 Jinja text rendering
 """
+import shlex
 
-from jinja2 import Environment
+from jinja2 import Environment, StrictUndefined
 
-JINJA_ENV = Environment()
+from . import util as wutil
+
+JINJA_ENV = Environment(undefined=StrictUndefined)
 
 
 def render(template, *args, **kwargs):
@@ -35,11 +38,18 @@ def register_filters(**kwargs):
 
 def filter_replicate_option(values, opt_name, format="{opt_name}={value}"):
     """Replicate a command line option with values"""
-    print(opt_name, values)
     calls = []
+    if not isinstance(values, list):
+        values = [values]
     for value in values:
+        value = shlex.quote(value)
         calls.append(format.format(**locals()))
     return " ".join(calls)
 
 
-register_filters(replicate_option=filter_replicate_option)
+def filter_strftime(date, format):
+    """Create a :class:`~woom.util.WoomDate` and format it"""
+    return wutil.WoomDate(date).strftime(format)
+
+
+register_filters(replicate_option=filter_replicate_option, strftime=filter_strftime)

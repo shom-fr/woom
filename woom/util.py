@@ -232,22 +232,22 @@ def check_dir(filepath, dry=False, logger=None):
     return filepath
 
 
-def make_latest(path, logger=None):
-    """Create symbolic link to `path` named "latest"""
-    if logger is None:
-        logger = logging.getLogger(__name__)
-    path = os.path.abspath(path)
-    latest = os.path.join(os.path.dirname(path), "latest")
-    if os.path.exists(latest):
-        if os.path.islink(latest):
-            logger.debug(f"Removed link: {latest}")
-            os.remove(latest)
-        else:
-            raise Exception(f"Can't remove since not a link: {latest}")
-    logger.debug(f"Create symbolic link: {path} -> {latest}")
-    os.symlink(path, latest)
-    logger.info(f"Created symbolic link: {path} -> {latest}")
-    return latest
+# def make_latest(path, logger=None):
+#     """Create symbolic link to `path` named "latest"""
+#     if logger is None:
+#         logger = logging.getLogger(__name__)
+#     path = os.path.abspath(path)
+#     latest = os.path.join(os.path.dirname(path), "latest")
+#     if os.path.exists(latest):
+#         if os.path.islink(latest):
+#             logger.debug(f"Removed link: {latest}")
+#             os.remove(latest)
+#         else:
+#             raise Exception(f"Can't remove since not a link: {latest}")
+#     logger.debug(f"Create symbolic link: {path} -> {latest}")
+#     os.symlink(path, latest)
+#     logger.info(f"Created symbolic link: {path} -> {latest}")
+#     return latest
 
 
 class WoomJSONEncoder(json.JSONEncoder):

@@ -53,8 +53,8 @@ def get_parser():
         help="tasks configuration file",
     )
     parser.add_argument("--hosts-cfg", help="hosts configuration file", default="hosts.cfg")
-    parser.add_argument("--host", help="target host")
-    parser.add_argument("--session", help="target session")
+    parser.add_argument("--host", help="target host as described in the hosts configuration file")
+    # parser.add_argument("--session", help="target session")
     parser.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
     parser.add_argument("--end-date", help="end date", type=wconf.is_datetime)
     parser.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
@@ -70,7 +70,7 @@ def get_parser():
     add_parser_run(subparsers)
     add_parser_status(subparsers)
     add_parser_kill(subparsers)
-    # add_parser_sessions(subparsers)
+    add_parser_overview(subparsers)
 
     return parser
 
@@ -197,6 +197,30 @@ def setup_workflow(parser, args):  # , clean):
     return workflow, logger
 
 
+def add_parser_overview(subparsers):
+    # Setup argument parser
+    parser_overview = subparsers.add_parser(
+        "overview",
+        help="show main info like the task tree and cycles",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    wlog.add_logging_parser_arguments(parser_overview, default_level="warning")
+    parser_overview.set_defaults(func=main_overview)
+
+    return parser_overview
+
+
+def main_overview(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)
+
+    # Show the status
+    try:
+        workflow.show_overview()
+    except Exception:
+        logger.exception("Failed to display the overview")
+
+
 def add_parser_run(subparsers):
     # Setup argument parser
     parser_run = subparsers.add_parser(
@@ -217,17 +241,14 @@ def add_parser_run(subparsers):
 
 def main_run(parser, args):
     # Setup the workflow
-    try:
-        workflow, logger = setup_workflow(parser, args)
-    except Exception:
-        logger.exception("Failed setting up the workflow")
+    workflow, logger = setup_workflow(parser, args)
 
     # Run the workflow
     logger.debug("Run the workflow")
     try:
         workflow.run(dry=args.dry_run, update=args.update)
-    except Exception:
-        logger.exception("Workflow failed")
+    except Exception as e:
+        logger.exception(f"Workflow failed: {e.args[0]}")
     else:
         logger.info("Successfully ran the workflow!")
 
@@ -250,10 +271,7 @@ def add_parser_status(subparsers):
 
 def main_status(parser, args):
     # Setup the workflow
-    try:
-        workflow, logger = setup_workflow(parser, args)
-    except Exception:
-        logger.exception("Failed setting up the workflow")
+    workflow, logger = setup_workflow(parser, args)
 
     # Show the status
     try:
@@ -280,10 +298,7 @@ def add_parser_kill(subparsers):
 
 def main_kill(parser, args):
     # Setup the workflow
-    try:
-        workflow, logger = setup_workflow(parser, args)
-    except Exception:
-        logger.exception("Failed to setup the workflow")
+    workflow, logger = setup_workflow(parser, args)
 
     # Show the status
     try:
