@@ -30,6 +30,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxarg.ext",
     "genlogos",
+    "genexamples",
 ]
 
 templates_path = ["_templates"]

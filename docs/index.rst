@@ -8,6 +8,7 @@
 
    install
    cli
+   examples/index
 
 .. toctree::
    :caption: Reference
