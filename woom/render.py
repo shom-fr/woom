@@ -9,6 +9,7 @@ from jinja2 import Environment, StrictUndefined
 
 from . import util as wutil
 
+#: :class:`jinja2.Environment` used to render woom commandline templates
 JINJA_ENV = Environment(undefined=StrictUndefined)
 
 

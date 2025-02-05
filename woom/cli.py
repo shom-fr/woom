@@ -261,6 +261,9 @@ def add_parser_status(subparsers):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_status.add_argument(
+        "-r", "--running", help="show only running jobs", action="store_true"
+    )
+    parser_status.add_argument(
         "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
     )
     wlog.add_logging_parser_arguments(parser_status, default_level="warning")
@@ -275,7 +278,7 @@ def main_status(parser, args):
 
     # Show the status
     try:
-        workflow.show_status(args.tablefmt)
+        workflow.show_status(tablefmt=args.tablefmt, running=args.running)
     except Exception:
         logger.exception("Failed querying the status")
 

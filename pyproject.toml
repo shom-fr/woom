@@ -1,12 +1,16 @@
 [project]
+name = "woom"
+description = "Workflow manager for ocean models"
 authors = [
   {name = "Stephane Raynaud", email = "stephane.raynaud@shom.fr"},
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Intended Audience :: Science/Research",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
@@ -15,19 +19,19 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Physics",
   "Topic :: Scientific/Engineering :: Atmospheric Science",
+  "Topic :: Scientific/Engineering :: Oceanography",
 ]
-description = "workflow manager for ocean models"
 dynamic = ["version"]
 license = {text = "Apache-2.0"}
-name = "woom"
 readme = "README.rst"
 requires-python = ">=3.9"
 dependencies = [
   "colorlog",
   "configobj",
   "pandas",
-  "platformdirs"
-  "psutil"
+  "platformdirs",
+  "psutil",
+  "tabulate",
 ]
 
 [project.urls]

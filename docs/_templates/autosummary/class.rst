@@ -7,6 +7,18 @@
    {% block methods %}
    .. automethod:: __init__
 
+   {% block attributes %}
+   {% if attributes %}
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree:
+   {% for item in attributes %}
+      ~{{ name }}.{{ item }}
+   {%- endfor %}
+   {% endif %}
+   {% endblock %}
+
    {% if methods %}
    .. rubric:: Methods
 
@@ -16,18 +28,6 @@
       {% if item != "__init__" %}
          ~{{ name }}.{{ item }}
       {% endif %}
-   {%- endfor %}
-   {% endif %}
-   {% endblock %}
-
-   {% block attributes %}
-   {% if attributes %}
-   .. rubric:: Attributes
-
-   .. autosummary::
-      :toctree:
-   {% for item in attributes %}
-      ~{{ name }}.{{ item }}
    {%- endfor %}
    {% endif %}
    {% endblock %}

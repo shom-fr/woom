@@ -16,6 +16,7 @@ from . import WoomError
 from . import conf as wconf
 from . import util as wutil
 from . import tasks as wtasks
+from . import job as wjob
 
 CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "workflow.ini")
 
@@ -142,17 +143,17 @@ class Workflow:
         Order with the last crushing the first:
 
         - ``[params]`` scalars
-        - ``[app]`` scalars prepended with the "app_" prefix
-        - ``[cycles]`` scalars prepended with the "cycles_" prefix
+        - ``[app]`` scalars prepended with the `"app_"` prefix
+        - ``[cycles]`` scalars prepended with the `"cycles_"` prefix
         - App path and task path
-        - Host specific params included directories appended with the "dir" diffix
+        - Host specific params included directories appended with the `"dir"` diffix
         - Extra
 
         Parameters
         ----------
         task_name: str
             A valid task name
-        cycle: woom.utils.Cycle, None
+        cycle: woom.util.Cycle, str, None
             Current cycle or None
         extra_params: dict
             Extra parameters to include in params
@@ -184,7 +185,9 @@ class Workflow:
 
         # Task specific params
         if task_name in self._config["params"]["tasks"]:
-            task_params = wconf.strip_out_sections(self._config["params"]["tasks"][task_name]).dict()
+            task_params = wconf.strip_out_sections(
+                self._config["params"]["tasks"][task_name]
+            ).dict()
             env_vars.update((key.upper(), value) for key, value in task_params.items())
             params.update(task_params)
 
@@ -195,7 +198,9 @@ class Workflow:
 
         # Host specific params
         if self.host.name in self._config["params"]["hosts"]:
-            host_params = wconf.strip_out_sections(self._config["params"]["hosts"][self.host.name]).dict()
+            host_params = wconf.strip_out_sections(
+                self._config["params"]["hosts"][self.host.name]
+            ).dict()
             env_vars.update((key.upper(), value) for key, value in host_params.items())
             params.update(host_params)
 
@@ -374,12 +379,26 @@ class Workflow:
         self.logger.debug(content)
         return jobid
 
-    def get_task_status(self, task_name, cycle=None, as_id=False):
+    def get_task_status(self, task_name, cycle=None):
+        """Get the job status of a task
+
+        Return
+        ------
+        woom.job.JobStatus
+            Job status
+        """
         submission_dir = self.get_submission_dir(task_name, cycle, create=False)
 
         # Not submitted
         if not os.path.exists(submission_dir):
-            return "NOTSUBMIT"
+            return wjob.JobStatus["NOTSUBMITTED"]
+
+        # Job info
+        json_file = os.path.join(submission_dir, "job.json")
+        if os.path.exists(json_file):
+            job = self.jobmanager.load_job(json_file, append=False)
+        else:
+            return wjob.JobStatus["NOTSUBMITTED"]
 
         # Finish with success
         status_file = os.path.join(submission_dir, "job.status")
@@ -387,18 +406,15 @@ class Workflow:
             with open(status_file) as f:
                 status = int(f.read())
             if status:
-                return "ERROR"
+                status = wjob.JobStatus["ERROR"]
             else:
-                return "SUCCESS"
+                status = wjob.JobStatus["SUCCESS"]
+            status.jobid = job.jobid
+            return status
 
-        # Running
-        json_file = os.path.join(submission_dir, "job.json")
-        if os.path.exists(json_file):
-            job = self.jobmanager.load_job(json_file, append=False)
-            if job.is_running():
-                return "RUNNING" if not as_id else job.jobid
+        # Running or killed
 
-        return "UNKNOWN"
+        return job.get_status()
 
     def clean_task(self, task_name, cycle=None):
         """Remove job specific files for this task
@@ -496,21 +512,23 @@ class Workflow:
                             self.logger.debug(f"Dealing with task: {long_task}")
 
                             # Check status
-                            status = self.get_task_status(task_name, cycle, as_id=True)
-                            if status.isdigit():
+                            status = self.get_task_status(task_name, cycle)
+                            if status.is_running():
                                 raise WorkFlowError(
-                                    "Can't run a task that is already running. Aborting... Run 'woom kill {status}' to kill the associated job before re-running."
+                                    "Can't run a task that is already running. Aborting... Run 'woom kill {status.jobid}' to kill the associated job before re-running."
                                 )
 
                             if update:
 
-                                if status in "SUCCESS":
+                                if status.name is wjob.JobStatus.SUCCESS:
                                     self.logger.debug(f"Skip update of task: {long_task}")
                                     continue
 
-                                elif status == "ERROR":
-                                    self.logger.warning("Existing job task led to error. Re-running...")
-                                elif status == "UNKNOWN":
+                                elif status is wjob.JobStatus.ERROR:
+                                    self.logger.warning(
+                                        "Existing job task led to error. Re-running..."
+                                    )
+                                elif status is wjob.JobStatus.UNKNOWN:
                                     self.logger.warning(
                                         "Unknown status for existing task job task. Re-running..."
                                     )
@@ -598,21 +616,43 @@ class Workflow:
         for task_name, cycle in self.iter_tasks():
             yield self.get_submission_dir(task_name, cycle, create=False)
 
-    def get_status(self):
-        """Get the workflow task status as a :class:`pandas.DataFrame`"""
+    def get_status(self, running=False):
+        """Get the workflow task status as a :class:`pandas.DataFrame`
+
+        Parameters
+        ----------
+        running: bool
+            Select only running jobs
+
+        Return
+        ------
+        pandas.DataFrame
+        """
         data = []
         # index = []
-        columns = ["STATUS/JOBID", "TASK", "CYCLE", "SUBMISSION DIR"]
+        columns = ["STATUS", "JOBID", "TASK", "CYCLE", "SUBMISSION DIR"]
         for task_name, cycle in self:
-            status = self.get_task_status(task_name, cycle, as_id=True)
+            status = self.get_task_status(task_name, cycle)
+            if running and not status.is_running():
+                continue
             submdir = self.get_submission_dir(task_name, cycle)[len(self._workflow_dir) + 1 :]
-            row = [status, task_name, cycle, submdir]
+            row = [status.name, status.jobid, task_name, cycle, submdir]
             data.append(row)
         return pd.DataFrame(data, columns=columns)
 
-    def show_status(self, tablefmt="rounded_outline"):
-        """Show the status of all the tasks of the wokflow"""
-        print(self.get_status().to_markdown(index=False, tablefmt=tablefmt))
+    def show_status(self, running=False, tablefmt="rounded_outline"):
+        """Show the status of all the tasks of the wokflow
+
+        Parameters
+        ----------
+        running: bool
+            Show only running jobs
+        """
+        print(
+            self.get_status(
+                running=running,
+            ).to_markdown(index=False, tablefmt=tablefmt)
+        )
 
     def kill(self, jobid=None, task_name=None, cycle=None):
         """Kill all running jobs specific to this workflow
@@ -645,8 +685,10 @@ class Workflow:
                 if jobids and job.jobid not in jobids:
                     continue
                 if job.is_running():
-                    self.logger.debug(f"Killing jobid: {jobid} ({task_path})")
+                    self.logger.debug(f"Killing jobid: {job.jobid} ({task_path})")
                     job.kill()
-                    self.logger.warning(f"Killed jobid: {jobid} ({task_path})")
+                    self.logger.warning(f"Killed jobid: {job.jobid} ({task_path})")
+                    job.status = wjob.JobStatus.KILLED
+                    job.dump(json_file)
         else:
             self.logger.info("No job to kill")

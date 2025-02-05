@@ -19,7 +19,7 @@ def genlogo(outfile, dark=False):
     """Generate a woom logo and save it"""
     font = "Cantarell"
     # font = "Noto sans"
-    width, height = (6, 2.7)
+    width, height = (5, 2.7)
 
     if dark:
         fontcolor = "w"
@@ -33,20 +33,21 @@ def genlogo(outfile, dark=False):
         kw = dict(
             family="sans-serif",
             size=100,
-            color=fontcolor,
+            # color=fontcolor,
             va="center_baseline",
             weight="extra bold",
             transform=ax.transAxes,
         )
-        ax.text(0.05, 0.515, "W", ha="left", **kw)
-        ax.text(0.95, 0.515, "OM", ha="right", **kw)
+        ax.text(0.05, 0.515, "W", ha="left", color=fontcolor, **kw)
+        ax.text(0.5, 0.515, "O", ha="center", color=circlecolor, **kw)
+        ax.text(0.95, 0.515, "M", ha="right", color=fontcolor, **kw)
         ax.set_xlim(0, width)
         ax.set_ylim(0, height)
 
         clip_height = 0.26
         for y0 in (0, 1 - clip_height):
             circle = mpatches.Circle(
-                (0.43 * width, height / 2),
+                (0.5 * width, height / 2),
                 radius=height * 0.5 * 0.81,
                 facecolor="none",
                 linewidth=14,

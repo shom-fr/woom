@@ -272,14 +272,17 @@ class Task:
         return str(self.env)
 
     def get_rundir(self):
-        """Get the run directory"""
+        """Get the run directory
+
+        It supports with jinja rendering as with the command line
+        """
         rundir = self.config["content"]["rundir"]
         if rundir is None:
             return ""
         if rundir == "current":
             rundir = os.getcwd()
-        elif "{" in rundir:
-            rundir = rundir.format(**self.params)
+        else:
+            rundir = wrender.render(rundir, **self.params)
         return rundir.strip()
 
     def export_rundir(self):

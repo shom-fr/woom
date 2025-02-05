@@ -7,6 +7,7 @@
    :hidden:
 
    install
+   quick
    cli
    examples/index
 

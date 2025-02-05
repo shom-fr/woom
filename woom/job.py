@@ -24,13 +24,37 @@ logger = logging.getLogger(__name__)
 
 
 class JobStatus(Enum):
-    UNKOWN = -1
-    FINISHED = 0
+    FAILED = -6
+    ERROR = -5
+    SUCCESS = -4
+    KILLED = -3
+    NOTSUBMITTED = -2
+    FINISHED = -1
+    UNKNOWN = 0
     PENDING = 1
     RUNNING = 2
     INQUEUE = 3
     EXITING = 4
     COMPLETING = 5
+
+    def is_running(self):
+        return self.value > 0
+
+    def is_not_running(self):
+        return self.value < 0
+
+    def is_unknown(self):
+        return self.value == 0
+
+    @property
+    def jobid(self):
+        if not hasattr(self, "_jobid"):
+            self._jobid = ""
+        return self._jobid
+
+    @jobid.setter
+    def jobid(self, jobid):
+        self._jobid = jobid
 
 
 # %% Background processes
@@ -62,6 +86,7 @@ class Job:
         jobid=None,
         # session=None,
         submission_date=None,
+        status="UNKNOWN",
         # submission_dir=None,
         # token=None,
         subproc=None,
@@ -72,7 +97,6 @@ class Job:
         self.jobid = jobid
         self.script = script
         self.args = args
-        self.status = JobStatus.UNKOWN
         self.realqueue = None
         self.time = None
         self.memory = None
@@ -81,6 +105,10 @@ class Job:
         # self.submission_dir = submission_dir
         # self.token = token
         self.subproc = subproc
+        if isinstance(status, str):
+            status = JobStatus[status]
+        self.status = status
+        self.status.jobid = jobid
 
     @classmethod
     def load(cls, manager, json_file, append=True):
@@ -94,7 +122,7 @@ class Job:
             args=content["args"],
             jobid=content["jobid"],
             queue=content["queue"],
-            # session=content["session"],
+            status=content["status"],
             submission_date=content["submission_date"],
             # submission_dir=content["submission_dir"],
             # token=content["token"],
@@ -103,7 +131,7 @@ class Job:
             manager.jobs.append(job)
         return job
 
-    def dump(self):
+    def dump(self, json_file=None):
         """Export to json in session's cache"""
         jobdict = self.to_dict()
         # if not jobdict["name"] and not jobdict["token"]:
@@ -115,7 +143,8 @@ class Job:
         # json_file = jobdict["name"]
         # json_file += ".json"
         # with self.session.open_file("jobs", json_file, "w") as f:
-        json_file = os.path.splitext(self.script)[0] + ".json"
+        if json_file is None:
+            json_file = os.path.splitext(self.script)[0] + ".json"
         # with self.session.open_file("jobs", json_file, "w") as f:
         with open(json_file, "w") as f:
             json.dump(jobdict, f, indent=4, cls=wutil.WoomJSONEncoder)
@@ -138,29 +167,48 @@ class Job:
             pid = self.jobid
         return psutil.Process(int(pid))
 
-    def get_status(self):
-        """Query the status"""
-        try:
-            self._get_proc_()
-            self.status = JobStatus.RUNNING
-        except psutil.NoSuchProcess:
-            self.status = JobStatus.UNKOWN
-        return self.status
+    def query_status(self):
+        """Query the status
 
-    def update_status(self, status=None):
-        """Change de job status of this instance"""
-        if status is None:
-            status = self.get_status()
-        if status is None:
-            return
+        .. warning:: It does not update the status! It is just a query.
+        """
+        try:
+            proc = self._get_proc_()
+            status = JobStatus.RUNNING
+            status.jobid = str(proc.pid)
+        except psutil.NoSuchProcess:
+            status = JobStatus.UNKNOWN
+            status.jobid = self.jobid
+        return status
+
+    def get_status(self, fallback=None):
+        """Query and set the status of this job"""
+        return self.set_status(self.query_status(), fallback=fallback)
+
+    def set_status(self, status, fallback=None):
+        """Set the status of this job without query
+
+        Don't update with unknown state if the job is supposed to be finished.
+        """
+        if isinstance(status, str):
+            status = JobStatus[status.upper()]
         if isinstance(status, JobStatus):
-            self.status = status
+            status = status
+            status.jobid = self.jobid
         else:  # dict
-            self.jobid = status["jobid"]
+            assert self.jobid == status["jobid"]
             self.realqueue = status["queue"]
-            self.status = status["status"]
+            status = status["status"]
+            self.status.jobid = status["jobid"]
             self.time = status["time"]
+        status.jobid = self.jobid
+
+        if status.is_unknown() and self.status.is_not_running():
+            return self.status
+
+        self.status = status
         self.dump()
+        return self.status
 
     def is_running(self):
         try:
@@ -172,17 +220,18 @@ class Job:
     def kill(self):
         if self.is_running():
             self._get_proc_().kill()
+            self.set_status("KILLED")
 
     def wait(self):
         if self.is_running():
             p = self._get_proc_()
             logger.debug(f"Waiting for process to finish: {p.pid}")
-            status = p.wait()
-            if status:
-                logger.error(f"Finished with exit status: {status}")
+            exit_status = p.wait()
+            if exit_status:
+                logger.error(f"Finished with exit status: {exit_status}")
             else:
                 logger.debug("Ok, finished!")
-            return status
+            return exit_status
 
     @classmethod
     def get_overview_header(cls):
@@ -329,7 +378,7 @@ class BackgroundJobManager(object):
 
         Parameters
         ----------
-        jobids: list(str), None
+        jobids: list(str), str, None
             Explicit list of job ids. `name` and `queue` are ignored when `jobids` is used.
         name: str, None
             Select jobs from name
@@ -338,10 +387,8 @@ class BackgroundJobManager(object):
 
         Return
         ------
-        jobs
+        list(Job)
             List of :class:`Job` objects
-        jobids
-            List of job ids
         """
         jobs = []
         if jobids:
@@ -357,7 +404,9 @@ class BackgroundJobManager(object):
                     jobs.append(job)
         elif queue:
             for job in self.jobs:
-                if (name is not None and job.name != name) or (queue is not None and job.queue != queue):
+                if (name is not None and job.name != name) or (
+                    queue is not None and job.queue != queue
+                ):
                     continue
                 jobs.append(job)
         else:
@@ -389,22 +438,20 @@ class BackgroundJobManager(object):
     # jobids = [job.jobid for job in jobs if job.jobid is not None]
     # return jobs, jobids
 
-    def update_status(self, jobids=None, name=None, queue=None):
-        """Query status"""
-        jobs = self.get_jobs(jobids=jobids, name=name, queue=queue)
-        for job in jobs:
-            job.update_status()
-        return jobs
-
-    def get_status(self, jobids=None, name=None, queue=None):
+    def get_status(self, jobids=None, name=None, queue=None, fallback=None):
         """Update and return jobs status
 
         Return
         ------
         list(Job)
         """
-        jobs = self.update_status(jobids=jobids, name=name, queue=queue)
-        return [job.status for job in jobs]
+        jobs = self.get_jobs(jobids=jobids, name=name, queue=queue)
+        return [job.get_status(fallack=fallback) for job in jobs]
+
+    def set_status(self, jobids=None, name=None, queue=None, fallback=None):
+        """Query status"""
+        jobs = self.get_jobs(jobids=jobids, name=name, queue=queue)
+        return [job.set_status(fallback=fallback) for job in jobs]
 
     def get_overview(self, jobids=None, name=None, queue=None):
         jobs = self.update_status(jobids=jobids, name=name, queue=queue)
@@ -541,31 +588,44 @@ class BackgroundJobManager(object):
             logger.debug("Job status stdout: " + res.stdout.decode("utf-8", errors="ignore"))
         return res.stdout.decode("utf-8", errors="ignore")
 
-    def delete(self):
-        self.check_status()
-        cond = input("Do you really want to delete the jobs listed hereabove ?(yes/no)")
-        if cond == "yes":
-            for job in self.jobs:
-                job.kill()
-
-    def delete_force(self):
-        self.check_status()
-        for job in self.jobs:
+    def kill(self, jobids=None, name=None, queue=None):
+        for job in self.get_jobs(jobids=jobids, name=name, queue=queue):
             job.kill()
+        # cond = input("Do you really want to delete the jobs listed hereabove ?(yes/no)")
+        # if cond == "yes":
+        #     for job in self.jobs:
+        #         job.kill()
+
+    delete = kill
 
 
 # %% With scheduler
 
 
 class ScheduledJob(Job):
-    def get_status(self):
-        return self.manager.get_status(self)
+    def query_status(self):
+        """Query status for a single job"""
+        args = self.manager._extra_status_args_(
+            self.manager.get_command_args("status", jobid=self.jobid)
+        )
+        logger.debug("Get status: " + " ".join(args))
+        res = subprocess.run(args, capture_output=True, check=True)
+        logger.debug("Got status")
+        if not res.returncode:
+            return "UNKNOWN"
+        return self.manager._parse_status_res_(res)[0]
 
     def is_running(self):
-        return self.get_status() is JobStatus.RUNNING
+        return self.get_status().is_running()
 
     def wait(self):
         pass
+
+    def kill(self):
+        args = self.manager.get_command_args("delete", force="-W force", jobid=self.jobid)
+        res = subprocess.run(args, capture_output=True, check=True)
+        if not res.returncode:
+            self.set_status("KILLED")
 
 
 class _Scheduler_(BackgroundJobManager):
@@ -623,46 +683,12 @@ class _Scheduler_(BackgroundJobManager):
         # self.check_status(show=False)
         return job
 
-    def update_status(self, jobids=None, name=None, queue=None):
-        """Query status"""
-        jobs = self.get_jobids(jobids=jobids, name=name, queue=queue)
-        jobids = [job.id for job in jobs]
-        args = self._extra_status_args_(self.get_command_args("status", jobid=self.jobid_sep.join(jobids)))
-        if args:
-            logger.debug("Get status: " + " ".join(args))
-            res = subprocess.run(args, capture_output=True, check=True)
-            logger.debug("Got status")
-            status_list = self._parse_status_res_(res)
-        if status_list:
-            for status in status_list:
-                self.get_job(status["jobid"]).update_status(status)
-
     def _parse_status_res_(self, res):
         if res.stderr:
             logger.debug("Job status stderr: " + res.stderr.decode("utf-8", errors="ignore"))
         if res.stdout:
             logger.debug("Job status stdout: " + res.stdout.decode("utf-8", errors="ignore"))
         return res.stdout.decode("utf-8", errors="ignore")
-
-    def delete(self):
-        self.update_status()
-        cond = input("Do you really want to delete the jobs listed hereabove ?(yes/no)")
-        if cond == "yes":
-            args = self.get_command_args(
-                "delete",
-                force="-W force",
-                jobid=self.jobid_sep.join([job.jobid for job in self.jobs]),
-            )
-            print(args)
-            subprocess.run(args, capture_output=True, check=True)
-
-    def delete_force(self):
-        self.check_status()
-        args = self.get_command_args(
-            "delete",
-            jobid=self.jobid_sep.join([job.jobid for job in self.jobs]),
-        )
-        subprocess.run(args, capture_output=True, check=True)
 
 
 class PbsproJobManager(_Scheduler_):
@@ -716,8 +742,10 @@ class PbsproJobManager(_Scheduler_):
     def _parse_submit_job_(job, stdout):
         # job.jobid = job.subproc.stdout.read().decode("utf-8", errors="ignore").split(".")[0]
         job.jobid = stdout.split(".")[0]
+        job.status.jobid = job.jobid
 
     def _extra_status_args_(self, args):
+        "useful?"
         args.append("-x")
         args.append("-u $LOGNAME")
         return args
@@ -755,13 +783,15 @@ class PbsproJobManager(_Scheduler_):
                 else:
                     hh, mm, ss = hms
                 elaptime = datetime.timedelta(seconds=int(ss), minutes=int(mm), hours=int(hh))
+            jobid = jobid.split(".")[0]
             if status in self.status_names:
                 status = self.status_names[status]
             else:
-                status = JobStatus.UNKOWN
+                status = JobStatus.UNKNOWN
+            status.jobid = jobid
             out.append(
                 {
-                    "jobid": jobid.split(".")[0],
+                    "jobid": jobid,
                     "queue": queue,
                     "name": name,
                     "time": elaptime,
@@ -828,6 +858,7 @@ class SlurmJobManager(_Scheduler_):
     @staticmethod
     def _parse_submit_job_(job, stdout):
         job.jobid = stdout.split()[-1]
+        job.status.jobid = job.jobid
         # job.jobid = job.subproc.stdout.read().decode("utf-8", errors="ignore").split()[-1]
 
     def _parse_status_res_(self, res):
@@ -860,7 +891,8 @@ class SlurmJobManager(_Scheduler_):
                 if status in self.status_names:
                     status = self.status_names[status]
                 else:
-                    status = JobStatus.UNKOWN
+                    status = JobStatus.UNKNOWN
+                status.jobid = jobid
                 out.append(
                     {
                         "jobid": jobid,

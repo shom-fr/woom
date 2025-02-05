@@ -76,16 +76,15 @@ class Cycle(collections.UserDict):
 
         # Label
         if self.is_interval:
-            self.label = f"{self.begin_date} -> {self.end_date} ({self.duration})"
+            self.label = f"{self.begin_date.isoformat()} -> {self.end_date.isoformat()} ({self.duration}.isoformat())"
         else:
-            self.label = str(self.begin_date)
+            self.label = self.begin_date.isoformat()
 
         # Token
-        fmt = "%Y%m%dT%H%M%S"
         if self.is_interval:
-            self.token = f"{self.begin_date:{fmt}}-{self.end_date:{fmt}}"
+            self.token = f"{self.begin_date.isoformat()}-{self.end_date.isoformat()}"
         else:
-            self.token = f"{self.begin_date:{fmt}}"
+            self.token = f"{self.begin_date.isoformat()}"
 
     def __str__(self):
         return self.token
@@ -179,11 +178,19 @@ def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):
 
 class WoomDate(pd.Timestamp):
 
-    re_match_since = re.compile(r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I).match
+    re_match_since = re.compile(
+        r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I
+    ).match
     # re_match_add = re.compile(r"^([+\-].+)$").match
 
     def __new__(cls, date, round=None):
-        date = pd.to_datetime(date, utc=True)
+        if isinstance(date, str) and date in ["now", "today"]:
+            utc = True
+        else:
+            utc = False
+        date = pd.to_datetime(date, utc=utc)
+        if utc:
+            date = date.tz_localize(None)
         if round:
             date = date.round(round)
         instance = super().__new__(cls, date)
@@ -194,7 +201,9 @@ class WoomDate(pd.Timestamp):
         m = self.re_match_since(spec)
         if m:
             units, origin = m.groups()
-            return "{:g}".format((self - pd.to_datetime(origin, utc=True)) / pd.to_timedelta(1, units))
+            return "{:g}".format(
+                (self - pd.to_datetime(origin, utc=True)) / pd.to_timedelta(1, units)
+            )
 
         return super().__format__(spec)
 

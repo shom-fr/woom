@@ -19,7 +19,7 @@ https://apps.shom.fr/woom
 Sources
 -------
 
-Sources are available on the woom github page:
+Sources are available on the woom gitlab page:
 https://gitlab.com/GitShom/STM/woom
 
 License

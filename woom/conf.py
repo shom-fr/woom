@@ -15,33 +15,46 @@ try:
 except ImportError:
     import validate
 
+from .__init__ import WoomError
 from . import util as wutil
 
 CACHE = {"cfgspecs": {}}
 
 
-class ConfigError(Exception):
+class WoomConfigError(WoomError):
     pass
 
 
 def is_path(value):
+    """Convert to :class:`pathlib.Path`"""
     if value is None:
         return
-    return pathlib.Path(value)
+    try:
+        return pathlib.Path(value)
+    except Exception as e:
+        raise WoomConfigError("Can't convert config value to path: " + e.args[0])
 
 
 def is_datetime(value, round=None):
+    """Convert to :class:`pandas.Timestamp`"""
     if value is None:
         return
     # utc = validate.is_boolean(utc)
     round = None if str(round).lower() == "none" else round
-    return wutil.WoomDate(value, round=round)
+    try:
+        return wutil.WoomDate(value, round=round)
+    except Exception as e:
+        raise WoomConfigError("Can't convert config value to datetime: " + e.args[0])
 
 
 def is_timedelta(value):
+    """Convert to :class:`pandas.Timedelta`"""
     if value is None:
         return
-    return pd.to_timedelta(value)
+    try:
+        return pd.to_timedelta(value)
+    except Exception as e:
+        raise WoomConfigError("Can't convert config value to timedelta: " + e.args[0])
 
 
 VALIDATOR_FUNCTIONS = {
@@ -62,7 +75,9 @@ def get_cfgspecs(cfgspecsfile):
     """Get a configuration specification instance"""
     name = pathlib.Path(cfgspecsfile).stem
     if name not in CACHE["cfgspecs"]:
-        CACHE["cfgspecs"][name] = configobj.ConfigObj(cfgspecsfile, interpolation=False, list_values=False)
+        CACHE["cfgspecs"][name] = configobj.ConfigObj(
+            str(cfgspecsfile), interpolation=False, list_values=False
+        )
     return CACHE["cfgspecs"][name]
 
 
@@ -81,7 +96,7 @@ def load_cfg(cfgfile, cfgspecsfile, list_values=True):
         msg = f"Error while validating config: {cfgfile}\n"
         msg += pprint.pformat(success)
         logging.getLogger(__name__).error(msg)
-        raise ConfigError(msg)
+        raise WoomConfigError(msg)
     return cfg
 
 
