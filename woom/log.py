@@ -53,7 +53,7 @@ DEFAULT_LOGGING_CONFIG = {
 }
 
 
-def setup_logging(console_level=None, to_file=True, no_color=False, show_init_msg=False, **kwargs):
+def setup_logging(console_level=None, to_file=True, no_color=False, show_init_msg=True, **kwargs):
     """Setup the logging"""
 
     #    for handler in logging.root.handlers:
@@ -79,7 +79,7 @@ def setup_logging(console_level=None, to_file=True, no_color=False, show_init_ms
     # Load it
     logging.config.dictConfig(logging_config)
     if show_init_msg:
-        logging.getLogger(__name__).debug("*** INITIALISED LOGGING SESSION ***")
+        logging.getLogger(__name__).debug("*** STARTED LOG SESSION ***")
 
 
 def add_logging_parser_arguments(parser, default_level="info"):

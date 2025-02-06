@@ -302,7 +302,7 @@ class Task:
             "memory": self.config["submit"]["memory"],
             "time": self.config["submit"]["time"],
             "mail": self.config["submit"]["mail"],
-            "log_out": self.config["submit"]["log_out"],
+            # "log_out": self.config["submit"]["log_out"],
             "extra": self.config["submit"]["extra"].dict(),
         }
         if self.config["submit"]["queue"]:

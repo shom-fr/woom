@@ -396,7 +396,7 @@ class Workflow:
         # Job info
         json_file = os.path.join(submission_dir, "job.json")
         if os.path.exists(json_file):
-            job = self.jobmanager.load_job(json_file, append=False)
+            job = self.jobmanager.load_job(json_file, append=True)
         else:
             return wjob.JobStatus["NOTSUBMITTED"]
 
@@ -413,7 +413,7 @@ class Workflow:
             return status
 
         # Running or killed
-
+        print('www job status', job.jobid)
         return job.get_status()
 
     def clean_task(self, task_name, cycle=None):
@@ -519,7 +519,6 @@ class Workflow:
                                 )
 
                             if update:
-
                                 if status.name is wjob.JobStatus.SUCCESS:
                                     self.logger.debug(f"Skip update of task: {long_task}")
                                     continue
@@ -632,6 +631,7 @@ class Workflow:
         # index = []
         columns = ["STATUS", "JOBID", "TASK", "CYCLE", "SUBMISSION DIR"]
         for task_name, cycle in self:
+            print("www get_task_status", task_name, cycle)
             status = self.get_task_status(task_name, cycle)
             if running and not status.is_running():
                 continue
@@ -681,14 +681,16 @@ class Workflow:
             task_path = self.get_task_path(task_name_, cycle_)
             json_file = os.path.join(submdir, "job.json")
             if os.path.exists(json_file):
-                job = self.jobmanager.load_job(json_file, append=False)
+                job = self.jobmanager.load_job(json_file, append=True)
                 if jobids and job.jobid not in jobids:
                     continue
                 if job.is_running():
                     self.logger.debug(f"Killing jobid: {job.jobid} ({task_path})")
                     job.kill()
-                    self.logger.warning(f"Killed jobid: {job.jobid} ({task_path})")
-                    job.status = wjob.JobStatus.KILLED
-                    job.dump(json_file)
+                    # job.set_status("KILLED")
+                    msg = f"Killed jobid: {job.jobid} ({task_path})"
+                    self.logger.debug(msg)
+                    print(msg)
+
         else:
             self.logger.info("No job to kill")

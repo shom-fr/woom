@@ -76,7 +76,9 @@ class Cycle(collections.UserDict):
 
         # Label
         if self.is_interval:
-            self.label = f"{self.begin_date.isoformat()} -> {self.end_date.isoformat()} ({self.duration}.isoformat())"
+            self.label = (
+                f"{self.begin_date.isoformat()} -> {self.end_date.isoformat()} ({self.duration})"
+            )
         else:
             self.label = self.begin_date.isoformat()
 
@@ -177,7 +179,6 @@ def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):
 
 
 class WoomDate(pd.Timestamp):
-
     re_match_since = re.compile(
         r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I
     ).match
