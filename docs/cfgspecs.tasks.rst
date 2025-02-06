@@ -1,3 +1,5 @@
+.. _cfgspecs.tasks:
+
 Tasks configuration specifications
 ==================================
 

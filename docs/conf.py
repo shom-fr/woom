@@ -31,6 +31,7 @@ extensions = [
     "sphinxarg.ext",
     "genlogos",
     "genexamples",
+    "sphinxcontrib.programoutput"
 ]
 
 templates_path = ["_templates"]

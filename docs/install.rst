@@ -11,21 +11,19 @@ shoot requires ``python>3`` and depends on the following packages:
 .. list-table::
    :widths: 10 90
 
-   * - `matplotlib <https://matplotlib.org/>`_
-     - Matplotlib is a comprehensive library for creating static, animated,
-       and interactive visualizations in Python.
-   * - `numba <https://numba.pydata.org/>`_
-     - A high performance python compiler.
-   * - `scipy <https://www.scipy.org/scipylib/index.html>`_
-     - Scipy provides many user-friendly and efficient numerical routines,
-       such as routines for numerical integration, interpolation,
-       optimization, linear algebra, and statistics.
-   * - `xarray <http://xarray.pydata.org/en/stable/>`_
-     - xarray is an open source project and Python package that makes working
-       with labelled multi-dimensional arrays simple, efficient, and fun!
-   * - `xoa <https://xoa.readthedocs.io/en/develop/>`_
-     - xoa helps analyzing ocean fields
-
+   * - `pandas <https://pandas.pydata.org/>`_
+     - :mod:`pandas` is an open source, BSD-licensed library providing high-performance, easy-to-use data structures and data analysis tools for the Python programming language.
+   * - `configobj <https://configobj.readthedocs.io/en/latest/configobj.html>`_
+     - :mod:`configobj` is a simple but powerful config file reader and writer:
+       an ini file round-tripper.
+   * - `platformdirs <https://platformdirs.readthedocs.io/en/latest/>`_
+     - :mod:`platformdirs` is a library to determine platform-specific system directories. This includes directories where to place cache files, user data, configuration, etc..
+   * - `colorlog <https://pypi.org/project/colorlog/>`_
+     - Add colours to the output of Python's logging module.
+   * - `psutil <https://psutil.readthedocs.io/en/latest/>`_
+     - :mod:`psutil` (python system and process utilities) is a cross-platform library for retrieving information on running processes and system utilization (CPU, memory, disks, network, sensors) in Python.
+   * - `tabulate <https://github.com/astanin/python-tabulate>`_
+     - Pretty-print tabular data in Python, a library and a command-line utility. Repository migrated from bitbucket.org/astanin/python-tabulate.
 
 
 From sources

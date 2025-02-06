@@ -413,7 +413,6 @@ class Workflow:
             return status
 
         # Running or killed
-        print('www job status', job.jobid)
         return job.get_status()
 
     def clean_task(self, task_name, cycle=None):
@@ -631,7 +630,6 @@ class Workflow:
         # index = []
         columns = ["STATUS", "JOBID", "TASK", "CYCLE", "SUBMISSION DIR"]
         for task_name, cycle in self:
-            print("www get_task_status", task_name, cycle)
             status = self.get_task_status(task_name, cycle)
             if running and not status.is_running():
                 continue

@@ -1,3 +1,5 @@
+.. _cfgspecs.workflow:
+
 Workflow configuration specifications
 =====================================
 
