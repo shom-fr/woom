@@ -13,23 +13,21 @@ from . import util as wutil
 JINJA_ENV = Environment(undefined=StrictUndefined)
 
 
-def render(template, *args, **kwargs):
+def render(template, params):
     """Render this text with ninja
 
     Parameters
     ----------
     text: str
         Input template
-    *args: tuple
-        Objects used for filling
-    **kwargs: dict
+    params: dict
         Objects used for filling
 
     Return
     ------
     str
     """
-    return JINJA_ENV.from_string(template).render(*args, **kwargs)
+    return JINJA_ENV.from_string(template).render(**params)
 
 
 def register_filters(**kwargs):

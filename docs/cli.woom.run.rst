@@ -10,4 +10,5 @@
 Example
 -------
 
-.. command-output:: woom --workflow-cfg ../examples/all_stages/workflow.cfg --tasks-cfg ../examples/all_stages/tasks.cfg run --log-no-color
+.. command-output:: woom run --log-no-color
+    :cwd: ../examples/all_stages

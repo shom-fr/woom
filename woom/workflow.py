@@ -246,11 +246,7 @@ class Workflow:
         wutil.check_dir(script_path, dry=self._dry, logger=self.logger)
 
         # Create task
-        # task_token = self.get_task_path(task_name, "-")
-        # if cycle:
-        # task_token = "-".join([task_token, cycle.token])
-        # params["task_token"] = task_token
-        task = self.taskmanager.get_task(task_name, params)  # , task_token)
+        task = self.taskmanager.get_task(task_name)
 
         # Export paths in task environment variables
         task.env.prepend_paths(**self._paths)
@@ -264,7 +260,6 @@ class Workflow:
         for key in "app_name", "app_conf", "app_exp":
             if params[key] is not None:
                 task.env.vars_set["WOOM_" + key.upper()] = params[key]
-        # task.env.vars_set["WOOM_TASK_TOKEN"] = task_token
         if isinstance(cycle, wutil.Cycle):
             task.env.vars_set.update(cycle.get_env_vars())
             if cycle_prev:
@@ -273,13 +268,11 @@ class Workflow:
                 task.env.vars_set.update(cycle_next.get_env_vars("next"))
 
         # Get task bash code and submission options
-        task_specs = task.export()
+        task_specs = task.export(params)
 
         # Submission options
         opts = task_specs["scheduler_options"].copy()
-        # opts["session"] = str(self.session)
         opts["name"] = task.name
-        # opts["token"] = task_token
 
         return {
             "script": script_path,

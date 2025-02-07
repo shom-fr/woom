@@ -10,4 +10,5 @@
 Example
 -------
 
-.. command-output:: woom --workflow-cfg ../examples/all_stages/workflow.cfg overview
+.. command-output:: woom overview
+    :cwd: ../examples/all_stages

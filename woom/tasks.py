@@ -171,21 +171,13 @@ class TaskManager:
     def host(self):
         return self._host
 
-    # @property
-    # def session(self):
-    # return self._session
-
-    def get_task(self, name, params, token=None):
+    def get_task(self, name):
         """Get a :class:`Task` instance
 
         Parameters
         ----------
         name: str
             Known task name
-        params: dict
-            Dictionary for commandline substitution purpose
-        token: str, None
-            A signature that helps defining this task
 
         Return
         ------
@@ -196,15 +188,13 @@ class TaskManager:
             raise TaskError(f"Invalid task name: {name}")
 
         # Create instance
-        return Task(self._config[name], self.host, params, token)
+        return Task(self._config[name], self.host)
 
 
 class Task:
-    def __init__(self, taskconfig, host, params, token=None):
+    def __init__(self, taskconfig, host):
         self._config = taskconfig
         self._host = host
-        self._params = wutil.subst_dict(params)
-        self._token = token
 
     @property
     def config(self):
@@ -215,28 +205,12 @@ class Task:
         return self._host
 
     @property
-    def params(self):
-        return self._params
-
-    @property
     def name(self):
         return self.config.name
 
-    @property
-    def token(self):
-        return self._token
-
     def export_commandline(self):
         """Export the commandline as an bash lines"""
-        cc = self.config["content"]["commandline"]
-        # named_arguments = wconf.keep_sections(cc)
-        return "# Run the commandline(s)\n" + wrender.render(cc, **self.params) + "\n\n"
-        # + format_commandline(
-        #     cc["format"],
-        #     named_arguments=named_arguments,
-        #     subst=self.params,
-        # )
-        # )
+        return "# Run the commandline(s)\n" + self.config["content"]["commandline"] + "\n\n"
 
     @functools.cached_property
     def env(self):
@@ -272,17 +246,12 @@ class Task:
         return str(self.env)
 
     def get_rundir(self):
-        """Get the run directory
-
-        It supports with jinja rendering as with the command line
-        """
+        """Get the run directory"""
         rundir = self.config["content"]["rundir"]
         if rundir is None:
             return ""
         if rundir == "current":
             rundir = os.getcwd()
-        else:
-            rundir = wrender.render(rundir, **self.params)
         return rundir.strip()
 
     def export_rundir(self):
@@ -320,13 +289,33 @@ class Task:
         epilog += "exit $?\n"
         return epilog
 
-    def export(self):
-        return {
-            "script_content": "#!/bin/bash\n\n"
+    def export_content(self):
+        """Export the task content as bash code"""
+        return (
+            "#!/bin/bash\n\n"
             + self.export_prolog()
             + self.export_env()
             + self.export_rundir()
             + self.export_commandline()
-            + self.export_epilog(),
+            + self.export_epilog()
+        )
+
+    def render_content(self, params):
+        """Export and render the task content with jinja and parameters
+
+        Parameters
+        ----------
+        params: dict
+            Parameters used for substitution
+
+        Return
+        ------
+        str
+        """
+        return wrender.render(self.export_content(), params)
+
+    def export(self, params):
+        return {
+            "script_content": self.render_content(params),
             "scheduler_options": self.export_scheduler_options(),
         }
