@@ -52,6 +52,8 @@ class Workflow:
         # Cylces
         if self.task_tree["cycles"]:
             self._cycles = wutil.get_cycles(**self.config["cycles"])
+        else:
+            self._cycles = []
 
         # Paths
         self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))
@@ -364,6 +366,7 @@ class Workflow:
         # Batch
         content += " batch script content ".center(80, "-") + "\n"
         content += batch_content + "\n"
+        content += "-" * 80
 
         ## Json
         # content += " params as json ".center(80, "-") + "\n"
@@ -577,8 +580,11 @@ class Workflow:
         print("{:#^80}".format(" TASK TREE "))
         print(str(self._task_tree))
         print("{:#^80}".format(" CYCLES "))
-        for cycle in self._cycles:
-            print(cycle.label)
+        if self.task_tree["cycles"]:
+            for cycle in self._cycles:
+                print(cycle.label)
+        else:
+            print("No cycle")
 
     def iter_tasks(self):
         """Generator of iterating over the tasks and cycles

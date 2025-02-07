@@ -59,11 +59,6 @@ def get_parser():
     parser.add_argument("--end-date", help="end date", type=wconf.is_datetime)
     parser.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
     parser.add_argument("--ncycle", help="number of cycles", type=int)
-    parser.add_argument(
-        "--dry-run",
-        help="run in fake mode for testing purpose",
-        action="store_true",
-    )
 
     subparsers = parser.add_subparsers(help="sub-command help")
 
@@ -229,6 +224,11 @@ def add_parser_run(subparsers):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_run.add_argument(
+        "--dry-run",
+        help="run in fake mode for testing purpose",
+        action="store_true",
+    )
+    parser_run.add_argument(
         "--update",
         help="do not run if it has already been run",
         action="store_true",
@@ -293,6 +293,11 @@ def add_parser_kill(subparsers):
     parser_kill.add_argument("jobid", help="job id", nargs="*")
     parser_kill.add_argument("--task", help="kill this task only", default=None)
     parser_kill.add_argument("--cycle", help="kill this cycle only", default=None)
+    parser_kill.add_argument(
+        "--dry-run",
+        help="run in fake mode for testing purpose",
+        action="store_true",
+    )
     wlog.add_logging_parser_arguments(parser_kill, default_level="warning")
     parser_kill.set_defaults(func=main_kill)
 

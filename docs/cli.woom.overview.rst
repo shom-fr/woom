@@ -11,4 +11,4 @@ Example
 -------
 
 .. command-output:: woom overview
-    :cwd: ../examples/all_stages
+    :cwd: ../examples/academic/all_stages

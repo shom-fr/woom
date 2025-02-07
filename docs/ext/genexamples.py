@@ -29,16 +29,31 @@ TEMPLATE_ENTRY["academic"] = (
 Running
 -------
 
+Overview
+~~~~~~~~
+
 Let's have an overview of stages before running the workflow.
 
 .. command-output:: woom overview
     :cwd: ../../examples/{section}/{path}
 
-Now let's run the workflow.
+Dry run
+~~~~~~~
+
+Now let's run the workflow in test (dry) and debug modes.
+
+.. command-output:: woom run --log-no-color --log-level debug --dry-run 
+    :cwd: ../../examples/{section}/{path}
+
+Normal run
+~~~~~~~~~~
+And finally in run it.
 
 .. command-output:: woom run --log-no-color
     :cwd: ../../examples/{section}/{path}
 
+Check status
+~~~~~~~~~~~~
 
 Check what is running or finished.
 
