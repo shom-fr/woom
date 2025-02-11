@@ -16,6 +16,11 @@ JINJA_ENV = Environment(undefined=StrictUndefined)
 def render(template, params):
     """Render this text with ninja
 
+    Note
+    ----
+    Rendering is performed through a recursive process to until the final
+    string does not change. This allows passing parameters that contain jinja patterns.
+
     Parameters
     ----------
     text: str
@@ -27,7 +32,13 @@ def render(template, params):
     ------
     str
     """
-    return JINJA_ENV.from_string(template).render(**params)
+    prev = template
+    while True:
+        curr = JINJA_ENV.from_string(prev).render(**params)
+        if curr != prev:
+            prev = curr
+        else:
+            return curr
 
 
 def register_filters(**kwargs):

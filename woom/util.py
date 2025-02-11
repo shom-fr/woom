@@ -117,7 +117,12 @@ class Cycle(collections.UserDict):
     def get_env_vars(self, suffix=None):
         """Export a dict of WOOM env variables about this cycle"""
         params = self.get_params(suffix=suffix)
-        return {("WOOM_" + k.upper(), v) for (k, v) in params.items()}
+        env_vars = {}
+        for key, value in params.items():
+            if isinstance(value, (pd.Timestamp, pd.Timedelta)):
+                value = value.isoformat()
+            env_vars["WOOM_" + key.upper()] = value
+        return env_vars
 
 
 def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):

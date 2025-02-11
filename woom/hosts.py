@@ -60,12 +60,12 @@ class HostManager:
         """Infer host and get a :class:`Host` instance"""
         hostname = socket.getfqdn()
         for name, config in self.config.items():
-            if name == "generic":
+            if name == "local":
                 continue
             for pattern in config["patterns"]:
                 if fnmatch.fnmatch(hostname, pattern):
                     return self.get_host(name)
-        return self.get_host("generic")
+        return self.get_host("local")
 
 
 # def load_hosts_config(cfgfile=None):
@@ -184,9 +184,9 @@ class Host:
         """
         params = {}
         for dname, dval in self.config["dirs"].items():
-            if dval is not None:
+            if dval:
                 dval = os.path.expanduser(os.path.expandvars(dval))
-                params[dname + "dir"] = dval
+                params[dname + "_dir"] = dval
         return params
 
     # def get_dir(self, name):
@@ -221,7 +221,7 @@ class Host:
         for dname, dval in self.config["dirs"].items():
             if dval is not None:
                 dval = os.path.expanduser(os.path.expandvars(dval))
-                env_vars["WOOM_" + dname.upper() + "DIR"] = dval
+                env_vars["WOOM_" + dname.upper() + "_DIR"] = dval
         env_vars.update(cfg["vars"]["set"])
 
         # Get registered env
