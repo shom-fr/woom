@@ -10,6 +10,7 @@
    quick
    cli
    examples/index
+   ext
 
 .. toctree::
    :caption: Reference
@@ -17,6 +18,7 @@
    :hidden:
 
    lib
+   inputs
    cfgspecs
    Gitlab repository <https://gitlab.com/GitShom/STM/woom>
 

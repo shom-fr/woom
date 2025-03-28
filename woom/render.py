@@ -41,9 +41,9 @@ def render(template, params):
             return curr
 
 
-def register_filters(**kwargs):
-    """Register filter functions in the current environment"""
-    JINJA_ENV.filters.update(**kwargs)
+# def register_filters(**kwargs):
+#     """Register filter functions in the current environment"""
+#     JINJA_ENV.filters.update(**kwargs)
 
 
 def filter_replicate_option(values, opt_name, format="{opt_name}={value}"):
@@ -62,4 +62,5 @@ def filter_strftime(date, format):
     return wutil.WoomDate(date).strftime(format)
 
 
-register_filters(replicate_option=filter_replicate_option, strftime=filter_strftime)
+JINJA_ENV.filters.update(replicate_option=filter_replicate_option, strftime=filter_strftime)
+# register_filters(replicate_option=filter_replicate_option, strftime=filter_strftime)

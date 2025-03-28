@@ -4,7 +4,7 @@
 Light weight workflow manager for ocean models
 """
 from importlib.metadata import version as _version
-
+import os
 
 try:
     __version__ = _version("woom")

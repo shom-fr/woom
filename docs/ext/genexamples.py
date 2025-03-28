@@ -21,11 +21,6 @@ Configuring
     :language: ini
     :caption: :file:`hosts.cfg`
 
-"""
-
-TEMPLATE_ENTRY["academic"] = (
-    TEMPLATE_ENTRY["realistic"]
-    + """
 Running
 -------
 
@@ -45,6 +40,11 @@ Now let's run the workflow in test (dry) and debug modes.
 .. command-output:: woom run --log-no-color --log-level debug --dry-run 
     :cwd: ../../examples/{section}/{path}
 
+"""
+
+TEMPLATE_ENTRY["academic"] = (
+    TEMPLATE_ENTRY["realistic"]
+    + """
 Normal run
 ~~~~~~~~~~
 And finally in run it.

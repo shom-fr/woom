@@ -59,130 +59,6 @@ def subst_dict(dict_in, dict_subst=None, maxiter=None):
     return dict_out
 
 
-class Cycle(collections.UserDict):
-    """Useful container for a time cycle that can be used as dict"""
-
-    def __init__(self, begin_date, end_date=None):
-        super().__init__()
-        self.begin_date = WoomDate(begin_date)
-        self.data.update(cycle_begin_date=self.begin_date)
-        self.is_interval = end_date is not None
-        if not self.is_interval:
-            self.end_date = self.duration = None
-        else:
-            self.end_date = WoomDate(end_date)
-            self.duration = self.end_date - self.begin_date
-            self.data.update(cycle_end_date=self.end_date, cycle_duration=self.duration)
-
-        # Label
-        if self.is_interval:
-            self.label = (
-                f"{self.begin_date.isoformat()} -> {self.end_date.isoformat()} ({self.duration})"
-            )
-        else:
-            self.label = self.begin_date.isoformat()
-
-        # Token
-        if self.is_interval:
-            self.token = f"{self.begin_date.isoformat()}-{self.end_date.isoformat()}"
-        else:
-            self.token = f"{self.begin_date.isoformat()}"
-
-    def __str__(self):
-        return self.token
-
-    def get_params(self, suffix=None):
-        """Export a dict of substitution parameters about this cycle"""
-        if suffix:
-            if not suffix.startswith("_"):
-                suffix = "_" + suffix
-        else:
-            suffix = ""
-        params = {
-            "cycle_begin_date" + suffix: self["cycle_begin_date"],
-            "cycle_label" + suffix: self.label,
-            "cycle_token" + suffix: self.token,
-        }
-        if self.is_interval:
-            params.update(
-                {
-                    "cycle_end_date" + suffix: self["cycle_end_date"],
-                    "cycle_duration" + suffix: self["cycle_duration"],
-                }
-            )
-        else:
-            params["cycle_date"] = params["cycle_begin_date"]
-        return params
-
-    def get_env_vars(self, suffix=None):
-        """Export a dict of WOOM env variables about this cycle"""
-        params = self.get_params(suffix=suffix)
-        env_vars = {}
-        for key, value in params.items():
-            if isinstance(value, (pd.Timestamp, pd.Timedelta)):
-                value = value.isoformat()
-            env_vars["WOOM_" + key.upper()] = value
-        return env_vars
-
-
-def get_cycles(begin_date, end_date=None, freq=None, ncycle=None, round=None):
-    """Get a list of cycles given time specifications
-
-    One cycle is a :class:`Cycle` instance that contains the following keys:
-
-    - ``"cycle_begin_date"``: Begin date [:class:`pandas.Timestamp`]
-    - ``"cycle_end_date"`` (optional): End date [:class:`pandas.Timestamp`]
-    - ``"cycle_duration"`` (optional): Difference between begin and end [:class:`pandas.Timedelta`]
-    """
-    if begin_date is None:
-        raise WoomError("begin_date must be None to generate cycles")
-    begin_date = WoomDate(begin_date, round)
-
-    if end_date:
-        end_date = WoomDate(end_date, round)
-        if ncycle:
-            rundates = pd.date_range(
-                start=begin_date,
-                end=end_date,
-                periods=ncycle + 1,
-            )
-        elif freq:
-            rundates = pd.date_range(
-                start=begin_date,
-                end=end_date,
-                freq=freq,
-            )
-        else:
-            rundates = [
-                pd.to_datetime(begin_date),
-                pd.to_datetime(end_date),
-            ]
-    elif ncycle and freq:
-        rundates = pd.date_range(
-            start=begin_date,
-            periods=ncycle + 1,
-            freq=freq,
-        )
-    else:
-        rundates = [begin_date]
-
-    # Single date
-    if len(rundates) == 1:
-        return [Cycle(rundates[0])]
-
-    # A list of time intervals
-    cycles = []
-    for i, date0 in enumerate(rundates[:-1]):
-        date1 = rundates[i + 1]
-        cycles.append(Cycle(date0, date1))
-
-    if not cycles:
-        raise WoomError(
-            f"Unable to generate cycles with these specs: begin_date={begin_date}, end_date={end_date}, freq={freq}, ncycle={ncycle}, round={round}"
-        )
-    return cycles
-
-
 class WoomDate(pd.Timestamp):
     re_match_since = re.compile(
         r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I
@@ -247,24 +123,6 @@ def check_dir(filepath, dry=False, logger=None):
     return filepath
 
 
-# def make_latest(path, logger=None):
-#     """Create symbolic link to `path` named "latest"""
-#     if logger is None:
-#         logger = logging.getLogger(__name__)
-#     path = os.path.abspath(path)
-#     latest = os.path.join(os.path.dirname(path), "latest")
-#     if os.path.exists(latest):
-#         if os.path.islink(latest):
-#             logger.debug(f"Removed link: {latest}")
-#             os.remove(latest)
-#         else:
-#             raise Exception(f"Can't remove since not a link: {latest}")
-#     logger.debug(f"Create symbolic link: {path} -> {latest}")
-#     os.symlink(path, latest)
-#     logger.info(f"Created symbolic link: {path} -> {latest}")
-#     return latest
-
-
 class WoomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, collections.UserDict):
@@ -275,3 +133,22 @@ class WoomJSONEncoder(json.JSONEncoder):
             return super().default(obj)
         except TypeError:
             return str(obj)
+
+
+def params2env_vars(params=None, **extra_params):
+    """Convert a dict of parameters to env vars start whose name starts with 'WOOM\_'"""
+    if params is None:
+        params = extra_params
+    else:
+        params = params.copy()
+        params.update(extra_params)
+    env_vars = {}
+    for key, value in params.items():
+        if isinstance(value, (pd.Timestamp, pd.Timedelta)):
+            value = value.isoformat()
+        if value is None:
+            value = ""
+        if isinstance(value, bool):
+            value = str(int(value))
+        env_vars["WOOM_" + key.upper()] = str(value)
+    return env_vars
