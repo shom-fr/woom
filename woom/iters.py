@@ -43,14 +43,14 @@ class Cycle:
                 f"{self.begin_date.isoformat()} -> {self.end_date.isoformat()} ({self.duration})"
             )
         else:
-            #: String used for for printing based on ISO 8601 format (:class:`str`)
+            #: String used for for printing and based on the `ISO 8601 format <https://fr.wikipedia.org/wiki/ISO_8601>`_ (:class:`str`)
             self.label = self.begin_date.isoformat()
 
         # Token
         if self.is_interval:
             self.token = f"{self.begin_date.isoformat()}-{self.end_date.isoformat()}"
         else:
-            #: String file and directory names based on ISO 8601 format (:class:`str`)
+            #: String generally used in file and directory names and based on the `ISO 8601 format <https://fr.wikipedia.org/wiki/ISO_8601>`_ (:class:`str`)
             self.token = f"{self.begin_date.isoformat()}"
 
         #: Next cycle (:class:`Cycle` or None)

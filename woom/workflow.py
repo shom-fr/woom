@@ -606,11 +606,11 @@ class Workflow:
             print("no member")
 
     def iter_tasks(self):
-        """Generator of iterating over the tasks, cycles and members
+        """Generator for iterating over the tasks, cycles and members
 
         Yield
         -----
-        task_name, cycle
+        task_name, cycle, member
         """
         for stage in self.task_tree:
             if not self.task_tree[stage]:
