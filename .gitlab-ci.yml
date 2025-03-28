@@ -15,7 +15,7 @@ build_documentation:
   stage: documentation
   script:
     - pip install -U pip
-    - then pip install -r Env/requirements-docs.txt
+    - pip install -r Env/requirements-docs.txt
     
     - pip install -e .
     
