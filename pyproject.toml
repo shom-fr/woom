@@ -35,6 +35,15 @@ dependencies = [
   "tabulate",
 ]
 
+[project.optional-dependencies]
+docs = [
+  "matplotlib",
+  "sphinx",
+  "sphinx-argparse",
+  "sphinx-book-theme",
+  "sphinxcontrib-programoutput",
+]
+
 [project.urls]
 issue-tracker = "https://github.com/shom-fr/woom/issues"
 source-code = "https://github.com/shom-fr/woom"
