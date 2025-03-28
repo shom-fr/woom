@@ -8,6 +8,7 @@ psutil
 tabulate
 
 # Doc
+matplotlib
 sphinx
 sphinx-argparse
 sphinx-book-theme
