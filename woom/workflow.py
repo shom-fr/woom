@@ -599,8 +599,9 @@ class Workflow:
         print("{:#^80}".format(" ENSEMBLE "))
         if self.nmembers:
             print(f"size: {self.nmembers}")
+            print("tasks: " + ", ".join(self.config["ensemble"]["tasks"]))
             for name, values in self._config["ensemble"]["iters"].items():
-                print(f"{name}: " + ", ".join(values))
+                print(f"{name}: " + ", ".join([str(v) for v in values]))
         else:
             print("no member")
 
