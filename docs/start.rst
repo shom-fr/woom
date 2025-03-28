@@ -1,7 +1,7 @@
 .. _quick:
     
-Quick start guide
-#################
+Start guide
+###########
 
 The concept
 ===========

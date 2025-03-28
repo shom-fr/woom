@@ -1,0 +1,46 @@
+image: python:3.10
+
+stages:
+  - documentation
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  SPHINX_BUILD_DIR: "$CI_PROJECT_DIR/docs/build/html"
+
+cache:
+  paths:
+    - .pip-cache/
+
+build_documentation:
+  stage: documentation
+  script:
+    - pip install -U pip
+    - then pip install -r Env/requirements-docs.txt
+    
+    - pip install -e .
+    
+    - cd docs
+    - make html   
+    # - sphinx-build -W -b html source build/html 
+  
+  artifacts:
+    paths:
+      - docs/_build/html
+    #expire_in: 1 week
+  
+  only:
+    - main
+    - tags
+
+pages:
+  stage: documentation
+  script:
+    - if [ ! -d public ]; then mkdir public; fi
+    - if [ -d $SPHINX_BUILD_DIR ]; then cp -r $SPHINX_BUILD_DIR/* public/; fi
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+  needs:
+    - build_documentation

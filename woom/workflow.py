@@ -455,14 +455,14 @@ class Workflow:
                 if cycles[0].is_interval:
                     self.logger.info(
                         "Cycling from {} to {} in {} time(s)".format(
-                            cycles[0]["cycle_begin_date"],
-                            cycles[-1]["cycle_end_date"],
+                            cycles[0].begin_date,
+                            cycles[-1].end_date,
                             len(cycles),
                         )
                     )
                 else:
                     self.logger.info(
-                        "Single cycle with unique date: {}".format(cycles[0]["cycle_begin_date"])
+                        "Single cycle with unique date: {}".format(cycles[0].begin_date)
                     )
 
             else:

@@ -7,7 +7,7 @@
    :hidden:
 
    install
-   quick
+   start
    cli
    examples/index
    ext

@@ -1,0 +1,14 @@
+# Main
+colorlog
+configobj
+jinja2
+pandas
+platformdirs
+psutil
+tabulate
+
+# Doc
+sphinx
+sphinx-argparse
+sphinx-book-theme
+sphinxcontrib-programoutput
