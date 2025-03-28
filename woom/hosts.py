@@ -33,6 +33,7 @@ class HostManager:
 
     @property
     def config(self):
+        """Dict-like configuration of hosts as loaded from file :file:`hosts.cfg` (:class:`~configobj.ConfigObj`)"""
         return self._config
 
     def load_config(self, cfgfile):
@@ -47,7 +48,7 @@ class HostManager:
 
         Return
         ------
-        configobj.configObj
+        configobj.ConfigObj
         """
         self._config.merge(wconf.load_cfg(cfgfile, CFGSPECS_FILE))
         return self._config
@@ -137,6 +138,7 @@ class Host:
 
     @property
     def name(self):
+        """Host name as defined in the configuration (:class:`str`)"""
         return self._name
 
     def __str__(self):
@@ -144,6 +146,7 @@ class Host:
 
     @property
     def config(self):
+        """Dict configuration of this host as loaded from file :file:`hosts.cfg` (:class:`dict`)"""
         return self._config.dict()
 
     def __getitem__(self, key):
@@ -151,15 +154,23 @@ class Host:
 
     @functools.lru_cache
     def get_jobmanager(self):  # , session):
-        """Get a :mod:`~woom.job` manager instance"""
+        """Get a :mod:`~woom.job` manager instance
+
+        Returns
+        -------
+        woom.job.BackgroundJobManager or woom.job.PbsproJobManager or woom.job.SlurmJobManager
+
+        """
         return wjob.BackgroundJobManager.from_scheduler(self.config["scheduler"])  # , session)
 
     @property
     def module_setup(self):
+        """Command the load :command:`module` command (:class:`str`)"""
         return self.config["module_setup"]
 
     @property
     def queues(self):
+        """correspondance between generic and real queue names (:class:`dict`)"""
         return self.config["queues"]
 
     def get_queue(self, name):
@@ -181,6 +192,9 @@ class Host:
         - The ``dirs`` config section with key suffixed with "dir"
           and with the user "~" symbol and environment variables expanded.
 
+        Return
+        ------
+        dict
         """
         params = {}
         for dname, dval in self.config["dirs"].items():

@@ -124,9 +124,9 @@ docs/_static/*.png
 
 
 # Examples
-examples/*/jobs/
-examples/*/tasks/
-examples/*/log/
+examples/*/*/jobs/
+examples/*/*/tasks/
+examples/*/*/log/
 
 build_artifacts
 # conda smithy ci-skeleton end

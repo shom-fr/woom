@@ -12,7 +12,6 @@ import configobj
 
 from .__init__ import WoomError
 from . import conf as wconf
-from . import util as wutil
 from . import render as wrender
 
 CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "tasks.ini")
@@ -86,58 +85,11 @@ class TaskTree:
         return ss.strip("\n")
 
 
-# def format_commandline(line_format, named_arguments=None, subst=None):
-#     """Format a commandline call
-
-#     Parameters
-#     ----------
-#     line_format: str
-#         The commandline call with substitution patterns for named arguments
-#         that need a value
-#     named_options: None, dict
-#         Dictionary the contains the specifications of named arguments
-#     subst: None, dict
-#         A dictionary used of substitutions, updated with the named options.
-
-#     Return
-#     ------
-#     str
-#     """
-#     subst = subst or {}
-#     return wrender.render(line_format, **subst)
-
-#     more_subst = {}
-#     if named_arguments:
-#         for name, specs in named_arguments.items():
-#             setops = []
-#             for value in specs["value"]:
-#                 value = value.strip()
-#                 if value.lower() == "none" or not value:
-#                     value = None
-#                 if value is not None:
-#                     value = value.format(**subst)
-#                     setops.append(specs["format"].format(name=name, value=value))
-#                 elif specs["required"]:
-#                     raise TaskError(f"Empty named argument:\nname: {name}\ncommandline: {line_format}")
-#             more_subst[name] = " ".join(setops)
-#     try:
-#         return line_format.format(**subst, **more_subst)
-#     except KeyError as e:
-#         raise TaskError(
-#             f"Error while performing substitions in commandline: {line_format}\n"
-#             + f"Please add the '{e.args[0]}' key to the [params] section of the workflow configuration."
-#         )
-#     except Exception as e:
-#         raise Exception(*e.args)
-
-
 class TaskManager:
     def __init__(self, host):  # , session):
         self._configs = []
         self._config = configobj.ConfigObj(interpolation=False)
         self._host = host
-        # self._session = session
-        # os.environ["WOOM_SESSION_DIR"] = str(session.path)
 
     def load_config(self, cfgfile):
         cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE)
@@ -198,14 +150,17 @@ class Task:
 
     @property
     def config(self):
+        """The task configuration as loaded from the :file:`tasks.cfg` (:class:`~configobj.ConfigObj`)"""
         return self._config
 
     @property
     def host(self):
+        """The current :class:`~woom.hosts.Host` instance (:class:`~woom.hosts.Host`)"""
         return self._host
 
     @property
     def name(self):
+        """The task name (:class:`str`)"""
         return self.config.name
 
     def export_commandline(self):
@@ -214,7 +169,7 @@ class Task:
 
     @functools.cached_property
     def env(self):
-        """Instance of :class:`woom.env.Env` specific to this task"""
+        """Instance of :class:`woom.env.EnvConfig` specific to this task (:class:`~woom.env.EnvConfig`)"""
 
         # Get env from name, possibly empty
         env = self.host.get_env(self.config["content"]["env"]).copy()
@@ -235,9 +190,9 @@ class Task:
         # Add woom variables
         env.vars_set.update(WOOM_TASK_NAME=self.name)
         # env.vars_forward.extend(["WOOM_WORKFLOW_DIR"])  # , "WOOM_SESSION_DIR"])
-        rundir = self.get_rundir()
-        if rundir:
-            env.vars_set.update(WOOM_RUNDIR=rundir)
+        run_dir = self.get_run_dir()
+        if run_dir:
+            env.vars_set.update(WOOM_RUN_DIR=run_dir)
         return env
 
     def export_env(self):
@@ -245,26 +200,32 @@ class Task:
         # self.env.vars_set.update(WOOM_TASK_TOKEN=str(token))
         return str(self.env)
 
-    def get_rundir(self):
+    def get_run_dir(self):
         """Get the run directory"""
-        rundir = self.config["content"]["rundir"]
-        if rundir is None:
+        run_dir = self.config["content"]["run_dir"]
+        if run_dir is None:
             return ""
-        if rundir == "current":
-            rundir = os.getcwd()
-        return rundir.strip()
+        if run_dir == "current":
+            run_dir = os.getcwd()
+        return run_dir.strip()
 
-    def export_rundir(self):
-        """Export the bash line to move to the running directory"""
-        rundir = self.get_rundir()
-        if rundir:
-            return f"# Got to run dir\nmkdir -p {rundir} && cd {rundir}\n\n"
+    def export_run_dir(self):
+        """Export the bash lines to move to the running directory"""
+        run_dir = self.get_run_dir()
+        if run_dir:
+            return f"# Got to run dir\nmkdir -p {run_dir} && cd {run_dir}\n\n"
         return ""
 
     # def export_epilog(self):
     #     return "mkdir -p $WOOM_SESSION_DIR/
 
     def export_scheduler_options(self):
+        """Export a dict of scheduler options
+
+        Returns
+        -------
+        dict
+        """
         if not self.host["scheduler"]:
             return {}
         opts = {
@@ -279,11 +240,13 @@ class Task:
         return opts
 
     def export_prolog(self):
+        """Export the prolog of the batch script"""
         prolog = "# Prolog\n"
         prolog += f'trap "false" {self.config["content"]["trap"]}\n\n'
         return prolog
 
     def export_epilog(self):
+        """Export the epilog of the batch script"""
         epilog = "# Epilog\n"
         epilog += "echo $? > $WOOM_SUBMISSION_DIR/job.status\n"
         epilog += "exit $?\n"
@@ -295,7 +258,7 @@ class Task:
             "#!/bin/bash\n\n"
             + self.export_prolog()
             + self.export_env()
-            + self.export_rundir()
+            + self.export_run_dir()
             + self.export_commandline()
             + self.export_epilog()
         )

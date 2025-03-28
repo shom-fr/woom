@@ -31,7 +31,7 @@ extensions = [
     "sphinxarg.ext",
     "genlogos",
     "genexamples",
-    "sphinxcontrib.programoutput"
+    "sphinxcontrib.programoutput",
 ]
 
 templates_path = ["_templates"]
@@ -59,6 +59,8 @@ html_theme_options = {
 intersphinx_mapping = {
     "python": ("https://docs.python.org/fr/3/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
+    "jinja": ("https://jinja.palletsprojects.com/en/stable/", None),
+    "configobj": ("https://configobj.readthedocs.io/en/latest", None),
 }
 
 # %% Autosumarry

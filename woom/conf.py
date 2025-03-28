@@ -57,6 +57,7 @@ def is_timedelta(value):
         raise WoomConfigError("Can't convert config value to timedelta: " + e.args[0])
 
 
+#: Default validator fonctions
 VALIDATOR_FUNCTIONS = {
     "path": is_path,
     "datetime": is_datetime,
@@ -66,25 +67,31 @@ VALIDATOR_FUNCTIONS = {
 
 def get_validator():
     """Get a :class:`configobj.validate.Validator` instance"""
-    if "validator" not in CACHE:
-        CACHE["validator"] = validate.Validator(VALIDATOR_FUNCTIONS)
-    return CACHE["validator"]
+    return validate.Validator(VALIDATOR_FUNCTIONS)
+    # if "validator" not in CACHE:
+    #     CACHE["validator"] = validate.Validator(VALIDATOR_FUNCTIONS)
+    # return CACHE["validator"]
 
 
-def get_cfgspecs(cfgspecsfile):
-    """Get a configuration specification instance"""
-    name = pathlib.Path(cfgspecsfile).stem
-    if name not in CACHE["cfgspecs"]:
-        CACHE["cfgspecs"][name] = configobj.ConfigObj(
-            str(cfgspecsfile), interpolation=False, list_values=False
-        )
-    return CACHE["cfgspecs"][name]
+def get_cfgspecs(cfgspecsfiles):
+    """Get a configuration specification instance from a list of files"""
+    cfgspecs = None
+    for cfgspecsfile in cfgspecsfiles if isinstance(cfgspecsfiles, list) else [cfgspecsfiles]:
+        this_cfgspecs = configobj.ConfigObj(cfgspecsfile, interpolation=False, list_values=False)
+        if cfgspecs is None:
+            cfgspecs = this_cfgspecs
+        else:
+            cfgspecs.merge(this_cfgspecs)
+    return cfgspecs
+    # if name not in CACHE["cfgspecs"]:
+    #     CACHE["cfgspecs"][name] =
+    # return CACHE["cfgspecs"][name]
 
 
-def load_cfg(cfgfile, cfgspecsfile, list_values=True):
+def load_cfg(cfgfile, cfgspecsfiles, list_values=True):
     """Get a validated :class:`configobj.configObj` instance"""
     validator = get_validator()
-    cfgspecs = get_cfgspecs(cfgspecsfile)
+    cfgspecs = get_cfgspecs(cfgspecsfiles)
     cfg = configobj.ConfigObj(
         cfgfile or {},
         configspec=cfgspecs,
