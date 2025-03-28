@@ -71,6 +71,8 @@ def genlogos(app):
     """Generate light and dark woom logo during doc compilation"""
     srcdir = app.env.srcdir
     gendir = os.path.join(srcdir, "_static")
+    if not os.path.exists(gendir):
+        os.mkdir(gendir)
 
     logging.debug("Generating light woom logo...")
     genlogo(os.path.join(gendir, "woom-logo-light.png"))
