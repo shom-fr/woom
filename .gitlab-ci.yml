@@ -3,9 +3,13 @@ image: python:3.10
 stages:
   - documentation
 
+before_script:
+  - apt-get update -y
+  - apt-get install -y fonts-cantarell
+
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
-  SPHINX_BUILD_DIR: "$CI_PROJECT_DIR/docs/build/html"
+  SPHINX_BUILD_DIR: "$CI_PROJECT_DIR/docs/_build/html"
 
 cache:
   paths:
