@@ -39,10 +39,33 @@ def genlogo(outfile, dark=False):
             transform=ax.transAxes,
         )
         ax.text(0.05, 0.515, "W", ha="left", color=fontcolor, **kw)
-        ax.text(0.5, 0.515, "O", ha="center", color=circlecolor, **kw)
+        # ax.text(0.5, 0.515, "O", ha="center", color=circlecolor, **kw)
         ax.text(0.95, 0.515, "M", ha="right", color=fontcolor, **kw)
         ax.set_xlim(0, width)
         ax.set_ylim(0, height)
+
+        radius = height * 0.17
+        circle = mpatches.Circle(
+            (0.5 * width, height / 2),
+            radius=radius,
+            facecolor="none",
+            linewidth=14,
+            ec=circlecolor,
+        )
+        ax.add_patch(circle)
+        kwa = dict(
+            linewidth=14,
+            arrowstyle="-|>,head_width=6,head_length=8",
+            joinstyle="miter",
+            color=circlecolor,
+        )
+        for pm in -1, 1:
+            aa = mpatches.FancyArrowPatch(
+                (0.5 * width, height / 2 - radius * pm),
+                (0.5 * width + pm * 0.25, height / 2 - radius * pm),
+                **kwa,
+            )
+            ax.add_patch(aa)
 
         clip_height = 0.26
         for y0 in (0, 1 - clip_height):
@@ -89,5 +112,5 @@ def setup(app):
 
 
 if __name__ == "__main__":
-    genlogo("../_static/woom-logo-light.png")
-    genlogo("../_static/woom-logo-dark.png", dark=True)
+    genlogo("woom-logo-light-test.png")
+    genlogo("woom-logo-dark-test.png", dark=True)

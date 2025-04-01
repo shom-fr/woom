@@ -1,7 +1,7 @@
-.. _inputs::
+.. _inputs:
     
-Input mapping
-=============
+Input mappings
+==============
 
 .. toctree::
 

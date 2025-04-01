@@ -57,7 +57,7 @@ def is_timedelta(value):
         raise WoomConfigError("Can't convert config value to timedelta: " + e.args[0])
 
 
-#: Default validator fonctions
+#: Default woom validator fonctions
 VALIDATOR_FUNCTIONS = {
     "path": is_path,
     "datetime": is_datetime,

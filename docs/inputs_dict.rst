@@ -1,10 +1,10 @@
 .. _inputs_dict:
 
-Dictionary for substitutions
-============================
+Input dictionary
+================
 
-The minimal parameters that are provided to fill the command lines that executed by the batch script
-are the following, in alphabetical order:
+This dictionary is used to fill the :ref:`templates` in order the finally generate the submitted job script.
+The minimal content of this dictionary is the following, in alphabetical order:
 
 .. list-table::
    :widths: 10 30 30 30

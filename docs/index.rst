@@ -18,6 +18,7 @@
    :hidden:
 
    lib
+   templates
    inputs
    cfgspecs
    Gitlab repository <https://gitlab.com/GitShom/STM/woom>

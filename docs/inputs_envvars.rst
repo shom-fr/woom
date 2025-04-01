@@ -1,7 +1,7 @@
-.. inputs_envvars:
+.. _inputs_envvars:
     
-Available environment variables
-===============================
+Input environment variables
+===========================
 
 Woom specific new variables
 ---------------------------
@@ -106,7 +106,7 @@ You can use these variables in the scripts or programs you are calling from the 
 
 .. envvar:: WOOM_WORKFLOW_DIR
 
-    Where the workflow is executed.
+    Where the workflow is executed which is where lies the :file:`workflow.cfg` file.
 
 Modified existing variables
 ---------------------------
