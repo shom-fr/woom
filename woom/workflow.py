@@ -222,7 +222,7 @@ class Workflow:
                 self._config["params"]["tasks"][task_name]
             ).dict()
             env_vars.update((key.upper(), value) for key, value in task_params.items())
-            params.update(task_params)
+            # params.update(task_params) # too dangerous!
 
             # if self.host.name in self._config["params"]["tasks"][task_name]:
             #     params.update(

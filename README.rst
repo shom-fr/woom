@@ -14,7 +14,7 @@ Documentation
 -------------
 
 The woom documentation:
-https://apps.shom.fr/woom
+https://gitshom.gitlab.io/STM/woom/
 
 Sources
 -------
@@ -25,6 +25,5 @@ https://gitlab.com/GitShom/STM/woom
 License
 -------
 
-woom is a property of `Shom <https://www.shom.fr>`_
-and is published under the
+woom is a property of `Shom <https://www.shom.fr>`_ and is published under the
 `Apache 2.0 license <https://www.apache.org/licenses/LICENSE-2.0>`_.

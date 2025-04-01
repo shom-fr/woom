@@ -26,7 +26,6 @@ Running
 
 Overview
 ~~~~~~~~
-
 Let's have an overview of stages before running the workflow.
 
 .. command-output:: woom overview
@@ -34,7 +33,6 @@ Let's have an overview of stages before running the workflow.
 
 Dry run
 ~~~~~~~
-
 Now let's run the workflow in test (dry) and debug modes.
 
 .. command-output:: woom run --log-no-color --log-level debug --dry-run 
@@ -54,7 +52,6 @@ And finally in run it.
 
 Check status
 ~~~~~~~~~~~~
-
 Check what is running or finished.
 
 .. command-output:: woom status

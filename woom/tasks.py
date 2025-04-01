@@ -163,10 +163,6 @@ class Task:
         """The task name (:class:`str`)"""
         return self.config.name
 
-    def export_commandline(self):
-        """Export the commandline as an bash lines"""
-        return "# Run the commandline(s)\n" + self.config["content"]["commandline"] + "\n\n"
-
     @functools.cached_property
     def env(self):
         """Instance of :class:`woom.env.EnvConfig` specific to this task (:class:`~woom.env.EnvConfig`)"""
@@ -174,31 +170,12 @@ class Task:
         # Get env from name, possibly empty
         env = self.host.get_env(self.config["content"]["env"]).copy()
 
-        # # Add task env variables with substitutions
-        # cfgvars = self.config["content"]["env"]["vars"]
-        # for action in "set", "prepend", "append":
-        #     for name, value in cfgvars[action].items():
-        #         value = wrender.render(value, **self.params)
-        #         cfgvars[action][name] = value
-        # if cfgvars["set"]:
-        #     env.vars_set.update(cfgvars["set"])
-        # if cfgvars["prepend"]:
-        #     env.vars_prepend.update(cfgvars["prepend"])
-        # if cfgvars["append"]:
-        #     env.vars_append.update(cfgvars["append"])
-
         # Add woom variables
         env.vars_set.update(WOOM_TASK_NAME=self.name)
-        # env.vars_forward.extend(["WOOM_WORKFLOW_DIR"])  # , "WOOM_SESSION_DIR"])
         run_dir = self.get_run_dir()
         if run_dir:
             env.vars_set.update(WOOM_RUN_DIR=run_dir)
         return env
-
-    def export_env(self):
-        """Export the environment declarations as bash lines"""
-        # self.env.vars_set.update(WOOM_TASK_TOKEN=str(token))
-        return str(self.env)
 
     def get_run_dir(self):
         """Get the run directory"""
@@ -209,15 +186,47 @@ class Task:
             run_dir = os.getcwd()
         return run_dir.strip()
 
+    def export_prolog(self):
+        """Export the prolog of the batch script"""
+        prolog = f'trap "false" {self.config["content"]["trap"]}'
+        return prolog
+
+    def export_env(self, params=None):
+        """Export the environment declarations as bash lines"""
+        return self.env.export(params)
+
     def export_run_dir(self):
         """Export the bash lines to move to the running directory"""
         run_dir = self.get_run_dir()
         if run_dir:
-            return f"# Got to run dir\nmkdir -p {run_dir} && cd {run_dir}\n\n"
+            return f"mkdir -p {run_dir} && cd {run_dir}"
         return ""
 
-    # def export_epilog(self):
-    #     return "mkdir -p $WOOM_SESSION_DIR/
+    def export_commandline(self):
+        """Export the commandline as an bash lines"""
+        return self.config["content"]["commandline"]
+
+    def export_epilog(self):
+        """Export the epilog of the batch script"""
+        epilog = "echo $? > $WOOM_SUBMISSION_DIR/job.status\n"
+        epilog += "exit $?\n"
+        return epilog
+
+    def render_content(self, params):
+        """Export and render the task content with jinja, parameters and the :file:`job.sh` template
+
+        Parameters
+        ----------
+        params: dict
+            Parameters used for substitution
+
+        Return
+        ------
+        str
+        """
+        params = params.copy()
+        params["params"] = params
+        return wrender.render(wrender.JINJA_ENV.get_template("job.sh"), params)
 
     def export_scheduler_options(self):
         """Export a dict of scheduler options
@@ -238,44 +247,6 @@ class Task:
         if self.config["submit"]["queue"]:
             opts["queue"] = self.host["queues"][self.config["submit"]["queue"]]
         return opts
-
-    def export_prolog(self):
-        """Export the prolog of the batch script"""
-        prolog = "# Prolog\n"
-        prolog += f'trap "false" {self.config["content"]["trap"]}\n\n'
-        return prolog
-
-    def export_epilog(self):
-        """Export the epilog of the batch script"""
-        epilog = "# Epilog\n"
-        epilog += "echo $? > $WOOM_SUBMISSION_DIR/job.status\n"
-        epilog += "exit $?\n"
-        return epilog
-
-    def export_content(self):
-        """Export the task content as bash code"""
-        return (
-            "#!/bin/bash\n\n"
-            + self.export_prolog()
-            + self.export_env()
-            + self.export_run_dir()
-            + self.export_commandline()
-            + self.export_epilog()
-        )
-
-    def render_content(self, params):
-        """Export and render the task content with jinja and parameters
-
-        Parameters
-        ----------
-        params: dict
-            Parameters used for substitution
-
-        Return
-        ------
-        str
-        """
-        return wrender.render(self.export_content(), params)
 
     def export(self, params):
         return {

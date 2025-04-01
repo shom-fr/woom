@@ -57,6 +57,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["woom"]
+include-package-data = true
 
 [tool.setuptools_scm]
 fallback_version = "999"

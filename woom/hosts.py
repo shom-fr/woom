@@ -240,11 +240,13 @@ class Host:
 
         # Get registered env
         return wenv.EnvConfig(
-            module_setup=self.config["module_setup"],
-            module_use=cfg["modules"]["use"],
-            module_load=cfg["modules"]["load"],
             vars_forward=cfg["vars"]["forward"],
             vars_set=env_vars,
             vars_append=cfg["vars"]["append"],
             vars_prepend=cfg["vars"]["prepend"],
+            module_setup=self.config["module_setup"],
+            module_use=cfg["modules"]["use"],
+            module_load=cfg["modules"]["load"],
+            conda_setup=self.config["conda_setup"],
+            conda_activate=cfg["conda_activate"],
         )

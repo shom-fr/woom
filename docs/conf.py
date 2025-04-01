@@ -59,8 +59,10 @@ html_theme_options = {
 intersphinx_mapping = {
     "python": ("https://docs.python.org/fr/3/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
-    "jinja": ("https://jinja.palletsprojects.com/en/stable/", None),
-    "configobj": ("https://configobj.readthedocs.io/en/latest", None),
+    "jinja2": ("https://jinja.palletsprojects.com/en/stable/", None),
+    "configobj": ("https://configobj.readthedocs.io/en/latest/", None),
+    "platformdirs": ("https://platformdirs.readthedocs.io/en/latest/", None),
+    "psutil": ("https://psutil.readthedocs.io/en/latest/", None),
 }
 
 # %% Autosumarry

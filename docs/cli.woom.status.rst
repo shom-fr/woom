@@ -10,4 +10,4 @@
 Example
 -------
 
-.. command-output:: woom --workflow-cfg ../examples/all_stages/workflow.cfg status
+.. command-output:: woom --workflow-cfg ../examples/academic/all_stages/workflow.cfg status

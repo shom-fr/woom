@@ -9,7 +9,11 @@ One can extend the capabilities of woom by supplying specific files.
 Jinja filters
 =============
 
-:mod:`jinja` is used to perform string substitutions to generate the task scripts to be submitted.
+Jina is used to perform string substitutions to generate the task scripts to be submitted.
+This process support filtering that transforms you data after converting it to string.
+Jinja builtin filters are available `here <https://jinja.palletsprojects.com/en/stable/templates/#builtin-filters>`_.
+Woom provides a few filters in the :mod:`woom.render` module.
+
 You can add you own filter functions by following the procedure:
 
 1. Create a python file named :file:`jinja_filters.py` located in the :file:`ext/` folder of your workflow directory.
@@ -47,6 +51,7 @@ Example:
 
 .. literalinclude:: ../examples/academic/ensemble/workflow.ini
     :caption: :file:`examples/academic/ensemble/workflow.ini`
+    :language: ini
 
 Validator functions
 -------------------
