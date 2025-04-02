@@ -1,3 +1,5 @@
+.. _woom_run:
+
 :command:`woom run`
 ===================
 

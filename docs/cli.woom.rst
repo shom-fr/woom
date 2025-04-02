@@ -1,3 +1,5 @@
+.. _woom_main:
+
 :command:`woom`
 ===============
 

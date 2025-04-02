@@ -1,3 +1,5 @@
+.. _woom_kill:
+
 :command:`woom kill`
 ====================
 

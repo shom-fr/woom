@@ -23,3 +23,8 @@
    cfgspecs
    Gitlab repository <https://gitlab.com/GitShom/STM/woom>
 
+Indices and tables
+------------------
+
+* :ref:`genindex`
+* :ref:`modindex`

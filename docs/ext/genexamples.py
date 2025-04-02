@@ -61,6 +61,8 @@ Check what is running or finished.
 )
 
 TEMPLATE_INDEX = """
+.. _examples:
+
 Examples of configuration
 =========================
 

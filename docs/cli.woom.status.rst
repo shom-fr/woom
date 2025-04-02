@@ -1,3 +1,5 @@
+.. _woom_status:
+
 :command:`woom status`
 ======================
 

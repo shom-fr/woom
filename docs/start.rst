@@ -25,6 +25,8 @@ A **job script** is a bash file that contains:
     * a block of commands that does the main job
     * an :command:`exit` command that emits any trapped signal or 0.
 
+    .. seealso:: :ref:`templates`
+
 To setup your workflow:
 
 #. Create a directory that is dedicated to your workflow.
@@ -36,16 +38,51 @@ To setup your workflow:
    an extension :file:`ext` directory, or other useful files that you can access at runtime with the 
    ``workflow_dir`` substitution parameter or the :envvar:`WOOM_WORKFLOW_DIR` environment variable.
 
+A typical sructure of the workflow directory is the following:
+
+.. code-block:: bash
+
+    workflow/
+    ├── workflow.cfg  # mandatory
+    ├── tasks.cfg     # mandatory
+    ├── hosts.cfg     # mandatory
+    ├── ext/          # optional, woom extensions
+    │   ├── jinja_filters.py
+    │   └── validator_functions.py
+    ├── bin/          # opttional, prepended to $PATH
+    │   └── myscript.py
+    └── lib/
+        └── python   # opttional, prepended to $PYTHONPATH
+            └── mylib.py
+
+You can add more stuff to this directory and access it using the ``{{ workflow_dir }}`` template
+in configuration files or the :envvar:`WOOM_WORKFLOW_DIR` environment variable.
+
 Configurations
 ==============
 
 Tasks with :file:`tasks.cfg`
 ----------------------------
 
+Four tasks with arbitraty names are specified in the file.
+The command lines use jinja patterns like ``{{ data_dir }}`` that are filled both with entries
+from the ``[params]`` section of the :file:`workflow.cfg` file and those provided by default by the workflow 
+(:ref:`inputs_dict`).
+Some of the tasks here are using a ``prepost`` environment that must be declared in the 
+:file:`hosts.cfg` configuration file.
+
+.. literalinclude:: samples/tasks.cfg
+    :language: ini
+    :caption: Example of :file:`tasks.cfg`
+
 See also the :mod:`configobj` :ref:`specifications <cfgspecs.tasks>` for this configuration.
 
 Hosts with :file:`hosts.cfg`
 ----------------------------
+
+This file declarew the ressources that are available on the datarmor host, with in particular
+itsscheduler, the scratch dir taken from the :envvar:`SCRATCH` environment variable.
+A environment called ``prepost`` is declared as using environment modules and environment variables.
 
 .. literalinclude:: samples/hosts.cfg
     :language: ini
@@ -56,6 +93,17 @@ See also the :mod:`configobj` :ref:`specifications <cfgspecs.host>` for this con
     
 Workflow with :file:`workflow.cfg`
 ----------------------------------
+
+In this example, we give a name too our app, specify over which dates to loop and declare parameters
+``box`` and ``data_dir`` which can be used in the :file:`tasks.cfg` file.
+The ``clean_data_dir`` is executed only once and before looping over dates since in the ``[prolog]`` stage.
+Other tasks are executed for each date interval in a sequential order, except ``fetch_data`` and 
+``cp_config`` which are executed in parallel since they declare in the same sequence named ``fetch``.
+
+
+.. literalinclude:: samples/workflow.cfg
+    :language: ini
+    :caption: Example of :file:`workflow.cfg`
 
 See also the :mod:`configobj` :ref:`specifications <cfgspecs.workflow>` for this configuration.
 
@@ -119,3 +167,34 @@ See its `website <https://jinja.palletsprojects.com/en/stable/>`_ for detailed e
 
 Controling and running the workflow
 ===================================
+
+Run all woom commands from the workflow directory.
+See the :ref:`examples` section for more illustrative examples.
+
+.. tip:: All woom commands support the ``--help`` option
+
+.. highlight:: bash
+
+First, make sure that the your workflow is well interpreted::
+
+    $ woom overview
+
+Then, run your workflow in dry (fake) and debug mode::
+
+    $ woom --logger-level debug run --dry-run
+
+Then, run it in normal mode if everything is ok::
+
+    $ woom run
+    
+To check the status of all jobs, especially on an HPC with a scheduler::
+
+    $ woom status
+
+To kill jobs:
+
+    $ woom kill      # all jobs
+    $ woom kill 1264 # one job
+    $ woom kill --task fetch_data # identified by task name
+
+.. seealso:: :ref:`woom_main`, :ref:`woom_overview`, :ref:`woom_run`, :ref:`woom_status` and :ref:`woom_kill`

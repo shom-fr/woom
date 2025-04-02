@@ -166,7 +166,7 @@ def get_workflow(workflow_cfg, logger, parser, args):  # , clean):
 
     # Init task manager
     logger.debug("Initialize the task manager")
-    taskmanager = wtasks.TaskManager(host)  # , session)
+    taskmanager = wtasks.TaskManager(host)
     logger.info("Initialized the task manager")
     logger.debug("Load the task config file: " + args.tasks_cfg)
     taskmanager.load_config(args.tasks_cfg)

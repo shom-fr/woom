@@ -28,6 +28,8 @@ Example:
 
 If present, this file is loaded at workflow setup by the :func:`woom.ext.load_extensions` function.
 
+.. _ext_configobj:
+
 Configobj specifications
 ========================
 
@@ -36,6 +38,8 @@ interpreted as strings by default.
 You can change this behavior by changing adding your own specification file,
 and optionally by providing new validator functions that convert text to 
 the desired type.
+
+.. _ext_configobj_specs:
 
 Workflow configuration specifications
 -------------------------------------
@@ -52,6 +56,8 @@ Example:
 .. literalinclude:: ../examples/academic/ensemble/workflow.ini
     :caption: :file:`examples/academic/ensemble/workflow.ini`
     :language: ini
+
+.. _ext_configobj_valid:
 
 Validator functions
 -------------------
