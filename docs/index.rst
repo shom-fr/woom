@@ -11,6 +11,7 @@
    cli
    examples/index
    ext
+   from_python
 
 .. toctree::
    :caption: Reference

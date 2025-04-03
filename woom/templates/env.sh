@@ -1,28 +1,28 @@
 {% if env.raw_text %}
 # - raw init
-env.raw_text
+{{ env.raw_text }}
 {% endif %}
 {% if env.module_load %}
 # - environment modules
 {% if env.module_setup %}
-env.module_setup
+{{ env.module_setup }}
 {% endif %}
 {% if env.module_use %}
-module use env.module_use
+module use {{ env.module_use }}
 {% endif %}
 {% if env.module_load %}
-module load env.module_load
+module load {{ env.module_load }}
 {% endif %}
 {% endif %}
 {% if env.has_vars() %}
 # - environment variables
 {# forward #}
 {% for name in env.vars_forward %}
-export {{ name }}={{ os.environ[name] }}
+export {{ name }}="{{ os.environ[name] }}"
 {% endfor %}
 {# set #}
 {% for name, value in env.vars_set.items() %}
-export {{ name }}={{ value|as_str_env }}
+export {{ name }}="{{ value|as_str_env }}"
 {% endfor %}
 {# prepend #}
 {% for name, value in env.vars_prepend.items() %}
@@ -38,5 +38,5 @@ export {{ name }}=${{ name }}{{ os.pathsep }}{{ value|as_str_env }}
 {% if env.conda_setup %}
 {{ env.conda_setup }}
 {% endif %}
-{{ env.conda_activate }}
+conda activate {{ env.conda_activate }}
 {% endif %}

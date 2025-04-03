@@ -551,7 +551,7 @@ class Workflow:
                                     job = self.submit_task(**kwtask)
                                     if job is None:
                                         raise WorkFlowError(
-                                            "Task submission aborted: {long_task}. Stopping workflow..."
+                                            f"Task submission aborted: {long_task}. Stopping workflow..."
                                         )
                                 self.logger.info(f"Submitted task: {long_task} with job id {job}")
 
@@ -701,6 +701,8 @@ class Workflow:
             if task_name and task_name_ != task_name:
                 continue
             if cycle and str(cycle) != str(cycle_):
+                continue
+            if member is not None and str(member) != str(member_):
                 continue
             submdir = self.get_submission_dir(task_name_, cycle_, member_, create=False)
             task_path = self.get_task_path(task_name_, cycle_, member_)

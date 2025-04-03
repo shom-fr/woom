@@ -14,7 +14,7 @@ The :file:`job.sh` template
 This template is used by :meth:`woom.tasks.Task.render_content` to create the job script.
 
 .. literalinclude:: ../woom/templates/job.sh
-    :language: bash
+    :language: jinja
 
 
 .. _templates.env.sh:
@@ -25,7 +25,7 @@ The :file:`env.sh` template
 This template is used by :meth:`woom.env.EnvConfig.export` to format the environment declaration in :ref:`templates.job.sh`.
 
 .. literalinclude:: ../woom/templates/env.sh
-    :language: bash
+    :language: jinja
 
 
 

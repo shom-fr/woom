@@ -1,11 +1,13 @@
+.. _cli:
+
 Commandline interface
 #####################
 
 .. highlight:: bash
 
-Here is the command line interface of woom.
+Here is the command line interface of woom you can call from a terminal.
 All these commands are expected to be executed with at least valid workflow and tasks configuration files.
-The respectively defaults to :file:`workflow.cfg` and :file:`tasks.cfg` in the current directory.
+They respectively defaults to :file:`workflow.cfg` and :file:`tasks.cfg` in the current directory.
 
 
 

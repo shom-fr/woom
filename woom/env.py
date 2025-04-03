@@ -26,8 +26,10 @@ class EnvConfig:
         self.vars_set = {} if vars_set is None else vars_set.copy()
         self.vars_append = {}
         self.vars_prepend = {}
-        self.append_paths(**vars_append)
-        self.prepend_paths(**vars_append)
+        if vars_append:
+            self.append_paths(**vars_append)
+        if vars_prepend:
+            self.prepend_paths(**vars_prepend)
         self.module_setup = module_setup
         self.module_use = module_use
         self.module_load = module_load

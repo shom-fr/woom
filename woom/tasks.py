@@ -213,7 +213,7 @@ class Task:
         return epilog
 
     def render_content(self, params):
-        """Export and render the task content with jinja, parameters and the :file:`job.sh` template
+        """Export and render the task content with jinja, parameters and the :ref:`job.sh template <templates.job.sh>`
 
         Parameters
         ----------
