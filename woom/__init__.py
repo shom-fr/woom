@@ -3,15 +3,11 @@
 """
 Light weight workflow manager for ocean models
 """
-from importlib.metadata import version as _version
-import os
 
 try:
-    __version__ = _version("woom")
-except Exception:
-    # Local copy or not installed with setuptools.
-    # Disable minimum version checks on downstream libraries.
-    __version__ = "9999"
+    from ._version import version as __version__
+except ImportError:
+    __version__ = "0.0.0"
 
 
 class WoomError(Exception):

@@ -9,7 +9,6 @@ classifiers = [
   "Environment :: Console",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
@@ -22,7 +21,8 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Oceanography",
 ]
 dynamic = ["version"]
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 readme = "README.rst"
 requires-python = ">=3.9"
 dependencies = [
@@ -52,7 +52,7 @@ source-code = "https://github.com/shom-fr/woom"
 woom = "woom.cli:main"
 
 [build-system]
-requires = ["setuptools >= 61.0"]
+requires = ["setuptools >= 61.0", "wheel", "setuptools-scm[toml]"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -60,7 +60,7 @@ packages = ["woom"]
 include-package-data = true
 
 [tool.setuptools_scm]
-fallback_version = "999"
+write_to = "woom/_version.py"
 
 [tool.black]
 line-length = 100
