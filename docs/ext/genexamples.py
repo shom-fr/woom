@@ -28,7 +28,7 @@ Overview
 ~~~~~~~~
 Let's have an overview of stages before running the workflow.
 
-.. command-output:: woom overview
+.. command-output:: woom show overview
     :cwd: ../../examples/{section}/{path}
 
 Dry run
