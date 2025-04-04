@@ -49,9 +49,11 @@ class Workflow:
         self._dry = False
         self._upate = False
 
-        # Cylces
+        # Cycles
         if self.task_tree["cycles"]:
-            self._cycles = witers.gen_cycles(**self.config["cycles"])
+            cycles_conf = self.config["cycles"].dict()
+            self._cycles_indep = cycles_conf.pop("indep")
+            self._cycles = witers.gen_cycles(**cycles_conf)
         else:
             self._cycles = []
 
@@ -441,6 +443,7 @@ class Workflow:
         if update:
             self.logger.debug("Running the workflow in update mode")
         sequence_depend = []
+        stage_depend = []
         for stage in self.task_tree:
             self.logger.debug(f"Entering stage: {stage}")
 
@@ -452,27 +455,35 @@ class Workflow:
             # Get cycles for looping in time
             if stage == "cycles":
                 cycles = self._cycles
-                if cycles[0].is_interval:
-                    self.logger.info(
-                        "Cycling from {} to {} in {} time(s)".format(
-                            cycles[0].begin_date,
-                            cycles[-1].end_date,
-                            len(cycles),
+                if len(self._cycles) > 1:
+                    indep = "independant " if self._cycles_indep else ""
+                    if cycles[0].is_interval:
+                        self.logger.info(
+                            "Cycling on {}intervals from {} to {} in {} time(s)".format(
+                                indep, cycles[0].begin_date, cycles[-1].end_date, len(cycles)
+                            )
                         )
-                    )
+                    else:
+                        self.logger.info(
+                            "Cycling on {}dates from {} to {} in {} time(s)".format(
+                                indep, cycles[0].date, cycles[-1].date, len(cycles)
+                            )
+                        )
                 else:
-                    self.logger.info(
-                        "Single cycle with unique date: {}".format(cycles[0].begin_date)
-                    )
+                    self.logger.info("Single cycle with unique date: {}".format(cycles[0].date))
 
             else:
                 cycles = [stage]
 
             # Only the "cycles" stage is really looping
+            stage_jobs = []
+            sequence_depend = stage_depend
             for i, cycle in enumerate(cycles):
 
                 if stage == "cycles":
                     self.logger.debug("Running cycle: " + cycle.label)
+                    if self._cycles_indep:  # independant cycles depend always on the last stage
+                        sequence_depend = stage_depend
 
                 # Sequential loop on sequences aka substages
                 for sequence, groups in self.task_tree[stage].items():
@@ -482,9 +493,9 @@ class Workflow:
                         continue
 
                     self.logger.debug(f"Entering sequence: {sequence}")
-                    next_sequence_depend = []
 
                     # Parallel loop on groups
+                    sequence_jobs = []
                     for group in groups:
                         if len(group) > 1:
                             self.logger.debug("Group of {} sequential tasks:".format(len(group)))
@@ -496,9 +507,8 @@ class Workflow:
                         job = None
                         for task_name in group:
 
-                            next_task_depend = []
-
                             # Parallel on ensemble members
+                            task_jobs = []
                             for member in self.get_task_members(task_name) or [None]:
 
                                 long_task = f"{stage}/{sequence}/{task_name}"
@@ -534,10 +544,8 @@ class Workflow:
 
                                 # Submit
                                 self.logger.debug(f"Submitting task: {long_task}")
-                                self.logger.debug(
-                                    "  Dependencies: "
-                                    + ", ".join([str(job) for job in task_depend])
-                                )
+                                jobids = ", ".join([str(job) for job in task_depend])
+                                self.logger.debug(f"  Dependencies: {jobids}")
                                 kwtask = dict(
                                     task_name=task_name,
                                     cycle=cycle,
@@ -553,25 +561,35 @@ class Workflow:
                                         raise WorkFlowError(
                                             f"Task submission aborted: {long_task}. Stopping workflow..."
                                         )
-                                self.logger.info(f"Submitted task: {long_task} with job id {job}")
+                                depending = f" depending on [{jobids}]" if task_depend else ""
+                                self.logger.info(
+                                    f"Submitted task: {long_task} with job id {job}{depending}"
+                                )
 
                                 # The next task of this group depend on this job member
-                                next_task_depend.append(job)
+                                task_jobs.append(job)
 
-                            # Dependencies for the next task
-                            task_depend = next_task_depend
+                            # Dependencies for the next task in the group
+                            task_depend = task_jobs
 
-                        # The last jobs of this group are added for next stage dependency
-                        # if next_task_depend:
-                        next_sequence_depend.extend(next_task_depend)
+                        # The last jobs of this group are added to sequence jobs
+                        sequence_jobs.extend(task_jobs)
 
                     # Dependencies for the next sequence
-                    sequence_depend = next_sequence_depend
+                    sequence_depend = sequence_jobs
+
+                # Stage jobs
+                if stage == "cycles" and self._cycles_indep:  # parallel independant cycles
+                    stage_jobs.extend(sequence_jobs)
+                else:
+                    stage_jobs = sequence_jobs
 
                 if stage == "cycles":
                     self.logger.info("Successfully submitted cycle: " + cycle.label)
                 else:
                     self.logger.info("Successfully submitted stage: " + stage)
+
+            stage_depend = stage_jobs
 
     def show_overview(self):
         """Display an overview of the workflow, like its task tree and cycles"""
@@ -721,3 +739,27 @@ class Workflow:
 
         else:
             self.logger.info("No job to kill")
+
+    def get_run_dirs(self):
+        """Get the run directories as :class:`pandas.DataFrame`
+
+        Return
+        ------
+        pandas.DataFrame
+        """
+        data = []
+        # index = []
+        for task_name, cycle, member in self:
+            run_dir = self.get_run_dir(task_name, cycle, member)
+            row = [task_name, cycle, run_dir]
+            if self.nmembers:
+                row.insert(-1, f"{member}/{self.nmembers}")
+            data.append(row)
+        columns = ["TASK", "CYCLE", "RUN DIR"]
+        if self.nmembers:
+            columns.insert(-1, "MEMBER")
+        return pd.DataFrame(data, columns=columns)
+
+    def show_run_dirs(self, tablefmt="rounded_outline"):
+        """Show the status of all the tasks of the wokflow"""
+        print(self.get_run_dirs().to_markdown(index=False, tablefmt=tablefmt))

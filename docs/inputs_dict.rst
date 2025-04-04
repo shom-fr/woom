@@ -4,6 +4,19 @@ Input dictionary
 ================
 
 This dictionary is used to fill the :ref:`templates` in order the finally generate the submitted job script.
+
+For instance, the following line, declared for instance in the :file:`tasks.cfg` file
+
+.. code-block:: bash
+
+    echo "the {{ app_conf }} model"
+
+will be converted to
+
+.. code-block:: bash
+
+    echo "the CROCO model"
+
 The minimal content of this dictionary is the following, in alphabetical order:
 
 .. list-table::

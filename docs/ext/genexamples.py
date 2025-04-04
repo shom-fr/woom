@@ -54,8 +54,16 @@ Check status
 ~~~~~~~~~~~~
 Check what is running or finished.
 
-.. command-output:: woom status
+.. command-output:: woom show status
     :cwd: ../../examples/{section}/{path}
+
+Show run directories
+~~~~~~~~~~~~~~~~~~~~
+Show where tasks were executed.
+
+.. command-output:: woom show run_dirs
+    :cwd: ../../examples/{section}/{path}
+
 
 """
 )

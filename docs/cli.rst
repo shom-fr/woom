@@ -17,8 +17,7 @@ Available commands:
     :maxdepth: 1
 
     cli.woom
-    cli.woom.overview
+    cli.woom.show
     cli.woom.run
-    cli.woom.status
     cli.woom.kill
     

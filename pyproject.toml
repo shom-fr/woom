@@ -52,7 +52,7 @@ source-code = "https://github.com/shom-fr/woom"
 woom = "woom.cli:main"
 
 [build-system]
-requires = ["setuptools >= 61.0", "wheel", "setuptools-scm[toml]"]
+requires = ["setuptools >= 64", "wheel", "setuptools-scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

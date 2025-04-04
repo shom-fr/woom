@@ -22,6 +22,8 @@ class Cycle:
     def __init__(self, begin_date, end_date=None):
         #: Begin date (:class:`~woom.util.WoomDate`)
         self.begin_date = wutil.WoomDate(begin_date)
+        #: Same as :attr:`begin_date`
+        self.date = self.begin_date
         #: Whether it is an interval or a single date (:class:`bool`)
         self.is_interval = end_date is not None
         #: Whether it is the first cycle  (:class:`bool`)
@@ -85,7 +87,7 @@ class Cycle:
                 }
             )
         else:
-            params["cycle_date" + suffix] = params["cycle_begin_date"]
+            params["cycle_date" + suffix] = params["cycle_begin_date" + suffix]
         params["cycle_is_first" + suffix] = self.is_first
         params["cycle_is_last" + suffix] = self.is_last
         params["cycle_next" + suffix] = self.next
@@ -98,14 +100,14 @@ class Cycle:
         return wutil.params2env_vars(params)
 
 
-def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None):
+def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, as_intervals=True):
     """Get a list of cycles given time specifications
 
-    One cycle is a :class:`Cycle` instance that contains the following keys:
+    One cycle is a :class:`Cycle` instance that contains the following attributes:
 
-    - ``"cycle_begin_date"``: Begin date [:class:`pandas.Timestamp`]
-    - ``"cycle_end_date"`` (optional): End date [:class:`pandas.Timestamp`]
-    - ``"cycle_duration"`` (optional): Difference between begin and end [:class:`pandas.Timedelta`]
+    - `:attr:`~Cycle.begin_date`: Begin date [:class:`pandas.Timestamp`]
+    - `:attr:`~Cycle.end_date`: (optional): End date [:class:`pandas.Timestamp`]
+    - `:attr:`~Cycle.duration`: (optional): Difference between begin and end [:class:`pandas.Timedelta`]
     """
     if begin_date is None:
         raise WoomError("begin_date must be None to generate cycles")
@@ -144,10 +146,13 @@ def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None):
         return [Cycle(rundates[0])]
 
     # A list of time intervals
-    cycles = []
-    for i, date0 in enumerate(rundates[:-1]):
-        date1 = rundates[i + 1]
-        cycles.append(Cycle(date0, date1))
+    if as_intervals:
+        cycles = []
+        for i, date0 in enumerate(rundates[:-1]):
+            date1 = rundates[i + 1]
+            cycles.append(Cycle(date0, date1))
+    else:
+        cycles = [Cycle(date) for date in rundates]
 
     if not cycles:
         raise WoomError(

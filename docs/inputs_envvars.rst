@@ -113,11 +113,11 @@ Modified existing variables
 
 .. envvar:: PATH
 
-    ``"$WOOM_WORKFLOW_DIR/bin"`` is prepeded to :envvar:`PATH`
+    ``"$WOOM_WORKFLOW_DIR/bin"`` is prepended to :envvar:`PATH`
 
 .. envvar:: PYTHONPATH
 
-    ``"$WOOM_WORKFLOW_DIR/lib/python"`` is prepeded to :envvar:`PYTHONPATH`
+    ``"$WOOM_WORKFLOW_DIR/lib/python"`` is prepended to :envvar:`PYTHONPATH`
 
 .. envvar:: LIBRARY_PATH
 

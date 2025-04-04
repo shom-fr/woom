@@ -47,10 +47,9 @@ def get_parser():
 
     subparsers = parser.add_subparsers(help="sub-command help")
 
+    add_parser_show(subparsers)
     add_parser_run(subparsers)
-    add_parser_status(subparsers)
     add_parser_kill(subparsers)
-    add_parser_overview(subparsers)
 
     return parser
 
@@ -180,20 +179,36 @@ def get_workflow(workflow_cfg, logger, parser, args):  # , clean):
     return workflow
 
 
-def add_parser_overview(subparsers):
+def add_parser_show(subparsers):
     # Setup argument parser
-    parser_overview = subparsers.add_parser(
+    parser_show = subparsers.add_parser(
+        "show",
+        help="show info about the workflow",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    subparsers_show = parser_show.add_subparsers(help="sub-command help")
+    add_parser_show_overview(subparsers_show)
+    add_parser_show_status(subparsers_show)
+    add_parser_show_run_dirs(subparsers_show)
+
+    return parser_show
+
+
+def add_parser_show_overview(subparsers):
+    # Setup argument parser
+    parser_show_overview = subparsers.add_parser(
         "overview",
         help="show main info like the task tree and cycles",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    wlog.add_logging_parser_arguments(parser_overview, default_level="warning")
-    parser_overview.set_defaults(func=main_overview)
+    wlog.add_logging_parser_arguments(parser_show_overview, default_level="warning")
+    parser_show_overview.set_defaults(func=main_show_overview)
 
-    return parser_overview
+    return parser_show_overview
 
 
-def main_overview(parser, args):
+def main_show_overview(parser, args):
     # Setup the workflow
     workflow, logger = setup_workflow(parser, args)
     if not workflow:
@@ -245,26 +260,26 @@ def main_run(parser, args):
         logger.info("Successfully ran the workflow!")
 
 
-def add_parser_status(subparsers):
+def add_parser_show_status(subparsers):
     # Setup argument parser
-    parser_status = subparsers.add_parser(
+    parser_show_status = subparsers.add_parser(
         "status",
         help="get the status of all worklow tasks",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser_status.add_argument(
+    parser_show_status.add_argument(
         "-r", "--running", help="show only running jobs", action="store_true"
     )
-    parser_status.add_argument(
+    parser_show_status.add_argument(
         "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
     )
-    wlog.add_logging_parser_arguments(parser_status, default_level="warning")
-    parser_status.set_defaults(func=main_status)
+    wlog.add_logging_parser_arguments(parser_show_status, default_level="warning")
+    parser_show_status.set_defaults(func=main_show_status)
 
-    return parser_status
+    return parser_show_status
 
 
-def main_status(parser, args):
+def main_show_status(parser, args):
     # Setup the workflow
     workflow, logger = setup_workflow(parser, args)
     if not workflow:
@@ -309,3 +324,32 @@ def main_kill(parser, args):
         workflow.kill(jobid=args.jobid, task_name=args.task, cycle=args.cycle)
     except Exception:
         logger.exception("Failed to kill jobs")
+
+
+def add_parser_show_run_dirs(subparsers):
+    # Setup argument parser
+    parser_show_run_dirs = subparsers.add_parser(
+        "run_dirs",
+        help="show the run directory of all worklow tasks",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser_show_run_dirs.add_argument(
+        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
+    )
+    wlog.add_logging_parser_arguments(parser_show_run_dirs, default_level="warning")
+    parser_show_run_dirs.set_defaults(func=main_show_run_dirs)
+
+    return parser_show_run_dirs
+
+
+def main_show_run_dirs(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)
+    if not workflow:
+        return
+
+    # Show the status
+    try:
+        workflow.show_run_dirs(tablefmt=args.tablefmt)
+    except Exception:
+        logger.exception("Failed showing the run directories")
