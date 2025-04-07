@@ -3,6 +3,8 @@
 :command:`woom show run_dirs`
 =============================
 
+Show the run directory of your workflow tasks.
+
 .. argparse::
     :module: woom.cli
     :func: get_parser
@@ -13,4 +15,4 @@ Example
 -------
 
 .. command-output:: woom show run_dirs
-    :cwd: ../examples/academic/single_task
+    :cwd: ../examples/academic/cycles

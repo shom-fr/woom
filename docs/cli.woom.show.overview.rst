@@ -3,6 +3,8 @@
 :command:`woom show overview`
 =============================
 
+Show a short overview of how your workflow understood what yu want to do.
+
 .. argparse::
     :module: woom.cli
     :func: get_parser

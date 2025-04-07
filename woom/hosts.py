@@ -165,16 +165,21 @@ class Host:
 
     @property
     def module_setup(self):
-        """Command the load :command:`module` command (:class:`str`)"""
+        """Command to declare the :command:`module` command (:class:`str`)"""
         return self.config["module_setup"]
 
     @property
     def queues(self):
-        """correspondance between generic and real queue names (:class:`dict`)"""
+        """Correspondance between generic and real queue names (:class:`dict`)"""
         return self.config["queues"]
 
     def get_queue(self, name):
-        """Get a queue real name from its generic name"""
+        """Get a queue real name from its generic name
+
+        See also
+        --------
+        queues
+        """
         if name in self.queues:
             return self.queues[name]
         return name
@@ -184,7 +189,7 @@ class Host:
     #     return self.config["dirs"]
 
     def get_params(self):
-        """Get a configuration suitable for formatted task commandlines
+        """Get a context dict for formatting task commandlines with jinja
 
         In merges the following contents:
 

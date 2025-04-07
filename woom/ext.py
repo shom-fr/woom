@@ -9,7 +9,7 @@ import importlib
 
 
 def import_from_path(module_name, file_path):
-    """Importing a source file directly
+    """Importing a python source file directly
 
     Source: https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
     """
@@ -23,7 +23,7 @@ def import_from_path(module_name, file_path):
 def load_extensions(workflow_dir):
     """Load woom extensions
 
-    Extensions are python files situated in the :file:`ext` sub-directory of the workflow directory:
+    Extensions are python files situated in the :file:`ext/` sub-directory of the workflow directory:
 
     * :file:`jinja_filters.py`: :mod:`jinja` filters.
     * :file:`validator_functions.py`: :mod:`configobj.validate` functions.

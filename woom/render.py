@@ -20,7 +20,7 @@ def render(template, params, strict=True):
     Note
     ----
     Rendering is performed through a recursive process until the final
-    string does not change. This allows passing parameters that contain jinja patterns.
+    string does not change. This allows passing parameters that contains jinja patterns.
 
     Parameters
     ----------

@@ -43,6 +43,7 @@ class EnvConfig:
         return str(value)
 
     def has_vars(self):
+        """Does this environment manage environment variables?"""
         return bool(
             self.vars_forward
             + list(self.vars_set)

@@ -108,7 +108,7 @@ def load_cfg(cfgfile, cfgspecsfiles, list_values=True):
 
 
 def strip_out_sections(cfg):
-    """Remove all section keeping only scalars"""
+    """Remove all sections keeping only scalars"""
     cfgo = configobj.ConfigObj(cfg, interpolation=cfg.main.interpolation)
     for key in cfg.sections:
         del cfgo[key]

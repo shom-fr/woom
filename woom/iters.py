@@ -4,7 +4,6 @@
 Iteration utilities for date cycles and ensembles
 """
 
-import collections
 import math
 
 import pandas as pd
@@ -17,7 +16,7 @@ from . import util as wutil
 
 
 class Cycle:
-    """Useful container for a time cycle"""
+    """Container for a time cycle"""
 
     def __init__(self, begin_date, end_date=None):
         #: Begin date (:class:`~woom.util.WoomDate`)
@@ -95,7 +94,7 @@ class Cycle:
         return params
 
     def get_env_vars(self, suffix=None):
-        """Export a dict of WOOM env variables about this cycle"""
+        """Export a dict of WOOM environment variables about this cycle"""
         params = self.get_params(suffix=suffix)
         return wutil.params2env_vars(params)
 
@@ -174,7 +173,7 @@ def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, a
 
 
 class Member:
-    """Facility to represent an ensemble member"""
+    """Container for an ensemble member"""
 
     def __init__(self, member_id, nmembers):
         #: Member id starting from 1 (:class:`int`)
@@ -188,6 +187,7 @@ class Member:
         return str(self.id)
 
     def set_prop(self, name, value):
+        """Set a property"""
         setattr(self, name, value)
         self._props.update({name})
 

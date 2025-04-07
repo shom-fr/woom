@@ -264,7 +264,7 @@ def add_parser_show_status(subparsers):
     # Setup argument parser
     parser_show_status = subparsers.add_parser(
         "status",
-        help="get the status of all worklow tasks",
+        help="get the status of all jobs",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_show_status.add_argument(

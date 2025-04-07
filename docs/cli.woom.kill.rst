@@ -3,6 +3,8 @@
 :command:`woom kill`
 ====================
 
+Kill jobs hat were submitted when running the current workflow.
+
 .. argparse::
     :module: woom.cli
     :func: get_parser

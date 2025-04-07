@@ -7,7 +7,7 @@ The concept
 ===========
 
 Woom helps you performing tasks in isolated environments, in a given order, optionally cycling over dates 
-and ensemble members, on laptop or on an HPC with a scheduler.
+and ensemble members, on your laptop or on an HPC with a scheduler.
 
 Here are a few definitions.
 
@@ -30,7 +30,7 @@ A **job script** is a bash file that contains:
 To setup your workflow:
 
 #. Create a directory that is dedicated to your workflow.
-#. Configure your tasks in the :file:`tasks.cfg` file and especially its content and submission specifications.
+#. Configure your tasks in the :file:`tasks.cfg` file and especially its execution content and submission specifications.
 #. Define the needed environments, directory and scheduler specifications in the :file:`host.cfg` file.
 #. Configure your workflow in the :file:`workflow.cfg` file, in particular the parameters for generating the job script, 
    the cycling and ensemble specifications and in which order tasks are submitted through the stages.
@@ -49,10 +49,10 @@ A typical sructure of the workflow directory is the following:
     ├── ext/          # optional, woom extensions
     │   ├── jinja_filters.py
     │   └── validator_functions.py
-    ├── bin/          # opttional, prepended to $PATH
+    ├── bin/          # opttional, prepended to $PATH in the job script
     │   └── myscript.py
     └── lib/
-        └── python   # opttional, prepended to $PYTHONPATH
+        └── python   # opttional, prepended to $PYTHONPATH in the job script
             └── mylib.py
 
 You can add more stuff to this directory and access it using the ``{{ workflow_dir }}`` template
@@ -80,8 +80,9 @@ See also the :mod:`configobj` :ref:`specifications <cfgspecs.tasks>` for this co
 Hosts with :file:`hosts.cfg`
 ----------------------------
 
-This file declarew the ressources that are available on the datarmor host, with in particular
-itsscheduler, the scratch dir taken from the :envvar:`SCRATCH` environment variable.
+This example file declares the ressources that are available on the datarmor host, with in particular
+its scheduler, the scratch dir taken from the :envvar:`SCRATCH` environment variable and the name of the
+``seq`` queue.
 A environment called ``prepost`` is declared as using environment modules and environment variables.
 
 .. literalinclude:: samples/hosts.cfg
@@ -94,11 +95,11 @@ See also the :mod:`configobj` :ref:`specifications <cfgspecs.host>` for this con
 Workflow with :file:`workflow.cfg`
 ----------------------------------
 
-In this example, we give a name too our app, specify over which dates to loop and declare parameters
+In this example, we give a name too our app, specify which dates to loop over and declare parameters
 ``box`` and ``data_dir`` which can be used in the :file:`tasks.cfg` file.
-The ``clean_data_dir`` is executed only once and before looping over dates since in the ``[prolog]`` stage.
+The ``clean_data_dir`` task is executed only once and before looping over dates since it called in the ``[prolog]`` stage.
 Other tasks are executed for each date interval in a sequential order, except ``fetch_data`` and 
-``cp_config`` which are executed in parallel since they declare in the same sequence named ``fetch``.
+``cp_config`` which are executed in parallel since they are called in the same sequence named ``fetch``.
 
 
 .. literalinclude:: samples/workflow.cfg
@@ -128,7 +129,7 @@ the wokflow to know the job status.
 Environment
 -----------
 
-The environment is specified by its name in the task configuration and the detailed in the host configuration.
+The environment we need is specified by its name in the task configuration and is detailed in the host configuration.
 It typically takes the form of environment module directives and environment variable declarations.
 
 Run directory
@@ -152,7 +153,7 @@ This signal is then emitted by the :command:`exit` command.
 
 Finally
 -------
-The standard output is save into :file:`{{submission_dir}}/job.out` and 
+The standard output is saved into :file:`{{submission_dir}}/job.out` and 
 the standard error into :file:`{{submission_dir}}/job.err`.
 
 
@@ -177,7 +178,7 @@ See the :ref:`examples` section for more illustrative examples.
 
 First, make sure that the your workflow is well interpreted::
 
-    $ woom overview
+    $ woom show overview
 
 Then, run your workflow in dry (fake) and debug mode::
 
@@ -189,12 +190,12 @@ Then, run it in normal mode if everything is ok::
     
 To check the status of all jobs, especially on an HPC with a scheduler::
 
-    $ woom status
+    $ woom show tatus
 
-To kill jobs:
+To kill jobs::
 
     $ woom kill      # all jobs
     $ woom kill 1264 # one job
     $ woom kill --task fetch_data # identified by task name
 
-.. seealso:: :ref:`woom_main`, :ref:`woom_overview`, :ref:`woom_run`, :ref:`woom_status` and :ref:`woom_kill`
+.. seealso:: :ref:`woom_main`, :ref:`woom_show`, :ref:`woom_run` and :ref:`woom_kill`

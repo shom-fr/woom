@@ -4,7 +4,7 @@ From python
 ===========
 
 Instead of calling the :ref:`commandline interface <cli>`, you can run your workflow from python.
-Here is a minimal list operation you can do.
+Here is a minimal list of operations you can do.
 Have a look to the :mod:`woom.cli` module for more info.
 
 Initializations
@@ -48,7 +48,7 @@ Set your :class:`host <woom.hosts.Host>`::
 
     host = hostmanager.get_host("datarmor")
     
-Alternatively, you can infer your **host** the ``patterns`` configuration option is correctly set::
+Alternatively, you can infer your **host** thanks to the ``patterns`` configuration option is correctly set::
 
     host = hostmanager.infer_host()
 
@@ -85,7 +85,7 @@ To **check the status** of all workflow tasks and their associated jobs, use :me
 
     workflow.show_status()
 
-To show the status of only running tasks, use the ``running`` keyword::
+To show the status of only running jobs, use the ``running`` keyword::
 
     workflow.show_status(running=True)
 

@@ -3,6 +3,8 @@
 :command:`woom run`
 ===================
 
+Submit the current workflow.
+
 .. argparse::
     :module: woom.cli
     :func: get_parser
