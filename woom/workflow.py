@@ -58,8 +58,10 @@ class Workflow:
             self._cycles = []
 
         # Ensemble
-        self._nmembers = self.config["ensemble"]["size"]
-        self._members = witers.gen_ensemble(self._nmembers, **self.config["ensemble"]["iters"])
+        self._members = witers.gen_ensemble(
+            self.config["ensemble"]["size"], **self.config["ensemble"]["iters"]
+        )
+        self._nmembers = len(self._members)
 
         # Paths
         self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))

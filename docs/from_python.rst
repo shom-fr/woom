@@ -33,7 +33,7 @@ Setup the workflow
 Load the **extension files** with :func:`~woom.ext.load_jinja_filters` and :func:`~woom.ext.load_validator_functions`::
 
     wext.load_jinja_filters("ext/jinja_filters.py") # Jinja filters
-    wext.load_validator_functions("ext/vf_filters.py") # Configobj validator functions
+    wext.load_validator_functions("ext/validator_functions.py") # Configobj validator functions
 
 Alternatively, if your extension files are in the :file:`ext/` directory, you can use :func:`~woom.ext.load_extensions`::
 
@@ -48,7 +48,7 @@ Set your :class:`host <woom.hosts.Host>`::
 
     host = hostmanager.get_host("datarmor")
     
-Alternatively, you can infer your **host** thanks to the ``patterns`` configuration option is correctly set::
+Alternatively, you can infer your **host** thanks to the ``patterns`` configuration option if set::
 
     host = hostmanager.infer_host()
 

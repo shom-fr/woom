@@ -224,6 +224,14 @@ class Member:
 
 def gen_ensemble(nmembers, **iters):
     """Generate a list of :class:`Member` objects"""
+    # nmembers from iters
+    if nmembers is None:
+        if iters:
+            nmembers = min([len(v) for v in iters.values()])
+        else:
+            nmembers = 0
+
+    # loop on members
     members = []
     for member_id in range(1, nmembers + 1):
         member = Member(member_id, nmembers)
