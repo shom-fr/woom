@@ -20,6 +20,7 @@ class EnvConfig:
         module_load=None,
         conda_setup=None,
         conda_activate=None,
+        uv_venv=None,
     ):
         self.raw_text = raw_text
         self.vars_forward = [] if vars_forward is None else list(vars_forward)
@@ -35,6 +36,7 @@ class EnvConfig:
         self.module_load = module_load
         self.conda_setup = conda_setup
         self.conda_activate = conda_activate
+        self.uv_venv = uv_venv
 
     @staticmethod
     def _as_string_(value):
@@ -103,4 +105,5 @@ class EnvConfig:
             module_load=self.module_load,
             conda_setup=self.conda_setup,
             conda_activate=self.conda_activate,
+            uv_venv=self.uv_venv,
         )

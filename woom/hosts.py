@@ -8,8 +8,6 @@ import socket
 import fnmatch
 import functools
 
-import configobj
-
 from .__init__ import WoomError
 from . import job as wjob
 from . import env as wenv
