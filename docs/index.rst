@@ -22,6 +22,7 @@
    templates
    inputs
    cfgspecs
+   changes
    Gitlab repository <https://gitlab.com/GitShom/STM/woom>
 
 Indices and tables

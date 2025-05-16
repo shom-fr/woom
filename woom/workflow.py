@@ -245,7 +245,7 @@ class Workflow:
         # Extra parameters
         if extra_params:
             params.update(extra_params)
-        params.update(workflow=self, logger=self.logger)
+        params.update(workflow=self, logger=self.logger, workflow_dir=self._workflow_dir)
 
         return params, env_vars
 
@@ -286,7 +286,7 @@ class Workflow:
         task.env.prepend_paths(**self._paths)
         task.env.vars_set["WOOM_WORKFLOW_DIR"] = self._workflow_dir
         task.env.vars_set["WOOM_SUBMISSION_DIR"] = submission_dir
-        task.env.vars_set["WOOM_LOG_DIR"] = os.path.join(submission_dir, "log")
+        task.env.vars_set["WOOM_LOG_DIR"] = os.path.join(self._workflow_dir, "log")
         task.env.vars_set["WOOM_TASK_NAME"] = task_name
         task.env.vars_set["WOOM_TASK_PATH"] = params["task_path"]
         task.env.vars_set["WOOM_APP_PATH"] = params["app_path"]

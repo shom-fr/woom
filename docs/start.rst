@@ -82,7 +82,12 @@ An environment called ``prepost`` is declared using environment modules and envi
 
 See also the :mod:`configobj` :ref:`specifications <cfgspecs.host>` for this configuration.
 
-    
+The **default** :file:`hosts.cfg` declares the ``local`` host that matches any computer by default. When a user provides its own hosts file, this one is merged with the default file. The user must use the ``local`` to extened the configuration of the default host.
+ 
+ .. literalinclude:: ../woom/hosts.cfg
+     :language: ini
+     :caption: Default :file:`hosts.cfg`
+   
 Workflow with :file:`workflow.cfg`
 ----------------------------------
 

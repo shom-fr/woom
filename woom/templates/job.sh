@@ -4,7 +4,7 @@
 {{ task.export_prolog() }}
 
 # Set the environment
-{{ task.export_env() }}
+{{ task.export_env(params) }}
 
 # Go to run dir
 {{ task.export_run_dir() }}

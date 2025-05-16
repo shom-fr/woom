@@ -208,8 +208,9 @@ class Task:
 
     def export_epilog(self):
         """Export the epilog of the batch script"""
-        epilog = "echo $? > $WOOM_SUBMISSION_DIR/job.status\n"
-        epilog += "exit $?\n"
+        epilog = "EXIT_NUMBER=$?\n"
+        epilog += "echo $EXIT_NUMBER > $WOOM_SUBMISSION_DIR/job.status\n"
+        epilog += "exit $EXIT_NUMBER\n"
         return epilog
 
     def render_content(self, params):

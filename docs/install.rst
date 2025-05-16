@@ -6,7 +6,7 @@ Installation
 Dependencies
 ------------
 
-shoot requires ``python>3`` and depends on the following packages:
+woom requires ``python>3`` and depends on the following packages:
 
 .. list-table::
    :widths: 10 90
@@ -32,9 +32,13 @@ From sources
 
 Clone the repository::
 
-    $ git clone https://gitlab.com/GitShom/STM/shoot
+    $ git clone https://gitlab.com/GitShom/STM/woom
+
+Install the build packages::
+
+    $ pip install setuptools setuptools_scm
 
 Run the installation command from the root directory::
 
-    $ cd shoot
+    $ cd woom
     $ pip install .
