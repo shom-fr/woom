@@ -60,7 +60,14 @@ Configurations
 Tasks with :file:`tasks.cfg`
 ----------------------------
 
-Four tasks with arbitrary names are specified in the file.
+This file helps you configure tasks:
+
+* Their content with the environment name (declared in the :file:`hosts.cfg`  file), the run directory, the shell command line(s) to be executed and the exit signals to trap.
+* Their submission arguments with using a scheduler, like the queue and the resources.
+
+See the :mod:`configobj` :ref:`specifications <cfgspecs.tasks>` for this configuration.
+
+In the following example, four tasks with arbitrary names are specified in the configuration file.
 The command lines use jinja patterns such as ``{{ data_dir }}``, which are filled with entries from both the ``[params]`` section of the :file:`workflow.cfg` file and the default entries provided by the workflow (:ref:`inputs_dict`).
 Some of the tasks here use a ``prepost`` environment which must be declared in the :file:`hosts.cfg` configuration file.
 
@@ -68,10 +75,17 @@ Some of the tasks here use a ``prepost`` environment which must be declared in t
     :language: ini
     :caption: Example of :file:`tasks.cfg`
 
-See also the :mod:`configobj` :ref:`specifications <cfgspecs.tasks>` for this configuration.
-
 Hosts with :file:`hosts.cfg`
 ----------------------------
+
+This file helps you configure hosts:
+
+* The name patterns to guess the host from names.
+* The scheduler, where "background" means "submitted in background".
+* A few commands.
+* A list of environments with their name and specifications that describe environment modules and variables, or a conda environment to load.
+
+See the :mod:`configobj` :ref:`specifications <cfgspecs.host>` for this configuration.
 
 This example file declares the resources available on the datarmor host, in particular its scheduler, the scratch dir taken from the :envvar:`SCRATCH` environment variable and the name of the ``seq`` queue.
 An environment called ``prepost`` is declared using environment modules and environment variables.
@@ -80,27 +94,33 @@ An environment called ``prepost`` is declared using environment modules and envi
     :language: ini
     :caption: Example of :file:`hosts.cfg`
 
-See also the :mod:`configobj` :ref:`specifications <cfgspecs.host>` for this configuration.
-
-The **default** :file:`hosts.cfg` declares the ``local`` host that matches any computer by default. When a user provides its own hosts file, this one is merged with the default file. The user must use the ``local`` to extened the configuration of the default host.
+The **default** :file:`hosts.cfg` declares the ``local`` host that matches any computer by default. When a user provides its own hosts file, this one is merged with the default file. The user must use the ``local`` to extend the configuration of the default host.
  
- .. literalinclude:: ../woom/hosts.cfg
-     :language: ini
-     :caption: Default :file:`hosts.cfg`
+.. literalinclude:: ../woom/hosts.cfg
+    :language: ini
+    :caption: Default :file:`hosts.cfg`
    
 Workflow with :file:`workflow.cfg`
 ----------------------------------
+
+This file helps you configure the workflow:
+
+* Your application spcifications: name, configuration and experiment. It is optional but highly recommended.
+* The way you want cycle over dates. It is also optional.
+* The specifications of your ensemble when you want to iterate over members.
+* The additional configuration parameters that the will be used to declare environment variable and format task command lines with jinja substitutions when generating the job scripts.
+* The workflow graph through stages that defines in which order to execute the tasks as defined in :file:`tasks.cfg`.
+* Groups of tasks that must be ran sequentially in the workflow.
+
+See the :mod:`configobj` :ref:`specifications <cfgspecs.workflow>` for this configuration.
 
 In this example, we give our application a name, specify which data to loop over and declare the ``box`` and ``data_dir`` parameters, which can be used in the :file:`tasks.cfg` file.
 The ``clean_data_dir`` task is executed only once and before the looping over dates because it is called in the ``[prolog]`` stage.
 Other tasks are run sequentially for each date interval, except ``fetch_data`` and ``cp_config`` which are run in parallel since they are executed in parallel since they are called in the same sequence named ``fetch``.
 
-
 .. literalinclude:: samples/workflow.cfg
     :language: ini
     :caption: Example of :file:`workflow.cfg`
-
-See also the :mod:`configobj` :ref:`specifications <cfgspecs.workflow>` for this configuration.
 
 Job script generation
 =====================

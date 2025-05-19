@@ -14,7 +14,7 @@ from . import util as wutil
 JINJA_ENV = Environment(loader=PackageLoader("woom"), undefined=StrictUndefined, trim_blocks=True)
 
 
-def render(template, params, strict=True):
+def render(template, params, strict=True, nested=True):
     """Render this text with ninja
 
     Note
@@ -42,7 +42,7 @@ def render(template, params, strict=True):
         else:
             tpl = prev
         curr = tpl.render(params)
-        if not isinstance(prev, str) or curr != prev:
+        if nested and (not isinstance(prev, str) or curr != prev):
             prev = curr
         else:
             break

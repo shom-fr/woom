@@ -193,7 +193,7 @@ class Task:
 
     def export_env(self, params=None):
         """Export the environment declarations as bash lines"""
-        return self.env.export(params)
+        return self.env.render(params)
 
     def export_run_dir(self):
         """Export the bash lines to move to the running directory"""

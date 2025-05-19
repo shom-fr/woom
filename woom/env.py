@@ -80,18 +80,23 @@ class EnvConfig:
         for varname, path in paths.items():
             self._update_path_("set", varname, path)
 
-    def export(self, params=None):
+    def render(self, params=None):
         """Render the environment with template :file:`env.sh`"""
         if params is None:
             params = {"os": os, "env": self}
-            strict = False
+            nested = False
+            # strict = False
         else:
             params = params.copy()
             params.update({"os": os, "env": self})
-            strict = True
-        return wrender.render(wrender.JINJA_ENV.get_template("env.sh"), params, strict=strict)
+            nested = True
+            # strict = True
+        return wrender.render(
+            wrender.JINJA_ENV.get_template("env.sh"), params, strict=True, nested=nested
+        )
 
-    __str__ = export
+    def __str__(self):
+        return self.render()
 
     def copy(self):
         return EnvConfig(
