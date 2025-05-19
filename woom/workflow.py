@@ -676,7 +676,10 @@ class Workflow:
             ]
             row = [status.name, status.jobid, task_name, cycle, submdir]
             if self.nmembers:
-                row.insert(-1, f"{member}/{self.nmembers}")
+                if member is None:
+                    row.insert(-1, "")
+                else:
+                    row.insert(-1, f"{member}/{self.nmembers}")
             data.append(row)
         columns = ["STATUS", "JOBID", "TASK", "CYCLE", "SUBMISSION DIR"]
         if self.nmembers:
