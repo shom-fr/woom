@@ -642,7 +642,7 @@ class Workflow:
                         continue
                     for group in groups:
                         for task_name in group:
-                            for member in self.members or [None]:
+                            for member in self.get_task_members(task_name) or [None]:
                                 yield task_name, cycle, member
 
     __iter__ = iter_tasks
@@ -755,7 +755,10 @@ class Workflow:
             run_dir = self.get_run_dir(task_name, cycle, member)
             row = [task_name, cycle, run_dir]
             if self.nmembers:
-                row.insert(-1, f"{member}/{self.nmembers}")
+                if member is None:
+                    row.insert(-1, "")
+                else:
+                    row.insert(-1, f"{member}/{self.nmembers}")
             data.append(row)
         columns = ["TASK", "CYCLE", "RUN DIR"]
         if self.nmembers:
