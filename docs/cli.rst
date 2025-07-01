@@ -20,4 +20,4 @@ Available commands:
     cli.woom.show
     cli.woom.run
     cli.woom.kill
-    
+    cli.woom.clean

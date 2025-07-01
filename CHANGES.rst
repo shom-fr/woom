@@ -6,7 +6,6 @@ Develop
 
 New features
 ------------
-- Add :command:`uv` support.
 
 Breaking changes
 ----------------
@@ -16,7 +15,6 @@ Deprecations
 
 Bug fixes
 ---------
-- Fix exit status of jobs.
 
 Documentation
 -------------

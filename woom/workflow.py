@@ -9,6 +9,8 @@ import secrets
 import functools
 import shlex
 import re
+import shutil
+import glob
 
 import pandas as pd
 
@@ -771,3 +773,66 @@ class Workflow:
     def show_run_dirs(self, tablefmt="rounded_outline"):
         """Show the status of all the tasks of the wokflow"""
         print(self.get_run_dirs().to_markdown(index=False, tablefmt=tablefmt))
+
+    def clean(
+        self, submission_dirs=True, log_files=True, run_dirs=False, extra_files=None, dry=False
+    ):
+        """Remove working files and directories
+
+        Parameters
+        ----------
+        subssion_dirs: bool
+            Remove the submission directories. They are sub-directories of the workflow directory.
+        log_files: bool
+            Remove the main log file and its backups.
+        run_dirs: bool
+            Remove the run directory. Since the may be overriden by
+            the user, be cautious!
+        extra_files: None, list
+            A list of file or glob patterns to remove.
+        """
+        # Loop on tasks
+        for task_name, cycle, member in self:
+
+            if submission_dirs:
+                submission_dir = self.get_submission_dir(task_name, cycle, member, create=False)
+                if os.path.exists(submission_dir):
+                    self.logger.debug(f"Removing submission directory: {submission_dir}")
+                    if not dry:
+                        shutil.rmtree(submission_dir)
+                    self.logger.info(f"Removed submission directory: {submission_dir}")
+
+            if run_dirs:
+                run_dir = self.get_run_dir(task_name, cycle, member)
+                if os.path.exists(run_dir):
+                    self.logger.debug(f"Removing submission directory: {run_dir}")
+                    if not dry:
+                        shutil.rmtree(run_dir)
+                    self.logger.info(f"Removed submission directory: {run_dir}")
+
+        # Log files
+        if log_files:
+            for ext in "", ".[1-3]":
+                for log_file in glob.glob(os.path.join(self.workflow_dir, "log/woom.log")):
+                    self.logger.debug(f"Removing log file: {log_file}")
+                    if not dry:
+                        os.remove(run_dir)
+                    self.logger.info(f"Removed log file: {log_file}")
+
+        # Extra files and dirs
+        if extra_files:
+            if isinstance(extra_files, str):
+                extra_files = [extra_files]
+            for pat in extra_files:
+                if not os.path.isabs(pat):
+                    pat = os.path.join(self.workflow_dir, pat)
+                for extra in glob.glob(pat):
+                    if not dry:
+                        if os.path.isdir(extra):
+                            self.logger.debug(f"Removing extra directory: {extra}")
+                            shutil.rmtree(extra)
+                            self.logger.info(f"Removed extra directory: {extra}")
+                        else:
+                            self.logger.debug(f"Removing extra file: {extra}")
+                            os.remove(extra)
+                            self.logger.info(f"Removed extra file: {extra}")

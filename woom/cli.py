@@ -50,6 +50,7 @@ def get_parser():
     add_parser_show(subparsers)
     add_parser_run(subparsers)
     add_parser_kill(subparsers)
+    add_parser_clean(subparsers)
 
     return parser
 
@@ -230,6 +231,7 @@ def add_parser_run(subparsers):
     )
     parser_run.add_argument(
         "--dry-run",
+        "--test",
         help="run in fake mode for testing purpose",
         action="store_true",
     )
@@ -319,7 +321,7 @@ def main_kill(parser, args):
     if not workflow:
         return
 
-    # Show the status
+    # Kill
     try:
         workflow.kill(jobid=args.jobid, task_name=args.task, cycle=args.cycle)
     except Exception:
@@ -348,8 +350,61 @@ def main_show_run_dirs(parser, args):
     if not workflow:
         return
 
-    # Show the status
+    # Show
     try:
         workflow.show_run_dirs(tablefmt=args.tablefmt)
     except Exception:
         logger.exception("Failed showing the run directories")
+
+
+def add_parser_clean(subparsers):
+    # Setup argument parser
+    parser_clean = subparsers.add_parser(
+        "clean",
+        help="remove temporary files",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser_clean.add_argument("extra_file", help="extra file or directory to remove", nargs="*")
+    parser_clean.add_argument(
+        "--without-submission-dirs",
+        help="do not remove submission directories",
+        action="store_true",
+    )
+    parser_clean.add_argument("--with-run-dirs", help="remove run directories", action="store_true")
+    parser_clean.add_argument("--with-log-files", help="remove log files", action="store_true")
+    parser_clean.add_argument(
+        "--dry-run",
+        "--test",
+        help="run in fake mode for testing purpose",
+        action="store_true",
+    )
+    wlog.add_logging_parser_arguments(parser_clean, default_level="info")
+    parser_clean.set_defaults(func=main_clean)
+
+    return parser_clean
+
+
+def main_clean(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)
+    if not workflow:
+        return
+
+    # Kill running jobs
+    if not args.dry_run:
+        try:
+            workflow.kill()
+        except Exception:
+            logger.exception("Failed to kill all jobs")
+
+    # Show the status
+    try:
+        workflow.clean(
+            submission_dirs=not args.without_submission_dirs,
+            run_dirs=args.with_run_dirs,
+            log_files=args.with_log_files,
+            extra_files=args.extra_file,
+            dry=args.dry_run,
+        )
+    except Exception:
+        logger.exception("Failed to clean workflow")
