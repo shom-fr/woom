@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Sep  6 14:01:37 2023
-
-@author: lsraynaud
+Logging utilities
 """
 
 import logging.config

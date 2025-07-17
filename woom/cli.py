@@ -42,7 +42,7 @@ def get_parser():
     parser.add_argument("--host", help="target host as described in the hosts configuration file")
     parser.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
     parser.add_argument("--end-date", help="end date", type=wconf.is_datetime)
-    parser.add_argument("--freq", help="interval between cycles", type=wconf.is_timedelta)
+    parser.add_argument("--freq", help="interval between cycles")
     parser.add_argument("--ncycle", help="number of cycles", type=int)
 
     subparsers = parser.add_subparsers(help="sub-command help")

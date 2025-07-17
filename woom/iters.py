@@ -62,6 +62,15 @@ class Cycle:
     def __str__(self):
         return self.token
 
+    def __repr__(self):
+        ss = f"<Cycle({self.begin_date}, {self.end_date})>\n"
+        for attr in "duration", "date", "label", "token", "is_first", "is_last", "prev", "next":
+            ss += " {}: {}\n".format(attr, getattr(self, attr))
+        return ss
+
+    def describe(self):
+        return self.__repr__()
+
     def __hash__(self):
         return hash(self.token)
 
@@ -100,13 +109,31 @@ class Cycle:
 
 
 def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, as_intervals=True):
-    """Get a list of cycles given time specifications
+    """Get a list of :class:`Cycle` instances given time specifications
 
-    One cycle is a :class:`Cycle` instance that contains the following attributes:
+    The first cycle has the :attr:`Cycle.is_first` attribute set to True.
+    The last cycle has the :attr:`Cycle.is_last` attribute set to True.
+    The cycles are related with one another thanks to the
+    :attr:`Cycle.prev` and  :attr:`Cycle.next` attributes.
 
-    - `:attr:`~Cycle.begin_date`: Begin date [:class:`pandas.Timestamp`]
-    - `:attr:`~Cycle.end_date`: (optional): End date [:class:`pandas.Timestamp`]
-    - `:attr:`~Cycle.duration`: (optional): Difference between begin and end [:class:`pandas.Timedelta`]
+    Parameters
+    ----------
+    begin_date: date-like
+        First date
+    end_date: date_like, None
+        Last date
+    freq: freq-like, None
+        Difference of time between to dates
+    ncycles: int, None
+        Number of cycles. This parameters takes precedence over `freq`.
+    round: freq_like, None
+        Round dates to this precision
+    as_intervals: bool
+        Consider dates as independant dates or intervals.
+        When set to True, ``[date0, date1, date2]`` becomes
+        ``[Cycle(date0, date1), Cycle(date1, date2)]``,
+        else
+        ``[Cycle(date0), Cycle(date1), Cycle(date2)]``.
     """
     if begin_date is None:
         raise WoomError("begin_date must be None to generate cycles")
