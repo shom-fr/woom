@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Prolog
-set -euo pipefail
+set -eo pipefail
 on_exit() {
     echo $? > "$WOOM_SUBMISSION_DIR/job.status"
 }
