@@ -186,10 +186,14 @@ class Task:
             run_dir = os.getcwd()
         return run_dir.strip()
 
-    def export_prolog(self):
-        """Export the prolog of the batch script"""
-        prolog = f'trap "false" {self.config["content"]["trap"]}'
-        return prolog
+    # def export_prolog(self):
+    #     """Export the prolog of the batch script"""
+    #     prolog = 'set -euo pipefail\n'
+    #     prolog = 'on_exit() {\n'
+    #     prolog += '    echo $? > "$WOOM_SUBMISSION_DIR/job.status"\n'
+    #     prolog += '}\n'
+    #     prolog += 'trap on_exit EXIT\n'
+    #     return prolog
 
     def export_env(self, params=None):
         """Export the environment declarations as bash lines"""
@@ -206,12 +210,10 @@ class Task:
         """Export the commandline as an bash lines"""
         return self.config["content"]["commandline"]
 
-    def export_epilog(self):
-        """Export the epilog of the batch script"""
-        epilog = "EXIT_NUMBER=$?\n"
-        epilog += "echo $EXIT_NUMBER > $WOOM_SUBMISSION_DIR/job.status\n"
-        epilog += "exit $EXIT_NUMBER\n"
-        return epilog
+    # def export_epilog(self):
+    #     """Export the epilog of the batch script"""
+    #     epilog = "\n"
+    #     return epilog
 
     def render_content(self, params):
         """Export and render the task content with jinja, parameters and the :ref:`job.sh template <templates.job.sh>`

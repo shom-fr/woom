@@ -792,6 +792,8 @@ class Workflow:
             A list of file or glob patterns to remove.
         """
         # Loop on tasks
+        self.logger.debug("Starting to clean...")
+        nitems = 0
         for task_name, cycle, member in self:
 
             if submission_dirs:
@@ -800,6 +802,7 @@ class Workflow:
                     self.logger.debug(f"Removing submission directory: {submission_dir}")
                     if not dry:
                         shutil.rmtree(submission_dir)
+                    nitems += 1
                     self.logger.info(f"Removed submission directory: {submission_dir}")
 
             if run_dirs:
@@ -808,6 +811,7 @@ class Workflow:
                     self.logger.debug(f"Removing submission directory: {run_dir}")
                     if not dry:
                         shutil.rmtree(run_dir)
+                    nitems += 1
                     self.logger.info(f"Removed submission directory: {run_dir}")
 
         # Log files
@@ -816,7 +820,8 @@ class Workflow:
                 for log_file in glob.glob(os.path.join(self.workflow_dir, "log/woom.log")):
                     self.logger.debug(f"Removing log file: {log_file}")
                     if not dry:
-                        os.remove(run_dir)
+                        os.remove(log_file)
+                    nitems += 1
                     self.logger.info(f"Removed log file: {log_file}")
 
         # Extra files and dirs
@@ -827,12 +832,21 @@ class Workflow:
                 if not os.path.isabs(pat):
                     pat = os.path.join(self.workflow_dir, pat)
                 for extra in glob.glob(pat):
-                    if not dry:
-                        if os.path.isdir(extra):
-                            self.logger.debug(f"Removing extra directory: {extra}")
+                    if os.path.isdir(extra):
+                        self.logger.debug(f"Removing extra directory: {extra}")
+                        if not dry:
                             shutil.rmtree(extra)
-                            self.logger.info(f"Removed extra directory: {extra}")
-                        else:
-                            self.logger.debug(f"Removing extra file: {extra}")
+                        nitems += 1
+                        self.logger.info(f"Removed extra directory: {extra}")
+                    else:
+                        self.logger.debug(f"Removing extra file: {extra}")
+                        if not dry:
                             os.remove(extra)
-                            self.logger.info(f"Removed extra file: {extra}")
+                        nitems += 1
+                        self.logger.info(f"Removed extra file: {extra}")
+
+        self.logger.debug("Finished cleaning")
+        if nitems:
+            self.logger.debug(f"  Removed {nitems} individual file or directories")
+        else:
+            self.logger.debug("  Nothing to remove")

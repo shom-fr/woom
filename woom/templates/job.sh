@@ -1,7 +1,11 @@
 #!/bin/bash
 
 # Prolog
-{{ task.export_prolog() }}
+set -euo pipefail
+on_exit() {
+    echo $? > "$WOOM_SUBMISSION_DIR/job.status"
+}
+trap on_exit EXIT
 
 # Set the environment
 {{ task.export_env(params) }}
@@ -11,6 +15,3 @@
 
 # Run the commandline(s)
 {{ task.export_commandline() }}
-
-# Epilog
-{{ task.export_epilog() }}
