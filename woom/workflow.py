@@ -402,6 +402,16 @@ class Workflow:
             job = self.jobmanager.load_job(json_file, append=True)
         else:
             return wjob.JobStatus["NOTSUBMITTED"]
+        
+        # Walltime exceeded
+        out_file = os.path.join(submission_dir, "job.out")
+        if os.path.exists(out_file):
+            with open(out_file) as f:
+                content = f.read()
+            if "PBS: job killed: walltime" in content and "Terminated" in content:
+                status = wjob.JobStatus["FAILED"]
+                status.jobid = job.jobid
+                return status
 
         # Finish with success
         status_file = os.path.join(submission_dir, "job.status")
@@ -414,6 +424,8 @@ class Workflow:
                 status = wjob.JobStatus["SUCCESS"]
             status.jobid = job.jobid
             return status
+        
+
 
         # Running or killed
         return job.get_status()
