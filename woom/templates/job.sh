@@ -5,6 +5,7 @@ set -eo pipefail
 on_exit() {
     status=$?
     echo $status > "$WOOM_SUBMISSION_DIR/job.status"
+    exit $status
 }
 trap on_exit EXIT
 
