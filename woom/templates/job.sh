@@ -3,7 +3,8 @@
 # Prolog
 set -eo pipefail
 on_exit() {
-    echo $? > "$WOOM_SUBMISSION_DIR/job.status"
+    status=$?
+    echo $status > "$WOOM_SUBMISSION_DIR/job.status"
 }
 trap on_exit EXIT
 
