@@ -92,7 +92,7 @@ class TaskManager:
         self._host = host
 
     def load_config(self, cfgfile):
-        cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE)
+        cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE, list_values=False)
         self._configs.append(cfg)
         self._postproc_()
 
@@ -172,10 +172,14 @@ class Task:
 
         # Add woom variables
         env.vars_set.update(WOOM_TASK_NAME=self.name)
-        run_dir = self.get_run_dir()
-        if run_dir:
-            env.vars_set.update(WOOM_RUN_DIR=run_dir)
+        if self.run_dir:
+            env.vars_set.update(WOOM_RUN_DIR=self.run_dir)
         return env
+
+    @property
+    def artifacts(self):
+        """The artifacts as a dict of file names (:class:`dict`)"""
+        return self.config["artifacts"]
 
     def get_run_dir(self):
         """Get the run directory"""
@@ -186,14 +190,9 @@ class Task:
             run_dir = os.getcwd()
         return run_dir.strip()
 
-    # def export_prolog(self):
-    #     """Export the prolog of the batch script"""
-    #     prolog = 'set -euo pipefail\n'
-    #     prolog = 'on_exit() {\n'
-    #     prolog += '    echo $? > "$WOOM_SUBMISSION_DIR/job.status"\n'
-    #     prolog += '}\n'
-    #     prolog += 'trap on_exit EXIT\n'
-    #     return prolog
+    @functools.cached_property
+    def run_dir(self):
+        return self.get_run_dir()
 
     def export_env(self, params=None):
         """Export the environment declarations as bash lines"""
@@ -201,19 +200,39 @@ class Task:
 
     def export_run_dir(self):
         """Export the bash lines to move to the running directory"""
-        run_dir = self.get_run_dir()
-        if run_dir:
-            return f"mkdir -p {run_dir} && cd {run_dir}"
+        if self.run_dir:
+            return f"mkdir -p {self.run_dir} && cd {self.run_dir}"
         return ""
 
     def export_commandline(self):
         """Export the commandline as an bash lines"""
         return self.config["content"]["commandline"]
 
-    # def export_epilog(self):
-    #     """Export the epilog of the batch script"""
-    #     epilog = "\n"
-    #     return epilog
+    def export_artifacts_checking(self):
+        """Export commandlines to check the existence of artifacts"""
+        if not self.artifacts:
+            return ""
+        checks = ""
+        for path in self.artifacts.values():
+            checks += f'test -f "{path}" || exit 1\n'
+        return checks
+
+    def render_artifacts(self, params):
+        """Check that artifact paths are absolute and render them as dict"""
+        if not self.artifacts:
+            return {}
+        artifacts = {}
+        for name, path in self.config["artifacts"].items():
+            rendered = wrender.render(path.strip(), params)
+            if not os.path.isabs(path):
+                if self.run_dir:
+                    rendered = os.path.join(self.run_dir, rendered)
+                else:
+                    raise TaskError(
+                        f"Rendered artifact '{name}' of task '{self.name}' is not absolute and task run_dir is not defined. Please fix it!"
+                    )
+            artifacts[name] = rendered
+        return artifacts
 
     def render_content(self, params):
         """Export and render the task content with jinja, parameters and the :ref:`job.sh template <templates.job.sh>`
@@ -255,4 +274,5 @@ class Task:
         return {
             "script_content": self.render_content(params),
             "scheduler_options": self.export_scheduler_options(),
+            "artifacts": self.render_artifacts(params),
         }

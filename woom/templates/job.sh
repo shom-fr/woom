@@ -17,3 +17,8 @@ trap on_exit EXIT
 
 # Run the commandline(s)
 {{ task.export_commandline() }}
+
+{% if task.artifacts %}
+# Check artifacts
+{{ task.export_artifacts_checking() }}
+{% endif %}

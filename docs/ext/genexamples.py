@@ -4,6 +4,8 @@ TEMPLATE_ENTRY = {}
 TEMPLATE_ENTRY[
     "realistic"
 ] = """
+.. _examples.{section}.{path}:
+
 .. include:: ../../examples/{section}/{path}/README.rst
 
 Configuring
@@ -117,8 +119,14 @@ def genexamples(app):
             if os.path.exists(readme):
                 entries[path] = os.path.join(gendir, f"{path}.rst")
                 toc_entries[section] += "    " + path + "\n"
+
+                content = TEMPLATE_ENTRY[section].format(**locals())
+                prolog_rst = os.path.join(secdir, path, "prolog.rst")
+                if os.path.exists(prolog_rst):
+                    with open(prolog_rst) as f:
+                        content += "\n" + f.read().format(**locals())
                 with open(entries[path], "w") as fe:
-                    fe.write(TEMPLATE_ENTRY[section].format(**locals()))
+                    fe.write(content)
     with open(os.path.join(gendir, "index.rst"), "w") as fi:
         fi.write(TEMPLATE_INDEX.format(**locals()))
 
