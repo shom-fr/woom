@@ -23,7 +23,7 @@
    inputs
    cfgspecs
    changes
-   Gitlab repository <https://gitlab.com/GitShom/STM/woom>
+   Github repository <https://github.com/shom-fr/woom>
 
 Indices and tables
 ------------------

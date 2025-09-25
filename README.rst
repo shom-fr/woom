@@ -14,7 +14,7 @@ Documentation
 -------------
 
 The woom documentation:
-https://gitshom.gitlab.io/STM/woom/
+https://shom-fr.github.io/woom/
 
 Sources
 -------
