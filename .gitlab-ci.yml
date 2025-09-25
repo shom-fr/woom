@@ -46,6 +46,6 @@ pages:
     paths:
       - public
   only:
-    - main
+    - develop
   needs:
     - build_documentation
