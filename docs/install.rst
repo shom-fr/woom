@@ -32,7 +32,7 @@ From sources
 
 Clone the repository::
 
-    $ git clone https://gitlab.com/GitShom/STM/woom
+    $ git clone https://github.com/shom-fr/woom.git
 
 Install the build packages::
 

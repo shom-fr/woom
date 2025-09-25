@@ -20,7 +20,7 @@ Sources
 -------
 
 Sources are available on the woom gitlab page:
-https://gitlab.com/GitShom/STM/woom
+https://github.com/shom-fr/woom
 
 License
 -------
