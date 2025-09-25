@@ -6,6 +6,7 @@ Configurations related utilities based on the :mod:`configobj` system
 import pathlib
 import logging
 import pprint
+import re
 
 import pandas as pd
 import configobj
@@ -57,11 +58,50 @@ def is_timedelta(value):
         raise WoomConfigError("Can't convert config value to timedelta: " + e.args[0])
 
 
+def is_pages(values):
+    """Convert a one-based page-like selection
+
+    .. note:: Multi-selections are converted to zero-based slices
+
+    Parameters
+    ----------
+    values: str, list(str)
+
+    Example
+    ------
+    .. ipython:: python
+        :okwarning:
+
+        @suppress
+        from woom.conf import is_pages
+        is_pages("4,5,7-")
+    """
+
+    if values is None:
+        return
+    if not isinstance(values, list):
+        values = [values]
+    re_split_c = re.compile(r"\s*,\s*").split
+    sels = []
+    for v in values:
+        sels.extend(re_split_c(v))
+    out = []
+    re_split_t = re.compile(r"\s*\-\s*").split
+    for sel in sels:
+        if isinstance(sel, str) and "-" in sel:
+            ssel = [(int(s) if i > 0 else int(s)- 1) if s != "" else None for i, s in enumerate(re_split_t(sel))]
+            out.append(slice(*ssel))
+        else:
+            out.append(int(sel))
+    return out
+
+
 #: Default woom validator fonctions
 VALIDATOR_FUNCTIONS = {
     "path": is_path,
     "datetime": is_datetime,
     "timedelta": is_timedelta,
+    "pages": is_pages,
 }
 
 
