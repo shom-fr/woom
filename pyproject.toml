@@ -37,6 +37,7 @@ dependencies = [
 
 [project.optional-dependencies]
 docs = [
+  "ipython",
   "matplotlib",
   "sphinx",
   "sphinx-argparse",
