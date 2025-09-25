@@ -249,7 +249,7 @@ class Member:
         return wutil.params2env_vars(self.params)
 
 
-def gen_ensemble(nmembers, **iters):
+def gen_ensemble(nmembers, skip=None, **iters):
     """Generate a list of :class:`Member` objects"""
     # nmembers from iters
     if nmembers is None:
@@ -258,9 +258,15 @@ def gen_ensemble(nmembers, **iters):
         else:
             nmembers = 0
 
+    # Skip some members
+    if skip:
+        skip = wutil.pages2ints(skip, nmembers)
+
     # loop on members
     members = []
     for member_id in range(1, nmembers + 1):
+        if skip and member_id in skip:
+            continue
         member = Member(member_id, nmembers)
         for attr, values in iters.items():
             nvalues = len(values)
