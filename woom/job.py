@@ -91,12 +91,10 @@ class Job:
         args,
         queue=None,
         jobid=None,
-        # session=None,
         submission_date=None,
         status="UNKNOWN",
-        # submission_dir=None,
-        # token=None,
         subproc=None,
+        artifacts=None,
     ):
         self.manager = manager
         self.name = name
@@ -107,15 +105,13 @@ class Job:
         self.realqueue = None
         self.time = None
         self.memory = None
-        # self.session = manager.session
         self.submission_date = submission_date
-        # self.submission_dir = submission_dir
-        # self.token = token
         self.subproc = subproc
         if isinstance(status, str):
             status = JobStatus[status]
         self.status = status
         self.status.jobid = jobid
+        self.artifacts = artifacts
 
     @classmethod
     def load(cls, manager, json_file, append=True):
@@ -135,32 +131,42 @@ class Job:
             queue=content["queue"],
             status=content["status"],
             submission_date=content["submission_date"],
-            # submission_dir=content["submission_dir"],
-            # token=content["token"],
+            artifacts=content.get("artifacts"),
         )
         if append and content["jobid"] not in manager:
             manager.jobs.append(job)
         return job
 
+    def to_dict(self):
+        dict_job = dict()
+        for key, value in self.__dict__.items():
+            if isinstance(value, str):
+                if value != "":
+                    dict_job[key] = value
+            elif key == "manager":
+                dict_job[key] = value.__class__.__name__
+            elif key == "status":
+                dict_job[key] = str(value.name)
+            elif key == "time":
+                if value is not None:
+                    hours = value.seconds // 3600
+                    minutes = (value.seconds - hours * 3600) // 60
+                    dict_job[key] = f"{hours:02}h{minutes:02}"
+                else:
+                    dict_job[key] = "--h--"
+            else:
+                dict_job[key] = value
+
+        return dict_job
+
     def dump(self, json_file=None):
-        """Export to json in session's cache"""
+        """Export to json in job script directory"""
         jobdict = self.to_dict()
-        # if not jobdict["name"] and not jobdict["token"]:
-        # logger.warning("Can't dump to json a job with no name or token")
-        # return
-        # if jobdict["token"]:
-        # json_file = jobdict["token"]
-        # else:
-        # json_file = jobdict["name"]
-        # json_file += ".json"
-        # with self.session.open_file("jobs", json_file, "w") as f:
         if json_file is None:
             json_file = os.path.splitext(self.script)[0] + ".json"
-        # with self.session.open_file("jobs", json_file, "w") as f:
         with open(json_file, "w") as f:
             json.dump(jobdict, f, indent=4, cls=wutil.WoomJSONEncoder)
             json_path = f.name
-        # wutil.make_latest(json_path)
         return json_path
 
     def __str__(self):
@@ -277,28 +283,6 @@ class Job:
         fmt = "    ".join([f"{key!s:{ff}}" for key, ff in self.overview_format.items()])
         return fmt.format(**locals())
 
-    def to_dict(self):
-        dict_job = dict()
-        for key, value in self.__dict__.items():
-            if isinstance(value, str):
-                if value != "":
-                    dict_job[key] = value
-            elif key == "manager":
-                dict_job[key] = value.__class__.__name__
-            elif key == "status":
-                dict_job[key] = str(value.name)
-            elif key == "time":
-                if value is not None:
-                    hours = value.seconds // 3600
-                    minutes = (value.seconds - hours * 3600) // 60
-                    dict_job[key] = f"{hours:02}h{minutes:02}"
-                else:
-                    dict_job[key] = "--h--"
-            else:
-                dict_job[key] = value
-
-        return dict_job
-
 
 class BackgroundJobManager(object):
     """Manager for jobs that run in background"""
@@ -327,11 +311,6 @@ class BackgroundJobManager(object):
         # self.load()
         logger.info(f"Started job manager: {self.__class__.__name__}()")
 
-    # def load(self):
-    # """Load jobs from session files"""
-    # json_files = self.session.get_files("jobs", "*.json")
-    # self.jobs = [self.job_class.load(self, json_file) for json_file in json_files]
-
     def load_job(self, json_file, append=True):
         """Load a single job from its json dump file"""
         return self.job_class.load(self, json_file, append)
@@ -350,7 +329,7 @@ class BackgroundJobManager(object):
         return f"<{self.__class__.__name__}(session={self.session})>"
 
     @staticmethod
-    def from_scheduler(scheduler):  # , session):
+    def from_scheduler(scheduler):
         scheduler = scheduler.lower()
         assert (
             scheduler in ALLOWED_SCHEDULERS
@@ -358,25 +337,7 @@ class BackgroundJobManager(object):
         cls_name = scheduler.title() + "JobManager"
         from . import job
 
-        return getattr(job, cls_name)()  # session)
-
-    # def load_json(self, json_files):
-    # """Load jobs from json files"""
-    # for json_file in json_files:
-    # with open(json_file) as jsonf:
-    # content = json.load(jsonf)
-    # job = Job(
-    # manager=self,
-    # name=content["name"],
-    # args=content["args"],
-    # jobid=content["jobid"],
-    # queue=content["queue"],
-    # session=content["session"],
-    # submission_date=content["submission_date"],
-    # token=content["token"],
-    # )
-    # self.jobs.append(job)
-    # return self.jobs
+        return getattr(job, cls_name)()
 
     def get_job(self, jobid):
         """Get :class:`Job` from id"""
@@ -547,7 +508,9 @@ class BackgroundJobManager(object):
         # Format commandline arguments
         return self.get_command_args("submit", **opts)
 
-    def submit(self, script, opts, depend=None, submdir=None, stdout=None, stderr=None):
+    def submit(
+        self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None
+    ):
         # Wait for dependencies
         if depend:
             status = None
@@ -573,8 +536,6 @@ class BackgroundJobManager(object):
 
         # Submit
         logger.debug("Submit: " + " ".join(jobargs))
-        # res = subprocess.run(jobargs, capture_output=True, check=True)
-        # with contextlib.chdir(submdir):
         subproc = subprocess.Popen(jobargs, stdout=stdout, stderr=stderr, cwd=submdir)
         logger.debug("Submitted")
 
@@ -586,11 +547,9 @@ class BackgroundJobManager(object):
             queue=opts.get("queue"),
             args=subproc.args,
             jobid=str(subproc.pid),
-            # session=self.session,
             submission_date=str(datetime.datetime.now())[:-7],
-            # submission_dir=submdir,
-            # token=opts.get("token"),
             subproc=subproc,
+            artifacts=artifacts,
         )
         job.dump()
         self.jobs.append(job)
@@ -651,26 +610,9 @@ class _Scheduler_(BackgroundJobManager):
             opts["depend"] = ":".join([str(job) for job in depend])
         return super().get_submission_args(script, opts, depend=depend)
 
-        # # self.session  opts["session"]
-        # # script = f"{opts['job']}"
-
-        # # opts = self._get_opts_("submit", opts)
-        # # if "queue" not in opts.keys():
-        # #     opts.update({"queue": None})
-
-        # # Finalize options
-        # opts.update(dict(script=script))
-        # if depend:
-        #     if isinstance(depend, str):
-        #         depend = [depend]
-        #     opts["depend"] = ":".join(depend)
-        # if "extra " in opts:
-        #     opts.update(opts.pop("extra"))
-
-        # # Format commandline arguments
-        # return self.get_command_args("submit", **opts)
-
-    def submit(self, script, opts, depend=None, submdir=None, stdout=None, stderr=None):
+    def submit(
+        self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None
+    ):
         """Submit the script and instantiate a :class:`Job` object"""
 
         # stdout and stderr
@@ -690,6 +632,7 @@ class _Scheduler_(BackgroundJobManager):
             submdir=submdir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            artifacts=artifacts,
         )
         job.subproc.wait()
 
@@ -765,10 +708,6 @@ class PbsproJobManager(_Scheduler_):
     }
 
     jobid_sep = " "
-
-    # def submit(self, opts):
-    #     jobid = BasicJobManager.submit(self, opts)
-    #     return jobid
 
     @staticmethod
     def _parse_submit_job_(job, stdout):
@@ -879,10 +818,6 @@ class SlurmJobManager(_Scheduler_):
     }
 
     jobid_sep = ","
-
-    # def submit(self, opts):
-    #     jobid = BasicJobManager.submit(self, opts)
-    #     return jobid
 
     def _extra_status_args_(self, args):
         args.append("--noheader")

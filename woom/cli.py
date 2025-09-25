@@ -20,6 +20,8 @@ from . import conf as wconf
 from . import log as wlog
 from . import ext as wext
 
+# %% Main
+
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -180,6 +182,9 @@ def get_workflow(workflow_cfg, logger, parser, args):  # , clean):
     return workflow
 
 
+# %% Show
+
+
 def add_parser_show(subparsers):
     # Setup argument parser
     parser_show = subparsers.add_parser(
@@ -192,6 +197,7 @@ def add_parser_show(subparsers):
     add_parser_show_overview(subparsers_show)
     add_parser_show_status(subparsers_show)
     add_parser_show_run_dirs(subparsers_show)
+    add_parser_show_artifacts(subparsers_show)
 
     return parser_show
 
@@ -220,6 +226,99 @@ def main_show_overview(parser, args):
         workflow.show_overview()
     except Exception:
         logger.exception("Failed to display the overview")
+
+
+def add_parser_show_status(subparsers):
+    # Setup argument parser
+    parser_show_status = subparsers.add_parser(
+        "status",
+        help="get the status of all jobs",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser_show_status.add_argument(
+        "-r", "--running", help="show only running jobs", action="store_true"
+    )
+    parser_show_status.add_argument(
+        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
+    )
+    wlog.add_logging_parser_arguments(parser_show_status, default_level="warning")
+    parser_show_status.set_defaults(func=main_show_status)
+
+    return parser_show_status
+
+
+def main_show_status(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)
+    if not workflow:
+        return
+
+    # Show the status
+    try:
+        workflow.show_status(tablefmt=args.tablefmt, running=args.running)
+    except Exception:
+        logger.exception("Failed querying the status")
+
+
+def add_parser_show_run_dirs(subparsers):
+    # Setup argument parser
+    parser_show_run_dirs = subparsers.add_parser(
+        "run_dirs",
+        help="show the run directory of all worklow tasks",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser_show_run_dirs.add_argument(
+        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
+    )
+    wlog.add_logging_parser_arguments(parser_show_run_dirs, default_level="warning")
+    parser_show_run_dirs.set_defaults(func=main_show_run_dirs)
+
+    return parser_show_run_dirs
+
+
+def main_show_run_dirs(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)
+    if not workflow:
+        return
+
+    # Show
+    try:
+        workflow.show_run_dirs(tablefmt=args.tablefmt)
+    except Exception:
+        logger.exception("Failed showing the run directories")
+
+
+def add_parser_show_artifacts(subparsers):
+    # Setup argument parser
+    parser_show_artifacts = subparsers.add_parser(
+        "artifacts",
+        help="show the run directory of all worklow tasks",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser_show_artifacts.add_argument(
+        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
+    )
+    wlog.add_logging_parser_arguments(parser_show_artifacts, default_level="warning")
+    parser_show_artifacts.set_defaults(func=main_show_artifacts)
+
+    return parser_show_artifacts
+
+
+def main_show_artifacts(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)
+    if not workflow:
+        return
+
+    # Show
+    try:
+        workflow.show_artifacts(tablefmt=args.tablefmt)
+    except Exception:
+        logger.exception("Failed showing the run directories")
+
+
+# %% Run
 
 
 def add_parser_run(subparsers):
@@ -262,36 +361,7 @@ def main_run(parser, args):
         logger.info("Successfully ran the workflow!")
 
 
-def add_parser_show_status(subparsers):
-    # Setup argument parser
-    parser_show_status = subparsers.add_parser(
-        "status",
-        help="get the status of all jobs",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser_show_status.add_argument(
-        "-r", "--running", help="show only running jobs", action="store_true"
-    )
-    parser_show_status.add_argument(
-        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
-    )
-    wlog.add_logging_parser_arguments(parser_show_status, default_level="warning")
-    parser_show_status.set_defaults(func=main_show_status)
-
-    return parser_show_status
-
-
-def main_show_status(parser, args):
-    # Setup the workflow
-    workflow, logger = setup_workflow(parser, args)
-    if not workflow:
-        return
-
-    # Show the status
-    try:
-        workflow.show_status(tablefmt=args.tablefmt, running=args.running)
-    except Exception:
-        logger.exception("Failed querying the status")
+# %% Kill
 
 
 def add_parser_kill(subparsers):
@@ -328,33 +398,7 @@ def main_kill(parser, args):
         logger.exception("Failed to kill jobs")
 
 
-def add_parser_show_run_dirs(subparsers):
-    # Setup argument parser
-    parser_show_run_dirs = subparsers.add_parser(
-        "run_dirs",
-        help="show the run directory of all worklow tasks",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser_show_run_dirs.add_argument(
-        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
-    )
-    wlog.add_logging_parser_arguments(parser_show_run_dirs, default_level="warning")
-    parser_show_run_dirs.set_defaults(func=main_show_run_dirs)
-
-    return parser_show_run_dirs
-
-
-def main_show_run_dirs(parser, args):
-    # Setup the workflow
-    workflow, logger = setup_workflow(parser, args)
-    if not workflow:
-        return
-
-    # Show
-    try:
-        workflow.show_run_dirs(tablefmt=args.tablefmt)
-    except Exception:
-        logger.exception("Failed showing the run directories")
+# %% Clean
 
 
 def add_parser_clean(subparsers):
@@ -372,6 +416,7 @@ def add_parser_clean(subparsers):
     )
     parser_clean.add_argument("--with-run-dirs", help="remove run directories", action="store_true")
     parser_clean.add_argument("--with-log-files", help="remove log files", action="store_true")
+    parser_clean.add_argument("--with-artifacts", help="remove artifacts", action="store_true")
     parser_clean.add_argument(
         "--dry-run",
         "--test",
@@ -403,7 +448,7 @@ def main_clean(parser, args):
             submission_dirs=not args.without_submission_dirs,
             run_dirs=args.with_run_dirs,
             log_files=args.with_log_files,
-            extra_files=args.extra_file,
+            artifacts=args.with_artifacts,
             dry=args.dry_run,
         )
     except Exception:

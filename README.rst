@@ -14,13 +14,13 @@ Documentation
 -------------
 
 The woom documentation:
-https://gitshom.gitlab.io/STM/woom/
+https://shom-fr.github.io/woom/
 
 Sources
 -------
 
 Sources are available on the woom gitlab page:
-https://gitlab.com/GitShom/STM/woom
+https://github.com/shom-fr/woom
 
 License
 -------

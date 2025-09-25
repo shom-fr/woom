@@ -246,10 +246,18 @@ class Workflow:
             params.update(host_params)
 
             # Task specific params for this host
+
         # Extra parameters
         if extra_params:
             params.update(extra_params)
-        params.update(workflow=self, logger=self.logger, workflow_dir=self._workflow_dir)
+        task = self.get_task(task_name)
+        params.update(
+            workflow=self,
+            logger=self.logger,
+            workflow_dir=self._workflow_dir,
+            task=task,
+            run_dir=task.get_run_dir(),
+        )
 
         return params, env_vars
 
@@ -260,6 +268,7 @@ class Workflow:
         if self.config["ensemble"]["tasks"] and task_name in self.config["ensemble"]["tasks"]:
             return self.members
 
+    @functools.lru_cache
     def get_task(self, task_name):
         """Shortcut to ``self.taskmanager.get_task(task_name)``"""
         return self.taskmanager.get_task(task_name)
@@ -269,6 +278,17 @@ class Workflow:
         params, _ = self.get_task_inputs(task_name, cycle, member)
         task = self.get_task(task_name)
         return wrender.render(task.get_run_dir(), params)
+
+    @functools.lru_cache
+    def get_task_artifacts(self, task_name, cycle=None, member=None):
+        """Get rendered artifacts for a given task"""
+        params, _ = self.get_task_inputs(task_name, cycle, member)
+        task = self.get_task(task_name)
+        return task.render_artifacts(params)
+
+    def get_artifact(self, artifact_name, task_name, cycle=None, member=None):
+        """Get the path of an artifact for a given task"""
+        return self.get_task_artifacts(task_name, cycle, member)[artifact_name]
 
     def _get_submission_args_(self, task_name, cycle, member, depend, extra_params=None):
         # Create task
@@ -308,6 +328,7 @@ class Workflow:
             "content": task_specs["script_content"],
             "opts": opts,
             "depend": depend,
+            'artifacts': task_specs["artifacts"],
         }
 
     def submit_task(self, task_name, cycle=None, member=None, depend=None, extra_params=None):
@@ -406,6 +427,17 @@ class Workflow:
             return wjob.JobStatus["NOTSUBMITTED"]
 
         # Walltime exceeded
+        out_file = os.path.join(submission_dir, "job.out")
+        if os.path.exists(out_file):
+            with open(out_file) as f:
+                content = f.read()
+            if "PBS: job killed: walltime" in content and "Terminated" in content:
+                status = wjob.JobStatus["FAILED"]
+                status.jobid = job.jobid
+                return status
+
+        # Walltime exceeded
+        # FIXME: to be integrated in job
         out_file = os.path.join(submission_dir, "job.out")
         if os.path.exists(out_file):
             with open(out_file) as f:
@@ -639,7 +671,7 @@ class Workflow:
         else:
             print("no member")
 
-    def iter_tasks(self):
+    def __iter__(self):
         """Generator for iterating over the tasks, cycles and members
 
         Yield
@@ -659,12 +691,10 @@ class Workflow:
                             for member in self.get_task_members(task_name) or [None]:
                                 yield task_name, cycle, member
 
-    __iter__ = iter_tasks
-
     @property
     def submission_dirs(self):
         """Generator of submission directories computed from the task tree"""
-        for task_name, cycle, member in self.iter_tasks():
+        for task_name, cycle, member in self:
             yield self.get_submission_dir(task_name, cycle, member, create=False)
 
     def get_status(self, running=False):
@@ -714,6 +744,41 @@ class Workflow:
             ).to_markdown(index=False, tablefmt=tablefmt)
         )
 
+    def get_artifacts(self, task_name=None, cycle=None, member=None):
+        """Get artifacts as a :class:`pandas.DataFrame`
+
+        Parameters
+        ----------
+        jobid: str, list(str), None
+            KIll only this jobid if it belongs to the workflow
+        task_name: str, None:
+            Select this task
+        cycle: str, woom.util.Cycle, None
+            Select this cycle
+        member: int, None
+            Ensemble member id
+        """
+        data = []
+        for task_name_, cycle_, member_ in self:
+            if task_name and task_name_ != task_name:
+                continue
+            if cycle and str(cycle) != str(cycle_):
+                continue
+            if member is not None and str(member) != str(member_):
+                continue
+            for i, (name, path) in enumerate(
+                self.get_task_artifacts(task_name_, cycle_, member_).items()
+            ):
+                tn = task_name_ if not i else ""
+                data.append([tn, name, path, os.path.exists(path)])
+
+        columns = ["TASK", "ARTIFACT", "PATH", "EXISTS?"]
+        return pd.DataFrame(data, columns=columns)
+
+    def show_artifacts(self, tablefmt="rounded_outline"):
+        """Show the status of all the tasks of the wokflow"""
+        print(self.get_artifacts().to_markdown(index=False, tablefmt=tablefmt))
+
     def kill(self, jobid=None, task_name=None, cycle=None, member=None):
         """Kill all running jobs specific to this workflow
 
@@ -734,7 +799,7 @@ class Workflow:
             jobids = [jobid]
         else:
             jobids = jobid
-        for task_name_, cycle_, member_ in self.iter_tasks():
+        for task_name_, cycle_, member_ in self:
             if task_name and task_name_ != task_name:
                 continue
             if cycle and str(cycle) != str(cycle_):
@@ -787,7 +852,13 @@ class Workflow:
         print(self.get_run_dirs().to_markdown(index=False, tablefmt=tablefmt))
 
     def clean(
-        self, submission_dirs=True, log_files=True, run_dirs=False, extra_files=None, dry=False
+        self,
+        submission_dirs=True,
+        log_files=True,
+        run_dirs=False,
+        artifacts=False,
+        extra_files=None,
+        dry=False,
     ):
         """Remove working files and directories
 
@@ -800,6 +871,8 @@ class Workflow:
         run_dirs: bool
             Remove the run directory. Since the may be overriden by
             the user, be cautious!
+        artifacts: bool
+            Remove files declared as artifacts.
         extra_files: None, list
             A list of file or glob patterns to remove.
         """
@@ -825,6 +898,14 @@ class Workflow:
                         shutil.rmtree(run_dir)
                     nitems += 1
                     self.logger.info(f"Removed submission directory: {run_dir}")
+
+            if artifacts:
+                for name, path in self.get_task_artifacts(task_name, cycle, member).items():
+                    self.logger.debug(f"Removing '{name}' artifact: {path}")
+                    if not dry:
+                        os.remove(path)
+                    nitems += 1
+                    self.logger.info(f"Removed '{name}' artifact: {path}")
 
         # Log files
         if log_files:

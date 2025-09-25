@@ -52,7 +52,7 @@ html_theme_options = {
         "image_light": "_static/woom-logo-light.png",
         "image_dark": "_static/woom-logo-dark.png",
     },
-    "repository_url": "https://gitlab.com/GitShom/STM/woom",
+    "repository_url": "https://github.com/shom-fr/woom",
     "use_repository_button": True,
     "use_issues_button": True,
     "use_source_button": True,
