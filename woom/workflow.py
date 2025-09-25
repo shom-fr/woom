@@ -61,7 +61,9 @@ class Workflow:
 
         # Ensemble
         self._members = witers.gen_ensemble(
-            self.config["ensemble"]["size"], **self.config["ensemble"]["iters"]
+            self.config["ensemble"]["size"],
+            skip=self.config["ensemble"]["skip"],
+            **self.config["ensemble"]["iters"],
         )
         self._nmembers = len(self._members)
 
@@ -403,6 +405,16 @@ class Workflow:
         else:
             return wjob.JobStatus["NOTSUBMITTED"]
         
+        # Walltime exceeded
+        out_file = os.path.join(submission_dir, "job.out")
+        if os.path.exists(out_file):
+            with open(out_file) as f:
+                content = f.read()
+            if "PBS: job killed: walltime" in content and "Terminated" in content:
+                status = wjob.JobStatus["FAILED"]
+                status.jobid = job.jobid
+                return status
+
         # Walltime exceeded
         out_file = os.path.join(submission_dir, "job.out")
         if os.path.exists(out_file):

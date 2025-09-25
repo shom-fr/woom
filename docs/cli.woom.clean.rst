@@ -1,7 +1,7 @@
 .. _woom_clean:
 
 :command:`woom clean`
-====================
+=====================
 
 Remove temporary files.
 

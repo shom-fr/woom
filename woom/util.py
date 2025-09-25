@@ -152,3 +152,15 @@ def params2env_vars(params=None, **extra_params):
             value = str(int(value))
         env_vars["WOOM_" + key.upper()] = str(value)
     return env_vars
+
+
+def pages2ints(pages, n):
+    """Convert a list of 1-based integers and zero-based slices to a pure list of one-based integers"""
+    out = []
+    indices = [i + 1 for i in range(n)]
+    for page in pages:
+        if isinstance(page, int):
+            out.append(page)
+        else:
+            out.extend(indices[page])
+    return out
