@@ -488,7 +488,7 @@ class BackgroundJobManager(object):
                             args += fmt
         return args
 
-    def get_submission_args(self, script, opts, depend=None):
+    def get_submission_command(self, script, opts, depend=None):
         # self.session  opts["session"]
         # script = f"{opts['job']}"
 
@@ -521,7 +521,7 @@ class BackgroundJobManager(object):
                     return
 
         # Get submission arguments
-        jobargs = self.get_submission_args(script, opts, depend=depend)
+        jobargs = self.get_submission_command(script, opts, depend=depend)
 
         # Submission directory = where the script is
         if submdir is None:
@@ -605,10 +605,10 @@ class ScheduledJob(Job):
 class _Scheduler_(BackgroundJobManager):
     job_class = ScheduledJob
 
-    def get_submission_args(self, script, opts, depend=None):
+    def get_submission_command(self, script, opts, depend=None):
         if depend:
             opts["depend"] = ":".join([str(job) for job in depend])
-        return super().get_submission_args(script, opts, depend=depend)
+        return super().get_submission_command(script, opts, depend=depend)
 
     def submit(
         self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None
