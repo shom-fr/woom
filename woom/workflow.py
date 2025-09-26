@@ -187,7 +187,10 @@ class Workflow:
 
         # Workflow generic params
         params = wconf.strip_out_sections(self._config["params"]).dict()
-        env_vars = dict((key.upper(), value) for key, value in params.items())
+        env_vars = dict(("WOOM_" + key.upper(), value) for key, value in params.items())
+
+        # Workflow environment variables
+        env_vars.update(self._config["env_vars"])
 
         # Subsections
         for sec in "app", "cycles":
@@ -229,7 +232,7 @@ class Workflow:
             task_params = wconf.strip_out_sections(
                 self._config["params"]["tasks"][task_name]
             ).dict()
-            env_vars.update((key.upper(), value) for key, value in task_params.items())
+            env_vars.update(("WOOM_" + key.upper(), value) for key, value in task_params.items())
             # params.update(task_params) # too dangerous!
 
             # if self.host.name in self._config["params"]["tasks"][task_name]:
@@ -242,7 +245,7 @@ class Workflow:
             host_params = wconf.strip_out_sections(
                 self._config["params"]["hosts"][self.host.name]
             ).dict()
-            env_vars.update((key.upper(), value) for key, value in host_params.items())
+            env_vars.update(("WOOM_" + key.upper(), value) for key, value in host_params.items())
             params.update(host_params)
 
             # Task specific params for this host
