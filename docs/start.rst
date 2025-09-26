@@ -22,6 +22,7 @@ A **job script** is a bash file containing:
     * a block that declares the environment 
     * a line to change the directory 
     * a block of commands that do the main job 
+    * A block to check that expected artifacts were created
     * a :command:`exit` command that outputs any trapped signal or 0.
 
     .. seealso:: :ref:`templates`
@@ -34,7 +35,7 @@ To set up your workflow:
 #. Configure your workflow in the :file:`workflow.cfg` file, in particular the parameters for generating the job script, the cycle and ensemble specifications and the order in which tasks are submitted through the stages.
 #. Add additional material such as the :file:`bin` and :file:`lib` directories, a :file:`ext` extension directory, or other useful files that you can access at runtime using the ``workflow_dir`` substitution parameter or the :envvar:`WOOM_WORKFLOW_DIR` environment variable.
 
-A typical sructure of the workflow directory is the following:
+A typical structure of the workflow directory is the following:
 
 .. code-block:: bash
 
@@ -45,10 +46,10 @@ A typical sructure of the workflow directory is the following:
     ├── ext/          # optional, woom extensions
     │   ├── jinja_filters.py
     │   └── validator_functions.py
-    ├── bin/          # opttional, prepended to $PATH in the job script
+    ├── bin/          # optional, prepended to $PATH in the job script
     │   └── myscript.py
     └── lib/
-        └── python   # opttional, prepended to $PYTHONPATH in the job script
+        └── python   # optional, prepended to $PYTHONPATH in the job script
             └── mylib.py
 
 You can add more stuff to this directory and access it using the ``{{ workflow_dir }}`` template
@@ -62,14 +63,15 @@ Tasks with :file:`tasks.cfg`
 
 This file helps you configure tasks:
 
-* Their content with the environment name (declared in the :file:`hosts.cfg`  file), the run directory, the shell command line(s) to be executed and the exit signals to trap.
-* Their submission arguments with using a scheduler, like the queue and the resources.
+* Their **content** with the environment name (declared in the :file:`hosts.cfg`  file), the run directory, the shell command line(s) to be executed and the exit signals to trap.
+* The files that are expected to be created by the task and that are named **artifacts**.
+* Their **submission arguments** when using a scheduler, like the queue and the resources.
 
 See the :mod:`configobj` :ref:`specifications <cfgspecs.tasks>` for this configuration.
 
 In the following example, four tasks with arbitrary names are specified in the configuration file.
 The command lines use jinja patterns such as ``{{ data_dir }}``, which are filled with entries from both the ``[params]`` section of the :file:`workflow.cfg` file and the default entries provided by the workflow (:ref:`inputs_dict`).
-Some of the tasks here use a ``prepost`` environment which must be declared in the :file:`hosts.cfg` configuration file.
+Some of the tasks here use an environment named "prepost", that must be declared in the :file:`hosts.cfg` configuration file.
 
 .. literalinclude:: samples/tasks.cfg
     :language: ini
@@ -94,7 +96,7 @@ An environment called ``prepost`` is declared using environment modules and envi
     :language: ini
     :caption: Example of :file:`hosts.cfg`
 
-The **default** :file:`hosts.cfg` declares the ``local`` host that matches any computer by default. When a user provides its own hosts file, this one is merged with the default file. The user must use the ``local`` to extend the configuration of the default host.
+The **default** :file:`hosts.cfg` declares the ``local`` host that matches any computer by default. When a user provides their own hosts file, this one is merged with the default file. The user must use the ``local`` to extend the configuration of the default host.
  
 .. literalinclude:: ../woom/hosts.cfg
     :language: ini
@@ -105,12 +107,12 @@ Workflow with :file:`workflow.cfg`
 
 This file helps you configure the workflow:
 
-* Your application spcifications: name, configuration and experiment. It is optional but highly recommended.
-* The way you want cycle over dates. It is also optional.
+* Your application specifications: name, configuration and experiment. It is optional but highly recommended.
+* The way you want to cycle over dates. It is also optional.
 * The specifications of your ensemble when you want to iterate over members.
-* The additional configuration parameters that the will be used to declare environment variable and format task command lines with jinja substitutions when generating the job scripts.
+* The additional configuration parameters that will be used to declare environment variables and format task command lines with jinja substitutions when generating the job scripts.
 * The workflow graph through stages that defines in which order to execute the tasks as defined in :file:`tasks.cfg`.
-* Groups of tasks that must be ran sequentially in the workflow.
+* Groups of tasks that must be run sequentially in the workflow.
 
 See the :mod:`configobj` :ref:`specifications <cfgspecs.workflow>` for this configuration.
 
@@ -184,13 +186,13 @@ They have two usages:
 * The job must fail if an artifact is not present at the end of the task job.
 * One task can access the artifacts of any other task given the task name, the artifact name and the context (cycle, member).
 
-Artifacts are declared in the :file`task.cfg` in the ``[[artifacts]]`` section of given task, with the short name as keys and the relative or absolute path a value.
+Artifacts are declared in the :file:`tasks.cfg` in the ``[[artifacts]]`` section of given task, with the short name as keys and the relative or absolute path as value.
 
-.. warning:: All artifacts must in fine be able to be  converted to an absolute path. So you must either declare an artifact with an absolute path, preprend it with a directory mapping like ``{{ run_dir }}`` or provide a relative path and fill the ``run_dir`` option of a task.
+.. warning:: All artifacts must ultimately be able to be converted to an absolute path. So you must either declare an artifact with an absolute path, prepend it with a directory mapping like ``{{ run_dir }}`` or provide a relative path and fill the ``run_dir`` option of a task.
 
 To make reference to an artifact in a task, there are two cases:
 
-* If the artifacts belongs to the current task, do like: 
+* If the artifact belongs to the current task, do like: 
 
   .. code-block:: jinja
 
@@ -208,11 +210,11 @@ To list all artifacts, expected or generated, use the :ref:`woom_show_artifacts`
 
     $ woom show artifacts
 
-Please have a look to :ref:`this example <examples.academic.artifacts>`.
+Please have a look at :ref:`this example <examples.academic.artifacts>`.
 
 
-Controling and running the workflow
-===================================
+Controlling and running the workflow
+====================================
 
 Run all woom commands from the workflow directory.
 See the :ref:`examples` section for more illustrative examples.
@@ -221,7 +223,7 @@ See the :ref:`examples` section for more illustrative examples.
 
 .. highlight:: bash
 
-First, make sure that the your workflow is well interpreted::
+First, make sure that your workflow is well interpreted::
 
     $ woom show overview
 

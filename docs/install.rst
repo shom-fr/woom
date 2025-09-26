@@ -6,7 +6,7 @@ Installation
 Dependencies
 ------------
 
-woom requires ``python>3`` and depends on the following packages:
+woom requires Python 3 or higher and depends on the following packages:
 
 .. list-table::
    :widths: 10 90
@@ -18,9 +18,9 @@ woom requires ``python>3`` and depends on the following packages:
    * - `jinja2 <https://jinja.palletsprojects.com/en/stable/>`_
      - :mod:`jinja2` is a fast, expressive, extensible templating engine. Special placeholders in the template allow writing code similar to Python syntax. Then the template is passed data to render the final document.
    * - `pandas <https://pandas.pydata.org/>`_
-     - :mod:`pandas` is an open source, BSD-licensed library providing high-performance, easy-to-use data structures and data analysis       
+     - :mod:`pandas` is an open source, BSD-licensed library providing high-performance, easy-to-use data structures and data analysis tools for Python.
    * - `platformdirs <https://platformdirs.readthedocs.io/en/latest/>`_
-     - :mod:`platformdirs` is a library to determine platform-specific system directories. This includes directories where to place cache files, user data, configuration, etc...
+     - :mod:`platformdirs` is a library to determine platform-specific system directories. This includes directories for placing cache files, user data, configuration, etc.
    * - `psutil <https://psutil.readthedocs.io/en/latest/>`_
      - :mod:`psutil` (python system and process utilities) is a cross-platform library for retrieving information on running processes and system utilization (CPU, memory, disks, network, sensors) in Python.
    * - `tabulate <https://github.com/astanin/python-tabulate>`_
