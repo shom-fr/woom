@@ -381,22 +381,30 @@ class Workflow:
         # Get the submission arguments
         submission_args = self._get_submission_args_(task_name, cycle, member, depend, extra_params)
         batch_content = submission_args.pop("content")
+        artifacts = submission_args.pop("artifacts")
 
         # Get submission command line
-        jobargs = self.jobmanager.get_submission_args(**submission_args)
+        jobargs = self.jobmanager.get_submission_command(**submission_args)
         cmdline = shlex.join(jobargs)
 
         jobid = str(secrets.randbelow(1000000))
 
         # Commandline
         content = "Fake submission:\n"
-        content += " submission command ".center(80, "-") + "\n"
+        content += " submission command ".center(50, "-") + "\n"
         content += cmdline + "\n"
 
         # Batch
-        content += " batch script content ".center(80, "-") + "\n"
+        content += " batch script content ".center(50, "-") + "\n"
         content += batch_content + "\n"
-        content += "-" * 80
+
+        # Artifacts
+        if artifacts:
+            content += " artifacts ".center(50, "-") + "\n"
+            for name, path in artifacts.items():
+                content += f"{name}: {path}\n"
+
+        content += "-" * 50
 
         ## Json
         # content += " params as json ".center(80, "-") + "\n"
