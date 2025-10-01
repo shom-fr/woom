@@ -5,7 +5,6 @@ Tests for ext.py module
 """
 import sys
 
-
 from woom import conf as wconf
 from woom import ext as wext
 from woom import render as wrender

@@ -256,7 +256,6 @@ def mock_subprocess():
     from unittest.mock import MagicMock, patch
 
     with patch('subprocess.Popen') as mock_popen, patch('subprocess.run') as mock_run:
-
         mock_process = MagicMock()
         mock_process.pid = 12345
         mock_process.returncode = 0

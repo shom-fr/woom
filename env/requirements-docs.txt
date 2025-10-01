@@ -2,14 +2,14 @@
 colorlog
 configobj
 jinja2
-pandas
-platformdirs
-psutil
-tabulate
 
 # Doc
 matplotlib
+pandas
+platformdirs
+psutil
 sphinx
 sphinx-argparse
 sphinx-book-theme
 sphinxcontrib-programoutput
+tabulate

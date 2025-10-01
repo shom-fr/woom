@@ -1,5 +1,5 @@
 .. _from_python:
-    
+
 From python
 ===========
 
@@ -29,7 +29,7 @@ Initialize the **logger**::
 Setup the workflow
 ------------------
 
-    
+
 Load the **extension files** with :func:`~woom.ext.load_jinja_filters` and :func:`~woom.ext.load_validator_functions`::
 
     wext.load_jinja_filters("ext/jinja_filters.py") # Jinja filters
@@ -47,7 +47,7 @@ Initialize the :class:`host manager <woom.hosts.HostManager>`::
 Set your :class:`host <woom.hosts.Host>`::
 
     host = hostmanager.get_host("datarmor")
-    
+
 Alternatively, you can infer your **host** thanks to the ``patterns`` configuration option if set::
 
     host = hostmanager.infer_host()
@@ -56,7 +56,7 @@ Initialize the :class:`task manager <woom.tasks.TaskManager>`::
 
     taskmanager = wtasks.TaskManager(host)
     taskmanager.load_config("tasks.cfg")
-    
+
 Finally, initialize the :class:`workflow <woom.workflow.Workflow>`::
 
     workflow = wworkflow.Workflow("workflow.cfg", taskmanager)
@@ -67,12 +67,12 @@ Operate
 To print an **overview**, call :meth:`~woom.workflow.Workflow.get_overview`::
 
     workflow.show_overview()
-    
+
 If it's ok, **run** the workflow with :meth:`~woom.workflow.Workflow.run`.
 Do it first in fake mode so that it will tell what will be done without doing it::
 
-    workflow.run(dry=True) 
-    
+    workflow.run(dry=True)
+
 The run it for real::
 
     workflow.run()
@@ -80,7 +80,7 @@ The run it for real::
 If you just want to re-run tasks that have already run, use the ``update`` keyword::
 
     workflow.run(update=True)
-    
+
 To **check the status** of all workflow tasks and their associated jobs, use :meth:`~woom.workflow.Workflow.show_status`::
 
     workflow.show_status()
@@ -99,4 +99,3 @@ You can fine tune which jobs you want to kill::
     workflow.kill(task_name="mytask")                              # by task
     workflow.kill(cycle="2020-01-01T00:00:00-2020-01-01T06:00:00") # by cycle
     workflow.kill(member=1)                                        # by ensemble member id
-    

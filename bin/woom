@@ -3,8 +3,8 @@
 """
 woom commandline interface
 """
-import sys
 import pathlib
+import sys
 
 this_file = pathlib.Path(__file__)
 if (this_file.parent.parent / "woom" / "__init__.py").exists():

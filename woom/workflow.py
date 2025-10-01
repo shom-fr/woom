@@ -198,9 +198,7 @@ class Workflow:
         params["app_path"] = self.get_app_path()
         params["task_path"] = self.get_task_path(task_name, cycle, member)
         params["task_name"] = task_name
-        env_vars.update(
-            wutil.params2env_vars(params, select=["app_path", "task_path", "task_name"])
-        )
+        env_vars.update(wutil.params2env_vars(params, select=["app_path", "task_path", "task_name"]))
 
         # Get host params
         params.update(self.host.get_params())
@@ -228,9 +226,7 @@ class Workflow:
 
         # Task specific params
         if task_name in self._config["params"]["tasks"]:
-            task_params = wconf.strip_out_sections(
-                self._config["params"]["tasks"][task_name]
-            ).dict()
+            task_params = wconf.strip_out_sections(self._config["params"]["tasks"][task_name]).dict()
             env_vars.update(("WOOM_" + key.upper(), value) for key, value in task_params.items())
             # params.update(task_params) # too dangerous!
 
@@ -241,9 +237,7 @@ class Workflow:
 
         # Host specific params
         if self.host.name in self._config["params"]["hosts"]:
-            host_params = wconf.strip_out_sections(
-                self._config["params"]["hosts"][self.host.name]
-            ).dict()
+            host_params = wconf.strip_out_sections(self._config["params"]["hosts"][self.host.name]).dict()
             env_vars.update(("WOOM_" + key.upper(), value) for key, value in host_params.items())
             params.update(host_params)
 
@@ -526,7 +520,6 @@ class Workflow:
             stage_jobs = []
             sequence_depend = stage_depend
             for i, cycle in enumerate(cycles):
-
                 if stage == "cycles":
                     self.logger.debug("Running cycle: " + cycle.label)
                     if self._cycles_indep:  # independant cycles depend always on the last stage
@@ -553,11 +546,9 @@ class Workflow:
                         # Sequential sequential on group tasks
                         job = None
                         for task_name in group:
-
                             # Parallel on ensemble members
                             task_jobs = []
                             for member in self.get_task_members(task_name) or [None]:
-
                                 long_task = f"{stage}/{sequence}/{task_name}"
                                 if member:
                                     long_task += f"/{member.label}"
@@ -578,9 +569,7 @@ class Workflow:
                                         continue
 
                                     elif status is wjob.JobStatus.ERROR:
-                                        self.logger.warning(
-                                            "Existing job task led to error. Re-running..."
-                                        )
+                                        self.logger.warning("Existing job task led to error. Re-running...")
                                     elif status is wjob.JobStatus.UNKNOWN:
                                         self.logger.warning(
                                             "Unknown status for existing task job task. Re-running..."
@@ -610,9 +599,7 @@ class Workflow:
                                             f"Task submission aborted: {long_task}. Stopping workflow..."
                                         )
                                 depending = f" depending on [{jobids}]" if task_depend else ""
-                                self.logger.info(
-                                    f"Submitted task: {long_task} with job id {job}{depending}"
-                                )
+                                self.logger.info(f"Submitted task: {long_task} with job id {job}{depending}")
 
                                 # The next task of this group depend on this job member
                                 task_jobs.append(job)
@@ -715,9 +702,7 @@ class Workflow:
             status = self.get_task_status(task_name, cycle, member)
             if running and not status.is_running():
                 continue
-            submdir = self.get_submission_dir(task_name, cycle, member)[
-                len(self._workflow_dir) + 1 :
-            ]
+            submdir = self.get_submission_dir(task_name, cycle, member)[len(self._workflow_dir) + 1 :]
             row = [status.name, status.jobid, task_name, cycle, submdir]
             if self.nmembers:
                 if member is None:
@@ -766,9 +751,7 @@ class Workflow:
                 continue
             if member is not None and str(member) != str(member_):
                 continue
-            for i, (name, path) in enumerate(
-                self.get_task_artifacts(task_name_, cycle_, member_).items()
-            ):
+            for i, (name, path) in enumerate(self.get_task_artifacts(task_name_, cycle_, member_).items()):
                 tn = task_name_ if not i else ""
                 data.append([tn, name, path, os.path.exists(path)])
 
@@ -880,7 +863,6 @@ class Workflow:
         self.logger.debug("Starting to clean...")
         nitems = 0
         for task_name, cycle, member in self:
-
             if submission_dirs:
                 submission_dir = self.get_submission_dir(task_name, cycle, member, create=False)
                 if os.path.exists(submission_dir):

@@ -14,9 +14,7 @@ import pandas as pd
 
 
 class WoomDate(pd.Timestamp):
-    re_match_since = re.compile(
-        r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I
-    ).match
+    re_match_since = re.compile(r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I).match
     # re_match_add = re.compile(r"^([+\-].+)$").match
 
     def __new__(cls, date, round=None):

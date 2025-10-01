@@ -8,4 +8,3 @@
     :func: get_parser
     :prog: woom
     :nosubcommands:
-

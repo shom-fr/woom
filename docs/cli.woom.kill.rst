@@ -10,7 +10,7 @@ Kill jobs hat were submitted when running the current workflow.
     :func: get_parser
     :prog: woom
     :path: kill
-    
+
 Examples
 --------
 

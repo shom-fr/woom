@@ -86,7 +86,11 @@ class TestJob:
 
     def test_to_dict(self):
         job = wjob.Job(
-            manager=self.mock_manager, name="test", script="/script.sh", args=["bash"], jobid="12345"
+            manager=self.mock_manager,
+            name="test",
+            script="/script.sh",
+            args=["bash"],
+            jobid="12345",
         )
         job_dict = job.to_dict()
         assert job_dict["name"] == "test"

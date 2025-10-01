@@ -184,9 +184,19 @@ class TestTask:
 
         self.task_config = configobj.ConfigObj()
         self.task_config.name = "test_task"
-        self.task_config["content"] = {"commandline": "echo test", "run_dir": "/tmp/run", "env": None}
+        self.task_config["content"] = {
+            "commandline": "echo test",
+            "run_dir": "/tmp/run",
+            "env": None,
+        }
         self.task_config["artifacts"] = {}
-        self.task_config["submit"] = {"queue": None, "memory": None, "time": None, "mail": None, "extra": {}}
+        self.task_config["submit"] = {
+            "queue": None,
+            "memory": None,
+            "time": None,
+            "mail": None,
+            "extra": {},
+        }
 
     def test_init(self):
         task = wtasks.Task(self.task_config, self.mock_host)

@@ -46,7 +46,7 @@ The minimal content of this dictionary is the following, in alphabetical order:
    * - ``cycle``
      - :class:`~woom.iters.Cycle` or `None`
      - Current cycle
-     - 
+     -
    * - ``cycles_begin_date``
      - :class:`~woom.util.WoomDate` or `None`
      - First date of cycles
@@ -70,7 +70,7 @@ The minimal content of this dictionary is the following, in alphabetical order:
    * - ``member``
      - :class:`~woom.iters.Member` or `None`
      - Current member
-     - 
+     -
    * - ``nmembers``
      - :class:`int`
      - Ensemble size
@@ -94,5 +94,4 @@ The minimal content of this dictionary is the following, in alphabetical order:
    * - ``workflow``
      - :class:`~woom.workflow.Workflow`
      - Workflow instance
-     - 
-
+     -

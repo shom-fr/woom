@@ -1,5 +1,5 @@
 .. _inputs:
-    
+
 Input mappings
 ==============
 

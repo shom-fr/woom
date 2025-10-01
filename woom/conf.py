@@ -90,8 +90,7 @@ def is_pages(values):
     for sel in sels:
         if isinstance(sel, str) and "-" in sel:
             ssel = [
-                (int(s) if i > 0 else int(s) - 1) if s != "" else None
-                for i, s in enumerate(re_split_t(sel))
+                (int(s) if i > 0 else int(s) - 1) if s != "" else None for i, s in enumerate(re_split_t(sel))
             ]
             out.append(slice(*ssel))
         else:
