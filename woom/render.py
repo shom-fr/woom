@@ -6,12 +6,54 @@ Jinja text rendering
 import os
 import shlex
 
-from jinja2 import Environment, PackageLoader, StrictUndefined, Undefined
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PackageLoader, StrictUndefined, Undefined
 
 from . import util as wutil
 
 #: :class:`jinja2.Environment` used to render woom commandline templates
 JINJA_ENV = Environment(loader=PackageLoader("woom"), undefined=StrictUndefined, trim_blocks=True)
+
+
+def setup_template_loaders(workflow_dir):
+    """Setup Jinja loaders to support user template extensions
+
+    This allows users to extend base templates using Jinja inheritance.
+    User templates are searched in: workflow_dir/templates/
+
+    Parameters
+    ----------
+    workflow_dir: str
+        Path to the workflow directory
+
+    Example
+    -------
+    User can create workflow_dir/templates/job.sh with:
+
+    .. code-block:: jinja
+
+        {% extends "job.sh" %}
+        {% block header %}
+        {{ super() }}
+        # Custom header additions
+        echo "Starting custom workflow"
+        {% endblock %}
+
+    """
+    user_template_dir = os.path.join(workflow_dir, "templates")
+
+    loaders = []
+
+    # First priority: user templates directory
+    if os.path.exists(user_template_dir):
+        loaders.append(FileSystemLoader(user_template_dir))
+
+    # Second priority: woom package templates (fallback)
+    loaders.append(PackageLoader("woom"))
+
+    # Update the global environment
+    JINJA_ENV.loader = ChoiceLoader(loaders)
+
+    return user_template_dir
 
 
 def render(template, params, strict=True, nested=True):

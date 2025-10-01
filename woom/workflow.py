@@ -51,6 +51,15 @@ class Workflow:
         self._dry = False
         self._upate = False
 
+        # Workflow dir
+        self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))
+        os.environ["WOOM_WORKFLOW_DIR"] = self._workflow_dir
+
+        # Setup extensible templates BEFORE any rendering
+        self._user_template_dir = wrender.setup_template_loaders(self._workflow_dir)
+        if os.path.exists(self._user_template_dir):
+            self.logger.info(f"User templates directory enabled: {self._user_template_dir}")
+
         # Cycles
         if self.task_tree["cycles"]:
             cycles_conf = self.config["cycles"].dict()
@@ -67,9 +76,7 @@ class Workflow:
         )
         self._nmembers = len(self._members)
 
-        # Paths
-        self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))
-        os.environ["WOOM_WORKFLOW_DIR"] = self._workflow_dir
+        # Other paths
         self._paths = {
             "PATH": os.path.join(self._workflow_dir, "bin"),
             "PYTHONPATH": os.path.join(self._workflow_dir, "lib", "python"),
