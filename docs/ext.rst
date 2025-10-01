@@ -28,6 +28,24 @@ Example:
 
 If present, this file is loaded at workflow setup by the :func:`woom.ext.load_jinja_filters` function.
 
+Jinja templates
+===============
+
+You can extend the :ref:`default jinja templates <templates>` by providing
+yours in the :file:`templates` directory of the workflow directory.
+
+Examples:
+
+.. literalinclude:: ../examples/academic/templates/templates/env.sh
+    :caption: :file:`examples/academic/templates/templates/env.sh`
+    :language: jinja
+
+.. literalinclude:: ../examples/academic/templates/templates/job.sh
+    :caption: :file:`examples/academic/templates/templates/job.sh`
+    :language: jinja
+
+See :ref:`examples.academic.templates`.
+
 .. _ext_configobj:
 
 Configobj specifications
