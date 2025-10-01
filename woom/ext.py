@@ -3,9 +3,9 @@
 """
 Woom extensions management
 """
+import importlib
 import os
 import sys
-import importlib
 
 
 def import_from_path(module_name, file_path):
@@ -23,7 +23,8 @@ def import_from_path(module_name, file_path):
 def load_extensions(workflow_dir):
     """Load woom extensions
 
-    Extensions are python files situated in the :file:`ext/` sub-directory of the workflow directory:
+    Extensions are python files situated in the :file:`ext/`
+    sub-directory of the workflow directory:
 
     * :file:`jinja_filters.py`: :mod:`jinja` filters.
     * :file:`validator_functions.py`: :mod:`configobj.validate` functions.

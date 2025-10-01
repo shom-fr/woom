@@ -11,7 +11,6 @@ import pandas as pd
 from . import WoomError
 from . import util as wutil
 
-
 # %% Cycles
 
 
@@ -40,18 +39,16 @@ class Cycle:
 
         # Label
         if self.is_interval:
-            self.label = (
-                f"{self.begin_date.isoformat()} -> {self.end_date.isoformat()} ({self.duration})"
-            )
+            self.label = f"{self.begin_date.isoformat()} -> {self.end_date.isoformat()} ({self.duration})"
         else:
-            #: String used for for printing and based on the `ISO 8601 format <https://fr.wikipedia.org/wiki/ISO_8601>`_ (:class:`str`)
+            #: String used for for printing and based on the ISO 8601 format (:class:`str`)
             self.label = self.begin_date.isoformat()
 
         # Token
         if self.is_interval:
             self.token = f"{self.begin_date.isoformat()}-{self.end_date.isoformat()}"
         else:
-            #: String generally used in file and directory names and based on the `ISO 8601 format <https://fr.wikipedia.org/wiki/ISO_8601>`_ (:class:`str`)
+            #: String used in file and directory names and based on the ISO 8601 format (:class:`str`)
             self.token = f"{self.begin_date.isoformat()}"
 
         #: Next cycle (:class:`Cycle` or None)
@@ -182,7 +179,8 @@ def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, a
 
     if not cycles:
         raise WoomError(
-            f"Unable to generate cycles with these specs: begin_date={begin_date}, end_date={end_date}, freq={freq}, ncycle={ncycles}, round={round}"
+            "Unable to generate cycles with these specs: "
+            f"begin_date={begin_date}, end_date={end_date}, freq={freq}, ncycle={ncycles}, round={round}"
         )
 
     cycles[0].is_first = True
@@ -235,7 +233,7 @@ class Member:
 
     @property
     def params(self):
-        """Dict that contains this member instance, :attr:`nmembers` and all :attr:`properties <props>`  (:class:`dict`)
+        """Contains this instance, :attr:`nmembers` and all :attr:`properties <props>` (:class:`dict`)
 
         It is used for string substitutions
         """

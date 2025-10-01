@@ -4,15 +4,15 @@
 Task manager
 """
 
+import functools
 import os
 import re
-import functools
 
 import configobj
 
-from .__init__ import WoomError
 from . import conf as wconf
 from . import render as wrender
+from .__init__ import WoomError
 
 CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "tasks.ini")
 RE_SPLIT_COMMAS = re.compile(r"\s*,\s*").split
@@ -229,13 +229,16 @@ class Task:
                     rendered = os.path.join(self.run_dir, rendered)
                 else:
                     raise TaskError(
-                        f"Rendered artifact '{name}' of task '{self.name}' is not absolute and task run_dir is not defined. Please fix it!"
+                        f"Rendered artifact '{name}' of task '{self.name}' is not absolute "
+                        "and task run_dir is not defined. Please fix it!"
                     )
             artifacts[name] = rendered
         return artifacts
 
     def render_content(self, params):
-        """Export and render the task content with jinja, parameters and the :ref:`job.sh template <templates.job.sh>`
+        """Render the task content with jinja
+
+        Rendering uses parameters and the :ref:`job.sh template <templates.job.sh>`
 
         Parameters
         ----------

@@ -3,24 +3,24 @@
 """
 The workflow core
 """
-import os
-import logging
-import secrets
 import functools
-import shlex
-import re
-import shutil
 import glob
+import logging
+import os
+import re
+import secrets
+import shlex
+import shutil
 
 import pandas as pd
 
 from . import WoomError
 from . import conf as wconf
-from . import util as wutil
-from . import tasks as wtasks
-from . import job as wjob
 from . import iters as witers
+from . import job as wjob
 from . import render as wrender
+from . import tasks as wtasks
+from . import util as wutil
 
 CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "workflow.ini")
 
@@ -179,10 +179,6 @@ class Workflow:
             Parameters for substitutions
         dict
             Environement variables
-
-        See also
-        --------
-        woom.util.subst_dict
         """
 
         # Workflow generic params
@@ -202,6 +198,9 @@ class Workflow:
         params["app_path"] = self.get_app_path()
         params["task_path"] = self.get_task_path(task_name, cycle, member)
         params["task_name"] = task_name
+        env_vars.update(
+            wutil.params2env_vars(params, select=["app_path", "task_path", "task_name"])
+        )
 
         # Get host params
         params.update(self.host.get_params())
@@ -250,18 +249,27 @@ class Workflow:
 
             # Task specific params for this host
 
-        # Extra parameters
+        # Other parameters
         if extra_params:
             params.update(extra_params)
         task = self.get_task(task_name)
+        submission_dir = self.get_submission_dir(task_name, cycle, member)
         params.update(
             workflow=self,
             logger=self.logger,
             workflow_dir=self._workflow_dir,
             task=task,
             run_dir=task.get_run_dir(),
+            submission_dir=self.get_submission_dir(task_name, cycle, member),
+            log_dir=os.path.join(self._workflow_dir, "log"),
+            script_path=os.path.join(submission_dir, "job.sh"),
         )
-
+        env_vars.update(
+            wutil.params2env_vars(
+                params,
+                select=["workflow_dir", "run_dir", "submission_dir", "log_dir", "script_path"],
+            )
+        )
         return params, env_vars
 
     def get_task_members(self, task_name):
@@ -304,19 +312,11 @@ class Workflow:
         params["task"] = task
 
         # Submission script
-        submission_dir = self.get_submission_dir(task_name, cycle, member)
-        script_name = "job.sh"
-        script_path = os.path.join(submission_dir, script_name)
+        script_path = params["script_path"]
         wutil.check_dir(script_path, dry=self._dry, logger=self.logger)
 
         # Fill task environment variables
         task.env.prepend_paths(**self._paths)
-        task.env.vars_set["WOOM_WORKFLOW_DIR"] = self._workflow_dir
-        task.env.vars_set["WOOM_SUBMISSION_DIR"] = submission_dir
-        task.env.vars_set["WOOM_LOG_DIR"] = os.path.join(self._workflow_dir, "log")
-        task.env.vars_set["WOOM_TASK_NAME"] = task_name
-        task.env.vars_set["WOOM_TASK_PATH"] = params["task_path"]
-        task.env.vars_set["WOOM_APP_PATH"] = params["app_path"]
         task.env.vars_set.update(env_vars)
 
         # Get task bash code and submission options
@@ -349,14 +349,6 @@ class Workflow:
         """
         # Get the submission arguments
         submission_args = self._get_submission_args_(task_name, cycle, member, depend, extra_params)
-
-        ## Store params as a json file in session cache (useful?)
-        # json_name = submission_args["params_json"]["name"]
-        # with self.session.open_file("batch_scripts", json_name, "w") as f:
-        # json.dump(
-        # submission_args["params_json"]["content"], f, indent=4, cls=wutil.WoomJSONEncoder
-        # )
-        ## json_path = f.name
 
         # Create the bash submission script
         batch_script = submission_args["script"]
@@ -408,10 +400,6 @@ class Workflow:
                 content += f"{name}: {path}\n"
 
         content += "-" * 50
-
-        ## Json
-        # content += " params as json ".center(80, "-") + "\n"
-        # content += str(submission_args["params_json"]["content"]["params_json"]) + "\n"
 
         self.logger.debug(content)
         return jobid
@@ -579,7 +567,8 @@ class Workflow:
                                 if status.is_running():
                                     raise WorkFlowError(
                                         "Can't run a task that is already running. Aborting... "
-                                        "Run 'woom kill {status.jobid}' to kill the associated job before re-running."
+                                        "Run 'woom kill {status.jobid}' to kill the associated "
+                                        "job before re-running."
                                     )
 
                                 if update:

@@ -4,21 +4,20 @@
 Commandline interface
 """
 
-import os
 import argparse
 
 # from pathlib import Path
 import logging
-
-from . import util as wutil
-from . import hosts as whosts
+import os
 
 # from . import job as wjob
-from . import tasks as wtasks
-from . import workflow as wworkflow
 from . import conf as wconf
-from . import log as wlog
 from . import ext as wext
+from . import hosts as whosts
+from . import log as wlog
+from . import tasks as wtasks
+from . import util as wutil
+from . import workflow as wworkflow
 
 # %% Main
 
@@ -122,7 +121,8 @@ def get_workflow(workflow_cfg, logger, parser, args):  # , clean):
     workflow_cfgspecs = [wworkflow.CFGSPECS_FILE]
     if os.path.exists(args.workflow_ini):
         logger.info(
-            f"Using user specific file for workflow configuration specifications: {args.workflow_ini}"
+            "Using user specific file for workflow "
+            f"configuration specifications: {args.workflow_ini}"
         )
         workflow_cfgspecs.append(args.workflow_ini)
     logger.debug(f"Load workflow config: {workflow_cfg}")

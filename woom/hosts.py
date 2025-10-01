@@ -3,15 +3,15 @@
 """
 Host specific configuration
 """
-import os
-import socket
 import fnmatch
 import functools
+import os
+import socket
 
-from .__init__ import WoomError
-from . import job as wjob
-from . import env as wenv
 from . import conf as wconf
+from . import env as wenv
+from . import job as wjob
+from .__init__ import WoomError
 
 thisdir = os.path.dirname(__file__)
 
@@ -31,7 +31,7 @@ class HostManager:
 
     @property
     def config(self):
-        """Dict-like configuration of hosts as loaded from file :file:`hosts.cfg` (:class:`~configobj.ConfigObj`)"""
+        """Configuration as loaded from file :file:`hosts.cfg` (:class:`~configobj.ConfigObj`)"""
         return self._config
 
     def load_config(self, cfgfile):
@@ -65,66 +65,6 @@ class HostManager:
                 if fnmatch.fnmatch(hostname, pattern):
                     return self.get_host(name)
         return self.get_host("local")
-
-
-# def load_hosts_config(cfgfile=None):
-#     # Default config
-#     if "default_hosts_cfg" not in wconf.CACHE:
-#         wconf.CACHE["default_hosts_cfg"] = wconf.load_cfg(
-#             CFG_DEFAULT_FILE, CFGSPECS_FILE
-#         )
-#     cfg = configobj.ConfigObj(wconf.CACHE["default_hosts_cfg"])
-
-#     # Update with this config
-#     if cfgfile:
-#         cfg.merge(wconf.load_cfg(cfgfile, CFGSPECS_FILE))
-
-#     return cfg
-
-
-# def get_hosts_config():
-#     if "cfg" not in CACHE:
-#         load_hosts_config()
-#     return CACHE["cfg"]
-
-
-# def infer_host():
-#     cfg = get_hosts_config()
-#     hostname = socket.getfqdn()
-#     for name, config in cfg.items():
-#         if name == "generic":
-#             continue
-#         for pattern in config["patterns"]:
-#             if fnmatch.fnmatch(hostname, pattern):
-#                 return name
-#     return "generic"
-
-
-# def get_current_host():
-#     """Get the current :class:`Host` instance or create it if not existing"""
-#     if "current_host" not in CACHE:
-#         name = infer_host()
-#         CACHE["current_host"] = get_hosts_config()[name]
-#     return CACHE["current_host"]
-
-
-# def set_current_host(host):
-#     """Set the current host
-
-#     Parameters
-#     ----------
-#     host: str, Host
-#         If a string, it is interpreted as a host name and a :class:`Host` instance is created
-
-#     Return
-#     ------
-#     Host
-#     """
-#     if isinstance(host, str):
-#         config = get_hosts_config()[host]
-#         host = Host(host, config)
-#     CACHE["current_host"] = host
-#     return host
 
 
 class Host:
