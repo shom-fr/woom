@@ -22,4 +22,3 @@ Sub-commands
     cli.woom.show.status
     cli.woom.show.run_dirs
     cli.woom.show.artifacts
-    

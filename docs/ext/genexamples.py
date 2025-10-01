@@ -1,9 +1,9 @@
+"""Generate rst files for examples"""
+
 import os
 
-TEMPLATE_ENTRY = {}
-TEMPLATE_ENTRY[
-    "realistic"
-] = """
+TEMPLATE_ENTRY = {
+    "realistic": """
 .. _examples.{section}.{path}:
 
 .. include:: ../../examples/{section}/{path}/README.rst
@@ -14,11 +14,11 @@ Configuring
 .. literalinclude:: ../../examples/{section}/{path}/workflow.cfg
     :language: ini
     :caption: :file:`workflow.cfg`
-    
+
 .. literalinclude:: ../../examples/{section}/{path}/tasks.cfg
     :language: ini
     :caption: :file:`tasks.cfg`
-    
+
 .. literalinclude:: ../../examples/{section}/{path}/hosts.cfg
     :language: ini
     :caption: :file:`hosts.cfg`
@@ -37,10 +37,11 @@ Dry run
 ~~~~~~~
 Now let's run the workflow in test (dry) and debug modes.
 
-.. command-output:: woom run --log-no-color --log-level debug --dry-run 
+.. command-output:: woom run --log-no-color --log-level debug --dry-run
     :cwd: ../../examples/{section}/{path}
 
 """
+}
 
 TEMPLATE_ENTRY["academic"] = (
     TEMPLATE_ENTRY["realistic"]
@@ -81,24 +82,23 @@ Academic examples
 
 .. toctree::
     :maxdepth: 1
-    
+
 {toc_entries[academic]}
-    
- 
+
+
 Realistic examples
 ------------------
 
 .. toctree::
     :maxdepth: 1
-    
+
 {toc_entries[realistic]}
-    
-    
+
+
 """
 
 
 def genexamples(app):
-
     srcdir = app.env.srcdir
 
     gendir = os.path.join(srcdir, "examples")
@@ -114,7 +114,6 @@ def genexamples(app):
         if not os.path.exists(secdir):
             continue
         for path in os.listdir(secdir):
-
             readme = os.path.join(secdir, path, "README.rst")
             if os.path.exists(readme):
                 entries[path] = os.path.join(gendir, f"{path}.rst")
@@ -132,7 +131,6 @@ def genexamples(app):
 
 
 def setup(app):
-
     app.connect("builder-inited", genexamples)
 
     return {"version": "0.1"}

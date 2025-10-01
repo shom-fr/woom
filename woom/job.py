@@ -457,7 +457,6 @@ class BackgroundJobManager(object):
         return args
 
     def get_submission_command(self, script, opts, depend=None):
-
         # Finalize options
         opts.update(dict(script=script))
         # if depend:

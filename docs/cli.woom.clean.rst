@@ -12,19 +12,18 @@ Remove temporary files.
     :func: get_parser
     :prog: woom
     :path: clean
-    
+
 Examples
 --------
 
 Remove submission directorries::
 
     woom clean
-    
+
 Remove only log files and run directories::
 
     woom clean --without-submission-dirs --with-run-dirs --with-log-files
-    
+
 Remove extra files and directories too::
 
     woom clean out.txt our_dir/
-    

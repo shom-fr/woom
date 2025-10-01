@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-To generate the woom logos
-"""
-import os
+"To generate the woom logos"
 import logging
+import os
 
-import matplotlib
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 
 shomlightblue = (90, 194, 231)

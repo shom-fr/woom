@@ -1,5 +1,5 @@
 .. _inputs_envvars:
-    
+
 Input environment variables
 ===========================
 

@@ -411,7 +411,6 @@ class TestWorkflowStatus:
             patch('builtins.open', mock_open(read_data="0")),
             patch.object(workflow.jobmanager, 'load_job', return_value=mock_job),
         ):
-
             status = workflow.get_task_status("task1")
 
         assert status == wjob.JobStatus.SUCCESS

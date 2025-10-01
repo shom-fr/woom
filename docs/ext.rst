@@ -35,7 +35,7 @@ Configobj specifications
 
 Parameters that are passed to the workflow configuration in the ``[params]`` are  interpreted as strings by default.
 You can change this behavior by changing adding your own specification file,
-and optionally by providing new validator functions that convert text to 
+and optionally by providing new validator functions that convert text to
 the desired type.
 
 .. _ext_configobj_specs:
@@ -45,7 +45,7 @@ Workflow configuration specifications
 
 Just pass the commandline option `--workflow-ini` to give a configuration specification file that
 will be merged with the :ref:`default one <cfgspecs.workflow>`.
-For info about how to write such file, refer to 
+For info about how to write such file, refer to
 `the doc <https://configobj.readthedocs.io/en/latest/configobj.html#configspec>`_.
 An specification option can refer to an existing validator function like ``boolean`` or a new one (see next section).
 

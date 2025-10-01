@@ -59,7 +59,10 @@ scheduler = slurm
 
         manager = whosts.HostManager()
         # Add a test host with pattern
-        manager._config["testcluster"] = {"patterns": ["compute-node*.cluster.fr"], "scheduler": "slurm"}
+        manager._config["testcluster"] = {
+            "patterns": ["compute-node*.cluster.fr"],
+            "scheduler": "slurm",
+        }
 
         host = manager.infer_host()
         assert host.name == "testcluster"

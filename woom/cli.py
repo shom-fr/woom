@@ -30,9 +30,7 @@ def get_parser():
     parser.add_argument("--app-name", help="application name")
     parser.add_argument("--app-conf", help="application configuration")
     parser.add_argument("--app-exp", help="application experiment")
-    parser.add_argument(
-        "--workflow-cfg", default="workflow.cfg", help="workflow configuration file"
-    )
+    parser.add_argument("--workflow-cfg", default="workflow.cfg", help="workflow configuration file")
     parser.add_argument(
         "--workflow-ini",
         default="workflow.ini",
@@ -121,8 +119,7 @@ def get_workflow(workflow_cfg, logger, parser, args):  # , clean):
     workflow_cfgspecs = [wworkflow.CFGSPECS_FILE]
     if os.path.exists(args.workflow_ini):
         logger.info(
-            "Using user specific file for workflow "
-            f"configuration specifications: {args.workflow_ini}"
+            f"Using user specific file for workflow configuration specifications: {args.workflow_ini}"
         )
         workflow_cfgspecs.append(args.workflow_ini)
     logger.debug(f"Load workflow config: {workflow_cfg}")
@@ -235,9 +232,7 @@ def add_parser_show_status(subparsers):
         help="get the status of all jobs",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser_show_status.add_argument(
-        "-r", "--running", help="show only running jobs", action="store_true"
-    )
+    parser_show_status.add_argument("-r", "--running", help="show only running jobs", action="store_true")
     parser_show_status.add_argument(
         "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
     )
