@@ -3,18 +3,17 @@
 """
 Job management utilities
 """
-import os
-import contextlib
-import logging
-import subprocess
-from enum import Enum
 import datetime
 import json
+import logging
+import os
+import subprocess
+from enum import Enum
 
 import psutil
 
-from .__init__ import WoomError
 from . import util as wutil
+from .__init__ import WoomError
 
 # from .env import is_os_cmd_avail
 
@@ -119,9 +118,7 @@ class Job:
         with open(json_file) as jsonf:
             content = json.load(jsonf)
         if manager.__class__.__name__ != content["manager"]:
-            raise WoomJobError(
-                f"Cannot load this job in a {manager.__class__.__name__} manager: {json_file}"
-            )
+            raise WoomJobError(f"Cannot load this job in a {manager.__class__.__name__} manager: {json_file}")
         job = cls(
             manager=manager,
             name=content["name"],
@@ -138,7 +135,7 @@ class Job:
         return job
 
     def to_dict(self):
-        dict_job = dict()
+        dict_job = {}
         for key, value in self.__dict__.items():
             if isinstance(value, str):
                 if value != "":
@@ -271,9 +268,7 @@ class Job:
         queue = self.queue
         realqueue = self.realqueue
         status = self.status.name
-        # session = self.session
         submission_date = self.submission_date
-        token = self.token
         if self.time is not None:
             hours = self.time.seconds // 3600
             minutes = (self.time.seconds - hours * 3600) // 60
@@ -382,39 +377,12 @@ class BackgroundJobManager(object):
                     jobs.append(job)
         elif queue:
             for job in self.jobs:
-                if (name is not None and job.name != name) or (
-                    queue is not None and job.queue != queue
-                ):
+                if (name is not None and job.name != name) or (queue is not None and job.queue != queue):
                     continue
                 jobs.append(job)
         else:
             jobs = self.jobs
         return jobs
-
-    # def get_jobids(self, name=None, queue=None):
-    # """Get job ids
-
-    # Parameters
-    # ----------
-    # name: str, None
-    # Select jobs from name
-    # queue: str, None
-    # Select jobs from queue
-
-    # Return
-    # ------
-    # jobs
-    # List of :class:`Job` objects
-    # jobids
-    # List of job ids
-    # """
-    # if isinstance(name, Job):
-    # assert name in self.jobs
-    # jobs = [name]
-    # else:
-    # jobs = self.get_jobs(name=name, queue=queue)
-    # jobids = [job.jobid for job in jobs if job.jobid is not None]
-    # return jobs, jobids
 
     def get_status(self, jobids=None, name=None, queue=None, fallback=None):
         """Update and return jobs status
@@ -489,12 +457,6 @@ class BackgroundJobManager(object):
         return args
 
     def get_submission_command(self, script, opts, depend=None):
-        # self.session  opts["session"]
-        # script = f"{opts['job']}"
-
-        # opts = self._get_opts_("submit", opts)
-        # if "queue" not in opts.keys():
-        #     opts.update({"queue": None})
 
         # Finalize options
         opts.update(dict(script=script))
@@ -508,9 +470,7 @@ class BackgroundJobManager(object):
         # Format commandline arguments
         return self.get_command_args("submit", **opts)
 
-    def submit(
-        self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None
-    ):
+    def submit(self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None):
         # Wait for dependencies
         if depend:
             status = None
@@ -579,9 +539,7 @@ class BackgroundJobManager(object):
 class ScheduledJob(Job):
     def query_status(self):
         """Query status for a single job"""
-        args = self.manager._extra_status_args_(
-            self.manager.get_command_args("status", jobid=self.jobid)
-        )
+        args = self.manager._extra_status_args_(self.manager.get_command_args("status", jobid=self.jobid))
         logger.debug("Get status: " + " ".join(args))
         res = subprocess.run(args, capture_output=True, check=True)
         logger.debug("Got status")
@@ -610,9 +568,7 @@ class _Scheduler_(BackgroundJobManager):
             opts["depend"] = ":".join([str(job) for job in depend])
         return super().get_submission_command(script, opts, depend=depend)
 
-    def submit(
-        self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None
-    ):
+    def submit(self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None):
         """Submit the script and instantiate a :class:`Job` object"""
 
         # stdout and stderr
@@ -840,11 +796,11 @@ class SlurmJobManager(_Scheduler_):
                 jobid = info[0]
                 queue = info[1]
                 name = info[2]
-                user = info[3]
+                _ = info[3]  # user
                 status = info[4]
                 time = info[5]
-                nodes = info[6]
-                nodelist = " ".join(info[7:])
+                _ = info[6]  # nodes
+                _ = " ".join(info[7:])  # nodelist
 
                 hms = time.split(":")
                 hh = 0

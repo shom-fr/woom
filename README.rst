@@ -2,6 +2,8 @@ Workflow manager for ocean models
 =================================
 
 woom is designed to help you submit workflows for running ocean models.
+Organize and run your tasks with only three configuraitons files.
+
 
 Installation
 ------------
@@ -21,6 +23,11 @@ Sources
 
 Sources are available on the woom gitlab page:
 https://github.com/shom-fr/woom
+
+Contributing
+------------
+
+Please feel free to :ref:`contribute  to the project! <contributing>`.
 
 License
 -------

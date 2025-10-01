@@ -3,60 +3,14 @@
 """
 Misc utilities
 """
-import re
-import os
-import logging
-import json
 import collections
+import json
+import logging
+import os
+import re
 import subprocess
 
 import pandas as pd
-
-from . import WoomError
-
-
-def subst_dict(dict_in, dict_subst=None, maxiter=None):
-    """Perform recursive string substitutions in a dictionary
-
-    .. note:: It does not go into sub-directories
-
-    Parameters
-    ----------
-    dict_in: dict
-    maxiter: None, int
-        Maximum number of iteration to prevent loops.
-        It defaults to ``len(dict_in)*10``
-
-    Return
-    ------
-    dict
-    """
-    if maxiter is None:
-        maxiter = len(dict_in) * 10
-    dict_out = dict_in.copy()
-    if dict_subst is None:
-        dict_subst = {}
-    else:
-        dict_subst = dict_subst.copy()
-    for i in range(maxiter):
-        dict_subst_full = dict_subst.copy()
-        dict_subst_full.update(dict_out)
-        changed = False
-        for key, val in dict_out.items():
-            if isinstance(val, str):
-                try:
-                    val_new = val.format(**dict_subst_full)
-                    if val != val_new:
-                        changed = True
-                        # print((key, val, val_new))
-                    dict_out[key] = dict_subst[key] = val_new
-                except KeyError as err:
-                    raise WoomError("Params substitution error: " + err.args[0])
-        if not changed:
-            break
-    else:
-        raise WoomError("Detected subsitution loop")
-    return dict_out
 
 
 class WoomDate(pd.Timestamp):
@@ -67,12 +21,14 @@ class WoomDate(pd.Timestamp):
 
     def __new__(cls, date, round=None):
         if isinstance(date, str) and date in ["now", "today"]:
-            utc = True
+            date = pd.to_datetime(date, utc=True)
         else:
-            utc = False
-        date = pd.to_datetime(date, utc=utc)
-        if utc:
-            date = date.tz_localize(None)
+            date = pd.to_datetime(date)
+            if date.tzinfo is None:
+                date = date.tz_localize("utc")
+        # date = pd.to_datetime(date, utc=utc)
+        # if utc:
+        #     date = date.tz_localize(None)
         if round:
             date = date.round(round)
         instance = super().__new__(cls, date)
@@ -83,15 +39,21 @@ class WoomDate(pd.Timestamp):
         m = self.re_match_since(spec)
         if m:
             units, origin = m.groups()
-            return "{:g}".format(
-                (self - pd.to_datetime(origin, utc=True)) / pd.to_timedelta(1, units)
-            )
+            origin = pd.to_datetime(origin)
+            if origin.tzinfo is None:
+                origin = origin.tz_localize("utc")
+            return "{:g}".format((self - pd.to_datetime(origin)) / pd.to_timedelta(1, units))
 
         return super().__format__(spec)
 
     def add(self, *args, **kwargs):
         """Add time delta"""
-        return self + pd.to_timedelta(*args, **kwargs)
+        date = self
+        for arg in args:
+            date = date + pd.to_timedelta(arg)
+        for unit, value in kwargs.items():
+            date = date + pd.to_timedelta(value, unit)
+        return date
 
 
 def check_dir(filepath, dry=False, logger=None):
@@ -127,7 +89,7 @@ class WoomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, collections.UserDict):
             return dict(obj)
-        if isinstance(obj, subprocess.Popen):
+        if hasattr(obj, "pid") or isinstance(obj, subprocess.Popen):
             return obj.pid
         try:
             return super().default(obj)
@@ -135,8 +97,8 @@ class WoomJSONEncoder(json.JSONEncoder):
             return str(obj)
 
 
-def params2env_vars(params=None, **extra_params):
-    """Convert a dict of parameters to env vars start whose name starts with 'WOOM\_'"""
+def params2env_vars(params=None, select=None, **extra_params):
+    """Convert a dict of parameters to env vars start whose name starts with 'WOOM_'"""
     if params is None:
         params = extra_params
     else:
@@ -144,6 +106,8 @@ def params2env_vars(params=None, **extra_params):
         params.update(extra_params)
     env_vars = {}
     for key, value in params.items():
+        if select and key not in select:
+            continue
         if isinstance(value, (pd.Timestamp, pd.Timedelta)):
             value = value.isoformat()
         if value is None:

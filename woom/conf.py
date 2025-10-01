@@ -3,21 +3,21 @@
 """
 Configurations related utilities based on the :mod:`configobj` system
 """
-import pathlib
 import logging
+import pathlib
 import pprint
 import re
 
-import pandas as pd
 import configobj
+import pandas as pd
 
 try:
     import configobj.validate as validate
 except ImportError:
     import validate
 
-from .__init__ import WoomError
 from . import util as wutil
+from .__init__ import WoomError
 
 CACHE = {"cfgspecs": {}}
 
@@ -89,7 +89,10 @@ def is_pages(values):
     re_split_t = re.compile(r"\s*\-\s*").split
     for sel in sels:
         if isinstance(sel, str) and "-" in sel:
-            ssel = [(int(s) if i > 0 else int(s)- 1) if s != "" else None for i, s in enumerate(re_split_t(sel))]
+            ssel = [
+                (int(s) if i > 0 else int(s) - 1) if s != "" else None
+                for i, s in enumerate(re_split_t(sel))
+            ]
             out.append(slice(*ssel))
         else:
             out.append(int(sel))

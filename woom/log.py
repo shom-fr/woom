@@ -62,7 +62,7 @@ def setup_logging(console_level=None, to_file=True, no_color=False, show_init_ms
     logging_config = DEFAULT_LOGGING_CONFIG.copy()
     if console_level is not None:
         logging_config["handlers"]["console"]["level"] = console_level.upper()
-    if to_file is False:
+    if to_file is False and "file" in logging_config["loggers"]["woom"]["handlers"]:
         logging_config["loggers"]["woom"]["handlers"].remove("file")
     else:
         fconfig = logging_config["handlers"]["file"]

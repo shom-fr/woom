@@ -4,6 +4,7 @@
 Environment loading utilities
 """
 import os
+
 from . import render as wrender
 
 
@@ -47,10 +48,7 @@ class EnvConfig:
     def has_vars(self):
         """Does this environment manage environment variables?"""
         return bool(
-            self.vars_forward
-            + list(self.vars_set)
-            + list(self.vars_prepend)
-            + list(self.vars_append)
+            self.vars_forward + list(self.vars_set) + list(self.vars_prepend) + list(self.vars_append)
         )
 
     @staticmethod
@@ -83,17 +81,15 @@ class EnvConfig:
     def render(self, params=None):
         """Render the environment with template :file:`env.sh`"""
         if params is None:
-            params = {"os": os, "env": self}
+            params = {}
             nested = False
             # strict = False
         else:
             params = params.copy()
-            params.update({"os": os, "env": self})
             nested = True
             # strict = True
-        return wrender.render(
-            wrender.JINJA_ENV.get_template("env.sh"), params, strict=True, nested=nested
-        )
+        params.update({"os": os, "env": self})
+        return wrender.render(wrender.JINJA_ENV.get_template("env.sh"), params, strict=True, nested=nested)
 
     def __str__(self):
         return self.render()

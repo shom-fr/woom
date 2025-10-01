@@ -14,8 +14,10 @@ module use {{ env.module_use }}
 module load {{ env.module_load }}
 {% endif %}
 {% endif %}
+{% if workflow_dir is defined %}
 {% set venv_activate = os.path.join(workflow_dir, ".venv", "bin", "activate") %}
 {% if env.uv_venv is true or (env.uv_env is none and os.path.exists(venv_activate)) %}
+{% endif %}
 # - uv virtual environment
 source {{ venv_activate }}
 {% endif %}

@@ -23,6 +23,7 @@
    inputs
    cfgspecs
    changes
+   contributing
    Github repository <https://github.com/shom-fr/woom>
 
 Indices and tables

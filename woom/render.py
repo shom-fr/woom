@@ -3,10 +3,10 @@
 """
 Jinja text rendering
 """
-import shlex
 import os
+import shlex
 
-from jinja2 import Environment, StrictUndefined, PackageLoader, Undefined
+from jinja2 import Environment, PackageLoader, StrictUndefined, Undefined
 
 from . import util as wutil
 
