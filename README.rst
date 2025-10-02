@@ -1,6 +1,14 @@
 Workflow manager for ocean models
 =================================
 
+.. image:: https://github.com/shom-fr/woom/actions/workflows/ci.yml/badge.svg
+   :alt: Continuous Integration Tests
+   :target: https://github.com/shom-fr/woom/actions/workflows/ci.yml
+.. image:: https://app.readthedocs.org/projects/woom/badge/?version=latest&style=default
+    :alt: Documentation Status
+    :target: https://woom.readthedocs.io/en/latest/
+
+
 woom is designed to help you submit workflows for running ocean models.
 Organize and run your tasks with only three configuraitons files.
 
