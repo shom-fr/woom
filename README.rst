@@ -10,7 +10,7 @@ Workflow manager for ocean models
 
 
 woom is designed to help you submit workflows for running ocean models.
-Organize and run your tasks with only three configuraitons files.
+Organize and run your tasks with only three configurations files.
 
 
 Installation
