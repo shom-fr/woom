@@ -51,6 +51,15 @@ class Workflow:
         self._dry = False
         self._upate = False
 
+        # Workflow dir
+        self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))
+        os.environ["WOOM_WORKFLOW_DIR"] = self._workflow_dir
+
+        # Setup extensible templates BEFORE any rendering
+        self.user_template_dir = wrender.setup_template_loader(self._workflow_dir)
+        if os.path.exists(self.user_template_dir):
+            self.logger.info(f"User templates directory enabled: {self.user_template_dir}")
+
         # Cycles
         if self.task_tree["cycles"]:
             cycles_conf = self.config["cycles"].dict()
@@ -67,9 +76,7 @@ class Workflow:
         )
         self._nmembers = len(self._members)
 
-        # Paths
-        self._workflow_dir = os.path.abspath(os.path.dirname(self._cfgfile))
-        os.environ["WOOM_WORKFLOW_DIR"] = self._workflow_dir
+        # Other paths
         self._paths = {
             "PATH": os.path.join(self._workflow_dir, "bin"),
             "PYTHONPATH": os.path.join(self._workflow_dir, "lib", "python"),
@@ -88,6 +95,7 @@ class Workflow:
 
     @property
     def config(self):
+        """Workflow :class:`~configobj.ConfigObj` configuration instance"""
         return self._config
 
     def __getitem__(self, key):
@@ -95,15 +103,17 @@ class Workflow:
 
     @property
     def taskmanager(self):
+        """Current :class:`~woom.tasks.TaskManager` instance"""
         return self._tm
 
     @property
     def host(self):
+        """Current :class:`~woom.hosts.Host` instance"""
         return self.taskmanager.host
 
     @functools.cached_property
     def jobmanager(self):
-        """The :mod:`~woom.job` manager instance"""
+        """Current :mod:`~woom.job` manager instance"""
         return self.host.get_jobmanager()  # self.session)
 
     @functools.cached_property
@@ -112,14 +122,17 @@ class Workflow:
 
     @property
     def cycles(self):
+        """List of :class:`~woom.iters.Cycle`"""
         return self._cycles
 
     @property
     def nmembers(self):
+        """Number of ensemble members"""
         return self._nmembers
 
     @property
     def members(self):
+        """List of :class:`~woom.iters.Member`"""
         return self._members
 
     @property
@@ -132,7 +145,7 @@ class Workflow:
         return sep.join(self._app_path)
 
     def get_task_path(self, task_name, cycle=None, member=None, sep=os.path.sep):
-        """Concatenate the :attr:`app_path`, the cycle and the `task_name`"""
+        """Concatenate the :attr:`app_path`, the cycle and, `task_name` and the member label"""
         parts = self._app_path.copy()
         if cycle:
             parts.append(str(cycle))
@@ -142,7 +155,7 @@ class Workflow:
         return sep.join(parts)
 
     def get_submission_dir(self, task_name, cycle=None, member=None, create=True):
-        """Get where batch script is created and submitted"""
+        """Where the batch script is created and submitted"""
         sdir = os.path.join(self.workflow_dir, "jobs", self.get_task_path(task_name, cycle, member))
         if not create:
             return sdir

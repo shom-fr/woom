@@ -1,133 +1,68 @@
 """Generate rst files for examples"""
 
+import logging
 import os
+from pathlib import Path
 
-TEMPLATE_ENTRY = {
-    "realistic": """
-.. _examples.{section}.{path}:
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
-.. include:: ../../examples/{section}/{path}/README.rst
-
-Configuring
--------------
-
-.. literalinclude:: ../../examples/{section}/{path}/workflow.cfg
-    :language: ini
-    :caption: :file:`workflow.cfg`
-
-.. literalinclude:: ../../examples/{section}/{path}/tasks.cfg
-    :language: ini
-    :caption: :file:`tasks.cfg`
-
-.. literalinclude:: ../../examples/{section}/{path}/hosts.cfg
-    :language: ini
-    :caption: :file:`hosts.cfg`
-
-Running
--------
-
-Overview
-~~~~~~~~
-Let's have an overview of stages before running the workflow.
-
-.. command-output:: woom show overview
-    :cwd: ../../examples/{section}/{path}
-
-Dry run
-~~~~~~~
-Now let's run the workflow in test (dry) and debug modes.
-
-.. command-output:: woom run --log-no-color --log-level debug --dry-run
-    :cwd: ../../examples/{section}/{path}
-
-"""
-}
-
-TEMPLATE_ENTRY["academic"] = (
-    TEMPLATE_ENTRY["realistic"]
-    + """
-Normal run
-~~~~~~~~~~
-And finally in run it.
-
-.. command-output:: woom run --log-no-color
-    :cwd: ../../examples/{section}/{path}
-
-Check status
-~~~~~~~~~~~~
-Check what is running or finished.
-
-.. command-output:: woom show status
-    :cwd: ../../examples/{section}/{path}
-
-Show run directories
-~~~~~~~~~~~~~~~~~~~~
-Show where tasks were executed.
-
-.. command-output:: woom show run_dirs
-    :cwd: ../../examples/{section}/{path}
-
-
-"""
-)
-
-TEMPLATE_INDEX = """
-.. _examples:
-
-Examples of configuration
-=========================
-
-Academic examples
------------------
-
-.. toctree::
-    :maxdepth: 1
-
-{toc_entries[academic]}
-
-
-Realistic examples
-------------------
-
-.. toctree::
-    :maxdepth: 1
-
-{toc_entries[realistic]}
-
-
-"""
+logger = logging.getLogger(__name__)
 
 
 def genexamples(app):
-    srcdir = app.env.srcdir
+    # Main directories
+    srcdir = Path(app.env.srcdir)
+    templates_dir = srcdir / '_templates' / 'genexamples'
+    input_dir = srcdir.parent / "examples"
 
-    gendir = os.path.join(srcdir, "examples")
-    if not os.path.exists(gendir):
-        os.makedirs(gendir)
+    # Jinja setup
+    loader = ChoiceLoader(
+        [
+            FileSystemLoader(str(input_dir)),
+            FileSystemLoader(str(templates_dir)),
+        ]
+    )
+    jinja_env = Environment(
+        loader=loader,
+        trim_blocks=True,
+        lstrip_blocks=True,
+        keep_trailing_newline=True,
+        autoescape=True,
+    )
 
-    exdir = os.path.join(srcdir, "..", "examples")
-    entries = {}
-    toc_entries = {}
+    # Loop on examples
+    examples = {}
     for section in "academic", "realistic":
-        secdir = os.path.join(exdir, section)
-        toc_entries[section] = ""
-        if not os.path.exists(secdir):
+        section_dir = input_dir / section
+        examples[section] = []
+        if not section_dir.exists():
             continue
-        for path in os.listdir(secdir):
-            readme = os.path.join(secdir, path, "README.rst")
-            if os.path.exists(readme):
-                entries[path] = os.path.join(gendir, f"{path}.rst")
-                toc_entries[section] += "    " + path + "\n"
+        for name in os.listdir(section_dir):
+            workflow_dir = section_dir / name
+            if (workflow_dir / "README.rst").exists():
+                output_dir = srcdir / "examples" / section
+                output_dir.mkdir(parents=True, exist_ok=True)
+                workflow_dir = input_dir / section / name
+                rel_workflow_dir = os.path.relpath(workflow_dir, output_dir)
 
-                content = TEMPLATE_ENTRY[section].format(**locals())
-                prolog_rst = os.path.join(secdir, path, "prolog.rst")
-                if os.path.exists(prolog_rst):
-                    with open(prolog_rst) as f:
-                        content += "\n" + f.read().format(**locals())
-                with open(entries[path], "w") as fe:
-                    fe.write(content)
-    with open(os.path.join(gendir, "index.rst"), "w") as fi:
-        fi.write(TEMPLATE_INDEX.format(**locals()))
+                if (workflow_dir / "example.rst").exists():
+                    template_file = f"{section}/{name}/example.rst"
+                    print("using", f"{section}/{name}/example.rst")
+                else:
+                    template_file = "example.rst"
+                template = jinja_env.get_template(template_file)
+                text = template.render(abs_workflow_dir=workflow_dir, workflow_dir=rel_workflow_dir, os=os)
+
+                rst_file = output_dir / f"{name}.rst"
+                rst_file.write_text(text)
+                logger.info(f"Generated {rst_file}")
+                examples[section].append(name)
+
+    # Generate index
+    template = jinja_env.get_template("index.rst")
+    text = template.render(examples=examples)
+    rst_file = srcdir / "examples" / "index.rst"
+    rst_file.write_text(text)
 
 
 def setup(app):

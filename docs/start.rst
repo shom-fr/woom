@@ -177,6 +177,10 @@ Jinja rendering
 
 Jinja is a package that allows advanced template rendering.
 See its `website <https://jinja.palletsprojects.com/en/stable/>`_ for detailed explanations.
+It is used to generate the job scripts using template files and parameters.
+
+The default templates are detailed in the :ref:`templates` section.
+The user can extend these templates by providing its own :file:`job.sh` and :file:`env.sh` template files in the :file:`templates/` directory of its workflow directory.
 
 Artifacts
 =========

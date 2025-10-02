@@ -15,14 +15,15 @@ This template is used by :meth:`woom.tasks.Task.render_content` to create the jo
 
 .. literalinclude:: ../woom/templates/job.sh
     :language: jinja
-
+    :caption: Default :file:`job.sh` jinja template
 
 .. _templates.env.sh:
 
 The :file:`env.sh` template
 ---------------------------
 
-This template is used by :meth:`woom.env.EnvConfig.export` to format the environment declaration in :ref:`templates.job.sh`.
+This template is used by :meth:`woom.env.EnvConfig.render` to format the environment declaration in :ref:`templates.job.sh`.
 
 .. literalinclude:: ../woom/templates/env.sh
     :language: jinja
+    :caption: Default :file:`env.sh` jinja template
