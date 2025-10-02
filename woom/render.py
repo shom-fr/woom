@@ -6,7 +6,16 @@ Jinja text rendering
 import os
 import shlex
 
-from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PackageLoader, StrictUndefined, Undefined
+from jinja2 import (
+    BaseLoader,
+    ChoiceLoader,
+    Environment,
+    FileSystemLoader,
+    PackageLoader,
+    StrictUndefined,
+    TemplateNotFound,
+    Undefined,
+)
 
 from . import util as wutil
 
@@ -14,11 +23,14 @@ from . import util as wutil
 JINJA_ENV = Environment(loader=PackageLoader("woom"), undefined=StrictUndefined, trim_blocks=True)
 
 
-def setup_template_loaders(workflow_dir):
-    """Setup Jinja loaders to support user template extensions
+def setup_template_loader(workflow_dir):
+    """Setup Jinja loader to support user template extensions
 
     This allows users to extend base templates using Jinja inheritance.
-    User templates are searched in: workflow_dir/templates/
+    User templates are searched in: :file:`{workflow_dir}/templates/`
+
+    .. warning:: To inherit from the default template,
+        prefix the template name with a "!".
 
     Parameters
     ----------
@@ -27,11 +39,11 @@ def setup_template_loaders(workflow_dir):
 
     Example
     -------
-    User can create workflow_dir/templates/job.sh with:
+    User can create :file:`{workflow_dir}/templates/job.sh` with:
 
     .. code-block:: jinja
 
-        {% extends "job.sh" %}
+        {% extends "!job.sh" %}
         {% block header %}
         {{ super() }}
         # Custom header additions
@@ -40,24 +52,39 @@ def setup_template_loaders(workflow_dir):
 
     """
     user_template_dir = os.path.join(workflow_dir, "templates")
-
-    loaders = []
-
-    # First priority: user templates directory
-    if os.path.exists(user_template_dir):
-        loaders.append(FileSystemLoader(user_template_dir))
-
-    # Second priority: woom package templates (fallback)
-    loaders.append(PackageLoader("woom"))
-
-    # Update the global environment
-    JINJA_ENV.loader = ChoiceLoader(loaders)
-
+    JINJA_ENV.loader = WoomLoader(workflow_dir)
     return user_template_dir
 
 
+class WoomLoader(BaseLoader):
+    """Jinja loader that searches for use templates
+
+    Base template is laodable with a "!" prefix.
+    """
+
+    def __init__(self, workflow_dir):
+        user_template_dir = os.path.join(workflow_dir, "templates")
+        if os.path.exists(user_template_dir):
+            self._woom_user_loader = FileSystemLoader(user_template_dir)
+        else:
+            self._woom_user_loader = None
+        self._woom_package_loader = PackageLoader("woom")
+
+    def get_source(self, environment, template):
+        loaders = [self._woom_package_loader]
+        if not template.startswith('!') and self._woom_user_loader:
+            loaders.insert(0, self._woom_user_loader)
+        template = template.lstrip("!")
+        for loader in loaders:
+            try:
+                return loader.get_source(environment, template)
+            except TemplateNotFound:
+                pass
+        raise TemplateNotFound(f"Templates {template} not found")
+
+
 def render(template, params, strict=True, nested=True):
-    """Render this text with ninja
+    """Render this text with Jinja
 
     Note
     ----

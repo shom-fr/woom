@@ -1,4 +1,4 @@
-{% extends "base_env.sh" %}
+{% extends "!env.sh" %}
 
 {% block env_vars -%}
 {{ super() }}
