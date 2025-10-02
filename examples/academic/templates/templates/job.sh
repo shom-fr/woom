@@ -1,4 +1,4 @@
-{% extends "base_job.sh" %}
+{% extends "!job.sh" %}
 
 {% block header %}
 {{ super() }}

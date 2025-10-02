@@ -17,12 +17,6 @@ This template is used by :meth:`woom.tasks.Task.render_content` to create the jo
     :language: jinja
     :caption: Default :file:`job.sh` jinja template
 
-It inherits from :file:`base_job.sh`
-
-.. literalinclude:: ../woom/templates/base_job.sh
-    :language: jinja
-    :caption: The :file:`base_job.sh` jinja template
-
 .. _templates.env.sh:
 
 The :file:`env.sh` template
@@ -33,9 +27,3 @@ This template is used by :meth:`woom.env.EnvConfig.render` to format the environ
 .. literalinclude:: ../woom/templates/env.sh
     :language: jinja
     :caption: Default :file:`env.sh` jinja template
-
-It inherits from :file:`base_env.sh`
-
-.. literalinclude:: ../woom/templates/env.sh
-    :language: jinja
-    :caption: The :file:`base_env.sh` jinja template
