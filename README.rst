@@ -27,7 +27,8 @@ https://github.com/shom-fr/woom
 Contributing
 ------------
 
-Please feel free to :ref:`contribute  to the project! <contributing>`
+Please feel free to contribute to the project!
+Start by taking a look at the project's ‘contribute’ page.
 
 License
 -------

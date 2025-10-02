@@ -27,6 +27,7 @@ def genexamples(app):
         trim_blocks=True,
         lstrip_blocks=True,
         keep_trailing_newline=True,
+        autoescape=True,
     )
 
     # Loop on examples
