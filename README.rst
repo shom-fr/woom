@@ -18,7 +18,7 @@ Documentation
 -------------
 
 The woom documentation:
-https://woom.readthedocs.io/en/latest/
+https://woom.readthedocs.io/
 
 Sources
 -------
@@ -30,7 +30,7 @@ Contributing
 ------------
 
 Please feel free to contribute to the project!
-Start by taking a look at the project's ‘contribute’ page.
+Start by taking a look at the project's contributing guide.
 
 License
 -------
