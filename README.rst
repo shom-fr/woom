@@ -10,9 +10,13 @@ Organize and run your tasks with only three configurations files.
 Installation
 ------------
 
+From PyPI::
+
+   $ pip install woom
+
 From sources::
 
-   pip install .
+   $ pip install .
 
 Documentation
 -------------

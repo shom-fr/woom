@@ -27,6 +27,13 @@ woom requires Python 3 or higher and depends on the following packages:
      - Pretty-print tabular data in Python, a library and a command-line utility. Repository migrated from bitbucket.org/astanin/python-tabulate.
 
 
+From pypi
+---------
+
+With pip::
+
+   $ pip install woomF
+
 From sources
 ------------
 
