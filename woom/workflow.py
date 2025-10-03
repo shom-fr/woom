@@ -26,6 +26,13 @@ CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "workflow.ini")
 
 RE_SPLIT_COMMAS = re.compile(r"\s*,\s*").split
 
+STATUS2COLOR = {
+    "(FAILED|ERROR|KILLED)": "bold_red",
+    "(EXITING|COMPLETING|UNKNOWN)": "bold_yellow",
+    "SUCCESS": "bold_green",
+    "(PENDING|INQUEUE)": "bold",
+}
+
 
 class WorkFlowError(WoomError):
     pass
@@ -696,13 +703,15 @@ class Workflow:
         for task_name, cycle, member in self:
             yield self.get_submission_dir(task_name, cycle, member, create=False)
 
-    def get_status(self, running=False):
+    def get_status(self, running=False, colorize=True):
         """Get the workflow task status as a :class:`pandas.DataFrame`
 
         Parameters
         ----------
         running: bool
             Select only running jobs
+        colorize: bool
+            Colorize the status
 
         Return
         ------
@@ -715,7 +724,8 @@ class Workflow:
             if running and not status.is_running():
                 continue
             submdir = self.get_submission_dir(task_name, cycle, member)[len(self._workflow_dir) + 1 :]
-            row = [status.name, status.jobid, task_name, cycle, submdir]
+            colored_status = wutil.colorize(status.name, STATUS2COLOR, colorize=colorize)
+            row = [colored_status, status.jobid, task_name, cycle, submdir]
             if self.nmembers:
                 if member is None:
                     row.insert(-1, "")
@@ -727,17 +737,22 @@ class Workflow:
             columns.insert(-1, "MEMBER")
         return pd.DataFrame(data, columns=columns)
 
-    def show_status(self, running=False, tablefmt="rounded_outline"):
+    def show_status(self, running=False, tablefmt="rounded_outline", colorize=True):
         """Show the status of all the tasks of the wokflow
 
         Parameters
         ----------
         running: bool
             Show only running jobs
+        tablefmt: str
+            Table format (see tabulate package)
+        colorize: bool
+            Colorize the status
         """
         print(
             self.get_status(
                 running=running,
+                colorize=colorize,
             ).to_markdown(index=False, tablefmt=tablefmt)
         )
 
