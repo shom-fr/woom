@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 
 import pandas as pd
 
@@ -126,3 +127,41 @@ def pages2ints(pages, n):
         else:
             out.extend(indices[page])
     return out
+
+
+#: Available colors
+COLORS = {
+    "bold": "\033[1m",
+    "green": "\033[32m",
+    "yellow": "\033[33m",
+    "red": "\033[31m",
+    "reset": "\033[0m",
+}
+
+
+def colorize(text, mapping, colorize=True):
+    """Colorize text depending on mapping.
+
+    Parameters
+    ----------
+    text: str
+        Test to colorize
+    mapping: dict
+        Keys are regular expressions and values are valid :data:`COLORS`.
+    colorize: bool
+        Whether to colorize or not.
+
+    Return
+    ------
+    str
+    """
+    if not colorize or not sys.stdout.isatty():
+        return text
+    for pattern, color in mapping.items():
+        m = re.match(pattern, text)
+        if m:
+            cc = ""
+            for c in color.split("_"):
+                cc += COLORS[c]
+            return cc + text + COLORS["reset"]
+    return text
