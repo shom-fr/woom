@@ -128,9 +128,9 @@ Job script generation
 =====================
 
 The path to the job script is :file:`{{submission_dir}}/job.sh`.
-The script is first exported as a string by :meth:`~woom.task.Task.export_content`, which contains Jinja patterns. See :ref:`start_jinja`.
-These patterns are then rendered by :func:`~woom.render.render` using a dictionary created by the :meth:`~woom.workflow.Workflow.get_task_inputs` workflow method.
-See ":ref:`inputs_dict`" to see its default contents.
+The script is first exported and rendered with Jinja as a string by the :meth:`woom.tasks.Task.render_content` method, which contains Jinja patterns. See :ref:`start_jinja`.
+The rendering is performed by :func:`woom.render.render` using a dictionary created by the :meth:`woom.workflow.Workflow.get_task_inputs` method.
+See ":ref:`inputs_dict`" to see its default content.
 This dictionary is specific to a given task, at a given cycle, and for a given ensemble member.
 
 Trapped exit signals
