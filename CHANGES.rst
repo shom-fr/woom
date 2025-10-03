@@ -1,6 +1,12 @@
 What's new
 ##########
 
+2025.10.1
+=========
+
+Initial version.
+
+
 Develop
 =======
 
