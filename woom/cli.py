@@ -236,6 +236,7 @@ def add_parser_show_status(subparsers):
     parser_show_status.add_argument(
         "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
     )
+    parser_show_status.add_argument("--no-color", help="don't colorize the status", action="store_true")
     wlog.add_logging_parser_arguments(parser_show_status, default_level="warning")
     parser_show_status.set_defaults(func=main_show_status)
 
@@ -250,7 +251,7 @@ def main_show_status(parser, args):
 
     # Show the status
     try:
-        workflow.show_status(tablefmt=args.tablefmt, running=args.running)
+        workflow.show_status(tablefmt=args.tablefmt, running=args.running, colorize=not args.no_color)
     except Exception:
         logger.exception("Failed querying the status")
 
