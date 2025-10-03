@@ -213,8 +213,8 @@ class Task:
         if not self.artifacts:
             return ""
         checks = ""
-        for path in self.artifacts.values():
-            checks += f'test -f "{path}" || exit 1\n'
+        for name, path in self.artifacts.items():
+            checks += 'test -f "' + path + '" || { echo artifact ' + name + '="' + path + '"; exit 1; }\n'
         return checks
 
     def render_artifacts(self, params):

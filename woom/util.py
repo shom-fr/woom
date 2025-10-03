@@ -97,7 +97,7 @@ class WoomJSONEncoder(json.JSONEncoder):
 
 
 def params2env_vars(params=None, select=None, **extra_params):
-    """Convert a dict of parameters to env vars start whose name starts with 'WOOM_'"""
+    """Convert a dict of parameters to env vars start whose name starts with ``'WOOM_'``"""
     if params is None:
         params = extra_params
     else:

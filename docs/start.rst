@@ -190,7 +190,17 @@ They have two usages:
 * The job must fail if an artifact is not present at the end of the task job.
 * One task can access the artifacts of any other task given the task name, the artifact name and the context (cycle, member).
 
-Artifacts are declared in the :file:`tasks.cfg` in the ``[[artifacts]]`` section of given task, with the short name as keys and the relative or absolute path as value.
+Artifacts are declared in the :file:`tasks.cfg` in the ``[[artifacts]]`` section of given task, with the short name as keys and the relative or absolute path as value, as in this example:
+
+.. code-block:: ini
+
+    [doanload_clim]
+
+        [[content]
+        ...
+
+        [[artifacts]]
+        myartifact={{ run_dir }}/clim.c
 
 .. warning:: All artifacts must ultimately be able to be converted to an absolute path. So you must either declare an artifact with an absolute path, prepend it with a directory mapping like ``{{ run_dir }}`` or provide a relative path and fill the ``run_dir`` option of a task.
 
