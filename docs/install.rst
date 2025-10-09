@@ -32,7 +32,7 @@ From pypi
 
 With pip::
 
-   $ pip install woomF
+   $ pip install woom
 
 From sources
 ------------
