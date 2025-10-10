@@ -27,7 +27,7 @@ https://woom.readthedocs.io/
 Sources
 -------
 
-Sources are available on the woom gitlab page:
+Sources are available on the woom github page:
 https://github.com/shom-fr/woom
 
 Contributing
