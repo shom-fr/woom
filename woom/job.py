@@ -7,13 +7,14 @@ import datetime
 import json
 import logging
 import os
+import shlex
 import subprocess
 from enum import Enum
 
 import psutil
 
 from . import util as wutil
-from .__init__ import WoomError
+from .__init__ import WoomError, woom_warn
 
 # from .env import is_os_cmd_avail
 
@@ -452,7 +453,7 @@ class BackgroundJobManager(object):
                             for val in ovalue:
                                 args.append(fmt.format(val))
                         else:
-                            fmt = fmt.format(ovalue).split()
+                            fmt = shlex.split(fmt.format(ovalue))
                             args += fmt
         return args
 
@@ -463,7 +464,9 @@ class BackgroundJobManager(object):
         #     if isinstance(depend, str):
         #         depend = [depend]
         #     opts["depend"] = ":".join(depend)
+
         if "extra " in opts:
+            woom_warn("The 'extra' submission option is deprecated", "deprecation")
             opts.update(opts.pop("extra"))
 
         # Format commandline arguments
@@ -629,8 +632,12 @@ class PbsproJobManager(_Scheduler_):
                 "script": "{}",
                 "name": "-N {}",
                 "queue": "-V -q {}",
-                "time": "-l walltime={}",
+                "nnodes": "-l select={}",
+                "ncpus": "-l ncpus={}",
+                "ngpus": "-l ngpus={}",
                 "memory": "-l mem={}",
+                "pmem": "-l pmem={}",
+                "time": "-l walltime={}",
                 "log_out": "-o {}",
                 "log_err": "-e {}",
                 "depend": ("-W depend=afterok:{}"),
@@ -738,7 +745,9 @@ class SlurmJobManager(_Scheduler_):
                 "queue": "-p {}",
                 "nnodes": "-N {}",
                 "ncpus": "-c {}",
+                "ngpus": "--gpus={}",
                 "mem": "--mem={}",
+                "pmem": "--mem-per-cpu={0} --mem-per-gpu={0}",
                 "time": "--time={}",
                 "depend": "--dependency=afterok:{}",
                 "log_out": "-o {}",
