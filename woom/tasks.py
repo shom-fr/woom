@@ -262,13 +262,16 @@ class Task:
         """
         if not self.host["scheduler"]:
             return {}
-        opts = {
-            "memory": self.config["submit"]["memory"],
-            "time": self.config["submit"]["time"],
-            "mail": self.config["submit"]["mail"],
-            # "log_out": self.config["submit"]["log_out"],
-            "extra": self.config["submit"]["extra"].dict(),
-        }
+        opts = wconf.strip_out_sections(self.config["submit"]).dict()
+        # {
+        #     "memory": self.config["submit"]["memory"],
+        #     "time": self.config["submit"]["time"],
+        #     "mail": self.config["submit"]["mail"],
+        #     "ncpus": self.config["submit"]["ncpus"],
+        #     "nnodes": self.config["submit"]["nnodes"],
+        #     # "log_out": self.config["submit"]["log_out"],
+        #     "extra": self.config["submit"]["extra"].dict(),
+        # }
         if self.config["submit"]["queue"]:
             opts["queue"] = self.host["queues"][self.config["submit"]["queue"]]
         return opts
