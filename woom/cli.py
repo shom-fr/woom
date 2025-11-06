@@ -128,6 +128,9 @@ def get_workflow(workflow_cfg, logger, parser, args):  # , clean):
 
     # App
     wconf.merge_args_with_config(workflow_config, args, ["name", "conf", "exp"], prefix="app_")
+    if workflow_config["app"]["name"] is None:
+        workflow_config["app"]["name"] = os.path.basename(workflow_dir)
+        logger.debug("Inferred app name from workflow dir: " + workflow_config["app"]["name"])
     app_name = workflow_config["app"]["name"]
     app_conf = workflow_config["app"]["conf"]
     app_exp = workflow_config["app"]["exp"]
@@ -137,7 +140,6 @@ def get_workflow(workflow_cfg, logger, parser, args):  # , clean):
         logger.info(f"App conf: {app_conf}")
     if app_exp:
         logger.info(f"App exp: {app_exp}")
-    # app = dict(app_name=app_name, app_conf=app_conf, app_exp=app_exp)
 
     # Cycles
     wconf.merge_args_with_config(

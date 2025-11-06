@@ -90,9 +90,11 @@ class Workflow:
             "LIBRARY_PATH": os.path.join(self._workflow_dir, "lib"),
             "INCLUDE_PATH": os.path.join(self._workflow_dir, "include"),
         }
-        self._app_path = []
 
         # Check app
+        if self._config["app"] is None:
+            self._config["app"] = os.path.basename(self._workflow_dir)
+        self._app_path = []
         for key in "name", "conf", "exp":
             if self._config["app"][key]:
                 self._app_path.append(self._config["app"][key])
@@ -450,6 +452,7 @@ class Workflow:
                 return status
 
         # Walltime exceeded
+        # FIXME: to be integrated in job
         out_file = os.path.join(submission_dir, "job.out")
         if os.path.exists(out_file):
             with open(out_file) as f:
