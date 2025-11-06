@@ -6,6 +6,7 @@ Develop
 
 New features
 ------------
+- Add colors to ``woom show status``.
 
 Breaking changes
 ----------------
