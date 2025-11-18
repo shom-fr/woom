@@ -6,6 +6,8 @@ Extending woom
 One can extend the capabilities of woom by supplying specific files.
 
 
+.. _ext_jinja_filters:
+
 Jinja filters
 =============
 
@@ -27,6 +29,8 @@ Example:
     :start-at: import
 
 If present, this file is loaded at workflow setup by the :func:`woom.ext.load_jinja_filters` function.
+
+.. _ext_jinja_templates:
 
 Jinja templates
 ===============
@@ -91,3 +95,51 @@ Example:
     :start-at: import
 
 If present, this file is loaded at workflow setup by the :func:`woom.ext.load_validator_functions` function.
+
+
+.. _ext_artifacts_generators:
+
+Artifact paths generators
+=========================
+
+You can provide function names instead of paths in your task artifacts section to dynamically generate a list of paths in a given context.
+
+Such a function must accept and use all objects of the current context, so its signature should typically end with a ``**kwargs``.
+
+1. Create a python file named :file:`artifacts_generators.py` located in the :file:`ext/` folder of your workflow directory.
+2. Declare in this file all the jinja functions you want to generate paths.
+3. Declare a dictionary named :attr:`ARTIFACTS_GENERATORS` to register your functions.
+4. Declare your function use in the :file`tasks.cfg` file.
+
+In the following example, the function takes the ``cycle`` argument as input to generate daily files for the associated month:
+
+.. code-block:: python
+    :caption: :file:`ext/artifacts_generators.py`
+
+    import pandas as pd
+
+    def gen_daily_files(**kwargs):
+        date = kwargs["cycle"].date # provided by the context
+        path_format = kwargs["path_format"] # provided by the tasks.cfg file
+        day0 = date.to_period("M").to_timestamp()
+        day1 = day0 + pd.offsets.MonthBegin()
+        days = pd.date_range(day0, day1, inclusive="left")
+        paths = []
+        for day in days:
+            paths.append(path_format.format(day))
+        return paths
+
+    ARTIFACTS_GENERATORS = {"gen_daily_files": gen_daily_files}
+
+We declare the function use in the :file:`tasks.cfg` file and specify the ``path_format`` argument:
+
+.. code-block:: ini
+    :caption: :file:`tasks.cfg`
+
+    [run_croco]
+    ...
+        [[artifacts]]
+            [[[outputs]]]
+            paths=gen_daily_files
+                [[[[[kwargs]]]]]
+                path_format={run_dir}/croco.{day:%Y-%m-%d}.nc

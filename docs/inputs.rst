@@ -5,5 +5,5 @@ Input mappings
 
 .. toctree::
 
-    inputs_dict
+    inputs_context
     inputs_envvars

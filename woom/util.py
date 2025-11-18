@@ -165,3 +165,47 @@ def colorize(text, mapping, colorize=True):
                 cc += COLORS[c]
             return cc + text + COLORS["reset"]
     return text
+
+
+def flatten(content):
+    """Convert an object like a dict to a flat list
+
+    Parameters
+    ----------
+    content: dict, list, any
+
+    Return
+    ------
+    list
+
+    """
+    out = []
+    if isinstance(content, dict):
+        for value in content.values():
+            out.extend(flatten(value))
+    elif isinstance(content, list):
+        for value in content:
+            out.extend(flatten(value))
+    else:
+        out.append(content)
+    return out
+
+
+def set_deep_item(dd, value, *keys):
+    """Set a deep item in dict
+
+    Parameters
+    ----------
+    dd: dict
+        The dict to modify
+    value:
+        The value to set
+    keys: tuple
+        The keys. A key is ignored if set to None.
+    """
+    keys = [k for k in keys if k is not None]
+    for i, key in enumerate(keys):
+        if i == len(keys) - 1:
+            dd[key] = value
+        else:
+            dd = dd.setdefault(key, {})

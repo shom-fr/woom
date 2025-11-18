@@ -128,9 +128,9 @@ def get_workflow(workflow_cfg, logger, parser, args):  # , clean):
 
     # App
     wconf.merge_args_with_config(workflow_config, args, ["name", "conf", "exp"], prefix="app_")
-    if workflow_config["app"]["name"] is None:
-        workflow_config["app"]["name"] = os.path.basename(workflow_dir)
-        logger.debug("Inferred app name from workflow dir: " + workflow_config["app"]["name"])
+    # if workflow_config["app"]["name"] is None:
+    #     workflow_config["app"]["name"] = os.path.basename(workflow_dir)
+    #     logger.debug("Inferred app name from workflow dir: " + workflow_config["app"]["name"])
     app_name = workflow_config["app"]["name"]
     app_conf = workflow_config["app"]["conf"]
     app_exp = workflow_config["app"]["exp"]
@@ -225,6 +225,8 @@ def main_show_overview(parser, args):
         workflow.show_overview()
     except Exception:
         logger.exception("Failed to display the overview")
+        return 1
+    return 0
 
 
 def add_parser_show_status(subparsers):
@@ -249,13 +251,15 @@ def main_show_status(parser, args):
     # Setup the workflow
     workflow, logger = setup_workflow(parser, args)
     if not workflow:
-        return
+        return 0
 
     # Show the status
     try:
         workflow.show_status(tablefmt=args.tablefmt, running=args.running, colorize=not args.no_color)
     except Exception:
         logger.exception("Failed querying the status")
+        return 1
+    return 0
 
 
 def add_parser_show_run_dirs(subparsers):
@@ -278,13 +282,15 @@ def main_show_run_dirs(parser, args):
     # Setup the workflow
     workflow, logger = setup_workflow(parser, args)
     if not workflow:
-        return
+        return 0
 
     # Show
     try:
         workflow.show_run_dirs(tablefmt=args.tablefmt)
     except Exception:
         logger.exception("Failed showing the run directories")
+        return 1
+    return 1
 
 
 def add_parser_show_artifacts(subparsers):
@@ -307,13 +313,15 @@ def main_show_artifacts(parser, args):
     # Setup the workflow
     workflow, logger = setup_workflow(parser, args)
     if not workflow:
-        return
+        return 0
 
     # Show
     try:
         workflow.show_artifacts(tablefmt=args.tablefmt)
     except Exception:
         logger.exception("Failed showing the run directories")
+        return 1
+    return 0
 
 
 # %% Run
@@ -347,7 +355,7 @@ def main_run(parser, args):
     # Setup the workflow
     workflow, logger = setup_workflow(parser, args)
     if not workflow:
-        return
+        return 0
 
     # Run the workflow
     logger.debug("Run the workflow")
@@ -355,8 +363,10 @@ def main_run(parser, args):
         workflow.run(dry=args.dry_run, update=args.update)
     except Exception as e:
         logger.exception(f"Workflow failed: {e.args[0]}")
+        return 1
     else:
         logger.info("Successfully ran the workflow!")
+    return 0
 
 
 # %% Kill
@@ -387,13 +397,15 @@ def main_kill(parser, args):
     # Setup the workflow
     workflow, logger = setup_workflow(parser, args)
     if not workflow:
-        return
+        return 0
 
     # Kill
     try:
         workflow.kill(jobid=args.jobid, task_name=args.task, cycle=args.cycle)
     except Exception:
         logger.exception("Failed to kill jobs")
+        return 1
+    return 0
 
 
 # %% Clean
@@ -431,7 +443,7 @@ def main_clean(parser, args):
     # Setup the workflow
     workflow, logger = setup_workflow(parser, args)
     if not workflow:
-        return
+        return 0
 
     # Kill running jobs
     if not args.dry_run:
@@ -439,6 +451,7 @@ def main_clean(parser, args):
             workflow.kill()
         except Exception:
             logger.exception("Failed to kill all jobs")
+            return 1
 
     # Show the status
     try:
@@ -451,3 +464,5 @@ def main_clean(parser, args):
         )
     except Exception:
         logger.exception("Failed to clean workflow")
+        return 1
+    return 0

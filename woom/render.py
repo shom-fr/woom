@@ -83,7 +83,7 @@ class WoomLoader(BaseLoader):
         raise TemplateNotFound(f"Templates {template} not found")
 
 
-def render(template, params, strict=True, nested=True):
+def render(template, context, strict=True, nested=True):
     """Render this text with Jinja
 
     Note
@@ -95,7 +95,7 @@ def render(template, params, strict=True, nested=True):
     ----------
     text: str, jinja2.Template
         Input template
-    params: dict
+    context: dict
         Objects used for filling
 
     Return
@@ -110,7 +110,7 @@ def render(template, params, strict=True, nested=True):
             tpl = JINJA_ENV.from_string(prev)
         else:
             tpl = prev
-        curr = tpl.render(params)
+        curr = tpl.render(context)
         if nested and (not isinstance(prev, str) or curr != prev):
             prev = curr
         else:
@@ -199,6 +199,11 @@ def filter_as_env_str(value):
     if isinstance(value, (list, tuple, set)):
         return os.pathsep.join([str(v) for v in value])
     return str(value)
+
+
+def get_jinja_filter(name):
+    """Simply return a filter function using its name"""
+    return JINJA_ENV.filters[name]
 
 
 #: Default woom jinja filters

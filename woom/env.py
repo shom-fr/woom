@@ -5,8 +5,6 @@ Environment loading utilities
 """
 import os
 
-from . import render as wrender
-
 
 class EnvConfig:
     def __init__(
@@ -77,22 +75,6 @@ class EnvConfig:
         """Set paths in env variables"""
         for varname, path in paths.items():
             self._update_path_("set", varname, path)
-
-    def render(self, params=None):
-        """Render the environment with template :file:`env.sh`"""
-        if params is None:
-            params = {}
-            nested = False
-            # strict = False
-        else:
-            params = params.copy()
-            nested = True
-            # strict = True
-        params.update({"os": os, "env": self})
-        return wrender.render(wrender.JINJA_ENV.get_template("env.sh"), params, strict=True, nested=nested)
-
-    def __str__(self):
-        return self.render()
 
     def copy(self):
         return EnvConfig(

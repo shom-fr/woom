@@ -1,9 +1,10 @@
-.. _inputs_dict:
+.. _inputs_context:
 
-Input dictionary
-================
+Input context
+=============
 
-This dictionary is used to fill the :ref:`templates` in order the finally generate the submitted job script.
+The input :class:`~woom.context.Context` is a dictionary
+used to fill the :ref:`templates` to generate the submitted job script.
 
 For instance, the following line, declared for instance in the :file:`tasks.cfg` file
 
@@ -43,6 +44,10 @@ The minimal content of this dictionary is the following, in alphabetical order:
      - :class:`str` or `None`
      - Merged version.
      - ``"CROCO/MANGA/RUN2025"``
+   * - ``context``
+     - :class:`~woom.context.Context`
+     - Itself
+     -
    * - ``cycle``
      - :class:`~woom.iters.Cycle` or `None`
      - Current cycle
@@ -63,6 +68,22 @@ The minimal content of this dictionary is the following, in alphabetical order:
      - :class:`str` or `None`
      - Rounding precision
      - ``"D"``
+   * - ``env``
+     - :class:`~woom.env.EnvConfig`
+     - Task environment if task is not `None`
+     -
+   * - ``env_vars``
+     - :class:`dict`
+     - User and generated declared environment variables
+     -
+   * - ``host``
+     - :class:`~woom.hosts.Host`
+     - Host instance
+     -
+   * - ``hostmanager``
+     - :class:`~woom.hosts.HostManager`
+     - Host manager instance
+     -
    * - ``logger``
      - :class:`logging.Logger`
      - The worflow logger
@@ -75,23 +96,61 @@ The minimal content of this dictionary is the following, in alphabetical order:
      - :class:`int`
      - Ensemble size
      - ``5``
+   * - ``submission_dir``
+     - :class:`str`
+     - Job submission dir [#task]_
+     - `"/home/username/woom/myworkflow"``
+   * - ``run_dir``
+     - :class:`str`
+     - Job run dir [#task]_
+     - `"/scrtach/username/woom/myapp/prolog/mytask"``
+   * - ``paths``
+     - :class:`dict`
+     - Local workflow paths (bin, lib, lib/python...)
+     -
    * - ``scratch_dir``
      - :class:`str`
      - Path to the scratch dir
      - ``"/scratch/username/woom"``
    * - ``task``
-     - :class:`~woom.tasks.Task`
+     - :class:`~woom.tasks.Task` or `None`
+     - Task instance
+     -
+   * - ``task_name``
+     - :class:`str` or `None`
      - Task instance
      - ``"run_ibc"``
    * - ``task_path``
      - :class:`str`
-     - `{app_path}/{cycle.token}/{task_name}/{member.label}`
+     - `{app_path}/{cycle.token}/{task_name}/{member.label}` [#task]_
      - ``"CROCO/MANGA/EXP/2020-01-01T12:00:00/run_ibc"``
-   * - ``work_dir``
-     - :class:`str`
-     - Path to the work dir
-     - ``"/work/username/woom"``
+   * - ``task_tree``
+     - :class:`~woom.tasks.TastTree`
+     - Task tree instance [#task]_
+     - ``"run_ibc"``
+   * - ``taskmanager``
+     - :class:`~woom.tasks.TaskManager`
+     - Task manager instance
+     -
+   * - ``os``
+     - :mod:`os`
+     - os module
+     -
+   * - ``params``
+     - :class:`dict`
+     - User and generated parameters
+     -
    * - ``workflow``
      - :class:`~woom.workflow.Workflow`
      - Workflow instance
      -
+   * - ``workflow_dir``
+     - :class:`str`
+     - Workflow dir
+     - `"/home/username/woom/myworkflow"``
+   * - ``<name>_dir``
+     - :class:`str`
+     - Directories declared in the host configuration
+     -
+
+.. [#task] Available only if ``task`` is not None
