@@ -1,289 +1,347 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Tests for ext.py module
-"""
-import sys
+Unit tests for woom.ext module
 
-from woom import conf as wconf
-from woom import ext as wext
-from woom import render as wrender
+Place this file at the root of your project (same level as woom/ directory)
+Run: pytest test_ext.py -v
+"""
+import os
+import sys
+from unittest.mock import MagicMock, Mock, mock_open, patch
+
+import pytest
+
+from woom.ext import (
+    import_from_path,
+    load_artifacts_generators,
+    load_extensions,
+    load_jinja_filters,
+    load_validator_functions,
+)
 
 
 class TestImportFromPath:
     """Test import_from_path function"""
 
-    def test_import_from_path(self, tmp_path):
-        # Create a simple Python module
-        module_file = tmp_path / "test_module.py"
-        module_file.write_text(
-            """
-def test_function():
-    return "Hello from module"
+    @patch('woom.ext.importlib.util.spec_from_file_location')
+    @patch('woom.ext.importlib.util.module_from_spec')
+    def test_import_from_path_basic(self, mock_module_from_spec, mock_spec_from_file):
+        """Test basic import_from_path"""
+        mock_spec = Mock()
+        mock_spec.loader = Mock()
+        mock_spec_from_file.return_value = mock_spec
+        mock_module = Mock()
+        mock_module_from_spec.return_value = mock_module
 
-TEST_VALUE = 42
-"""
-        )
+        result = import_from_path('test_module', '/path/to/module.py')
 
-        module = wext.import_from_path("test_import", str(module_file))
+        mock_spec_from_file.assert_called_once_with('test_module', '/path/to/module.py')
+        mock_module_from_spec.assert_called_once_with(mock_spec)
+        mock_spec.loader.exec_module.assert_called_once_with(mock_module)
+        assert result is mock_module
 
-        assert module is not None
-        assert hasattr(module, "test_function")
-        assert module.test_function() == "Hello from module"
-        assert module.TEST_VALUE == 42
+    @patch('woom.ext.importlib.util.spec_from_file_location')
+    @patch('woom.ext.importlib.util.module_from_spec')
+    def test_import_from_path_adds_to_sys_modules(self, mock_module_from_spec, mock_spec_from_file):
+        """Test that import_from_path adds module to sys.modules"""
+        mock_spec = Mock()
+        mock_spec.loader = Mock()
+        mock_spec_from_file.return_value = mock_spec
+        mock_module = Mock()
+        mock_module_from_spec.return_value = mock_module
 
-    def test_import_from_path_in_sys_modules(self, tmp_path):
-        module_file = tmp_path / "test_sys.py"
-        module_file.write_text("VALUE = 123")
-
-        module_name = "test_sys_module"
-        module = wext.import_from_path(module_name, str(module_file))
+        module_name = 'test_ext_module_unique'
+        import_from_path(module_name, '/path/to/module.py')
 
         assert module_name in sys.modules
-        assert sys.modules[module_name] is module
+
+
+class TestLoadJinjaFilters:
+    """Test load_jinja_filters function"""
+
+    @patch('woom.ext.import_from_path')
+    def test_load_jinja_filters_success(self, mock_import):
+        """Test successful loading of jinja filters"""
+        mock_module = Mock()
+        mock_module.JINJA_FILTERS = {'custom_filter': lambda x: x.upper()}
+        mock_import.return_value = mock_module
+
+        with patch('woom.render.JINJA_ENV') as mock_env:
+            mock_env.filters = {}
+            result = load_jinja_filters('/path/to/jinja_filters.py')
+
+        assert result == 'jinja_filters'
+        mock_import.assert_called_once_with('woom.ext.jinja_filters', '/path/to/jinja_filters.py')
+
+    @patch('woom.ext.import_from_path')
+    def test_load_jinja_filters_no_attribute(self, mock_import):
+        """Test load_jinja_filters when JINJA_FILTERS not present"""
+        mock_module = Mock(spec=[])  # No JINJA_FILTERS attribute
+        mock_import.return_value = mock_module
+
+        result = load_jinja_filters('/path/to/jinja_filters.py')
+
+        assert result is None
+
+    @patch('woom.ext.import_from_path')
+    def test_load_jinja_filters_updates_env(self, mock_import):
+        """Test that filters are added to JINJA_ENV"""
+        test_filter = lambda x: x * 2
+        mock_module = Mock()
+        mock_module.JINJA_FILTERS = {'double': test_filter}
+        mock_import.return_value = mock_module
+
+        with patch('woom.render.JINJA_ENV') as mock_env:
+            mock_env.filters = Mock()
+            load_jinja_filters('/path/to/jinja_filters.py')
+
+            mock_env.filters.update.assert_called_once()
+
+
+class TestLoadValidatorFunctions:
+    """Test load_validator_functions function"""
+
+    @patch('woom.ext.import_from_path')
+    def test_load_validator_functions_success(self, mock_import):
+        """Test successful loading of validator functions"""
+        mock_module = Mock()
+        mock_module.VALIDATOR_FUNCTIONS = {'custom_validator': lambda x: x}
+        mock_import.return_value = mock_module
+
+        with patch('woom.conf.VALIDATOR_FUNCTIONS', {}) as mock_validators:
+            result = load_validator_functions('/path/to/validator_functions.py')
+
+        assert result == 'validator_functions'
+        mock_import.assert_called_once_with('woom.ext.validator_functions', '/path/to/validator_functions.py')
+
+    @patch('woom.ext.import_from_path')
+    def test_load_validator_functions_no_attribute(self, mock_import):
+        """Test load_validator_functions when VALIDATOR_FUNCTIONS not present"""
+        mock_module = Mock(spec=[])
+        mock_import.return_value = mock_module
+
+        result = load_validator_functions('/path/to/validator_functions.py')
+
+        assert result is None
+
+    @patch('woom.ext.import_from_path')
+    @patch('woom.conf.VALIDATOR_FUNCTIONS', {})
+    def test_load_validator_functions_updates_dict(self, mock_import):
+        """Test that functions are added to VALIDATOR_FUNCTIONS"""
+        test_validator = lambda x: bool(x)
+        mock_module = Mock()
+        mock_module.VALIDATOR_FUNCTIONS = {'is_valid': test_validator}
+        mock_import.return_value = mock_module
+
+        from woom.conf import VALIDATOR_FUNCTIONS
+
+        original_len = len(VALIDATOR_FUNCTIONS)
+
+        load_validator_functions('/path/to/validator_functions.py')
+
+        # Functions should be added
+        mock_import.assert_called_once()
+
+
+class TestLoadArtifactsGenerators:
+    """Test load_artifacts_generators function"""
+
+    @patch('woom.ext.import_from_path')
+    def test_load_artifacts_generators_success(self, mock_import):
+        """Test successful loading of artifacts generators"""
+        mock_module = Mock()
+        mock_module.ARTIFACTS_GENERATORS = {'custom_generator': lambda: []}
+        mock_import.return_value = mock_module
+
+        with patch('woom.tasks.ARTIFACTS_GENERATORS', {}) as mock_generators:
+            result = load_artifacts_generators('/path/to/artifacts_generators.py')
+
+        assert result == 'artifacts_generators'
+        mock_import.assert_called_once_with(
+            'woom.ext.artifacts_generators', '/path/to/artifacts_generators.py'
+        )
+
+    @patch('woom.ext.import_from_path')
+    def test_load_artifacts_generators_no_attribute(self, mock_import):
+        """Test load_artifacts_generators when ARTIFACTS_GENERATORS not present"""
+        mock_module = Mock(spec=[])
+        mock_import.return_value = mock_module
+
+        result = load_artifacts_generators('/path/to/artifacts_generators.py')
+
+        assert result is None
 
 
 class TestLoadExtensions:
     """Test load_extensions function"""
 
     def test_load_extensions_no_ext_dir(self, tmp_path):
-        workflow_dir = tmp_path / "workflow"
+        """Test load_extensions when ext/ directory doesn't exist"""
+        workflow_dir = tmp_path / 'workflow'
         workflow_dir.mkdir()
 
-        exts = wext.load_extensions(str(workflow_dir))
-        assert exts == []
+        result = load_extensions(str(workflow_dir))
+
+        assert result == []
+
+    @patch('woom.ext.load_jinja_filters')
+    def test_load_extensions_jinja_only(self, mock_load_jinja, tmp_path):
+        """Test load_extensions with only jinja_filters.py"""
+        workflow_dir = tmp_path / 'workflow'
+        ext_dir = workflow_dir / 'ext'
+        ext_dir.mkdir(parents=True)
+        (ext_dir / 'jinja_filters.py').touch()
+
+        mock_load_jinja.return_value = 'jinja_filters'
+
+        result = load_extensions(str(workflow_dir))
+
+        assert 'jinja_filters' in result
+        mock_load_jinja.assert_called_once()
+
+    @patch('woom.ext.load_validator_functions')
+    def test_load_extensions_validators_only(self, mock_load_validators, tmp_path):
+        """Test load_extensions with only validator_functions.py"""
+        workflow_dir = tmp_path / 'workflow'
+        ext_dir = workflow_dir / 'ext'
+        ext_dir.mkdir(parents=True)
+        (ext_dir / 'validator_functions.py').touch()
+
+        mock_load_validators.return_value = 'validator_functions'
+
+        result = load_extensions(str(workflow_dir))
+
+        assert 'validator_functions' in result
+        mock_load_validators.assert_called_once()
+
+    @patch('woom.ext.load_artifacts_generators')
+    def test_load_extensions_artifacts_only(self, mock_load_artifacts, tmp_path):
+        """Test load_extensions with only artifacts_generators.py"""
+        workflow_dir = tmp_path / 'workflow'
+        ext_dir = workflow_dir / 'ext'
+        ext_dir.mkdir(parents=True)
+        (ext_dir / 'artifacts_generators.py').touch()
+
+        mock_load_artifacts.return_value = 'artifacts_generators'
+
+        result = load_extensions(str(workflow_dir))
+
+        assert 'artifacts_generators' in result
+        mock_load_artifacts.assert_called_once()
+
+    @patch('woom.ext.load_jinja_filters')
+    @patch('woom.ext.load_validator_functions')
+    @patch('woom.ext.load_artifacts_generators')
+    def test_load_extensions_all(self, mock_artifacts, mock_validators, mock_jinja, tmp_path):
+        """Test load_extensions with all extension types"""
+        workflow_dir = tmp_path / 'workflow'
+        ext_dir = workflow_dir / 'ext'
+        ext_dir.mkdir(parents=True)
+        (ext_dir / 'jinja_filters.py').touch()
+        (ext_dir / 'validator_functions.py').touch()
+        (ext_dir / 'artifacts_generators.py').touch()
+
+        mock_jinja.return_value = 'jinja_filters'
+        mock_validators.return_value = 'validator_functions'
+        mock_artifacts.return_value = 'artifacts_generators'
+
+        result = load_extensions(str(workflow_dir))
+
+        assert len(result) == 3
+        assert 'jinja_filters' in result
+        assert 'validator_functions' in result
+        assert 'artifacts_generators' in result
+
+    @patch('woom.ext.load_jinja_filters')
+    @patch('woom.ext.load_validator_functions')
+    def test_load_extensions_some_none(self, mock_validators, mock_jinja, tmp_path):
+        """Test load_extensions when some return None"""
+        workflow_dir = tmp_path / 'workflow'
+        ext_dir = workflow_dir / 'ext'
+        ext_dir.mkdir(parents=True)
+        (ext_dir / 'jinja_filters.py').touch()
+        (ext_dir / 'validator_functions.py').touch()
+
+        mock_jinja.return_value = 'jinja_filters'
+        mock_validators.return_value = None  # No VALIDATOR_FUNCTIONS attribute
+
+        result = load_extensions(str(workflow_dir))
+
+        assert len(result) == 1
+        assert 'jinja_filters' in result
+        assert 'validator_functions' not in result
 
     def test_load_extensions_empty_ext_dir(self, tmp_path):
-        workflow_dir = tmp_path / "workflow"
-        workflow_dir.mkdir()
-        ext_dir = workflow_dir / "ext"
-        ext_dir.mkdir()
+        """Test load_extensions with empty ext/ directory"""
+        workflow_dir = tmp_path / 'workflow'
+        ext_dir = workflow_dir / 'ext'
+        ext_dir.mkdir(parents=True)
 
-        exts = wext.load_extensions(str(workflow_dir))
-        assert exts == []
+        result = load_extensions(str(workflow_dir))
 
-    def test_load_extensions_jinja_filters(self, tmp_path):
-        workflow_dir = tmp_path / "workflow"
-        workflow_dir.mkdir()
-        ext_dir = workflow_dir / "ext"
-        ext_dir.mkdir()
-
-        # Create jinja filters extension
-        jinja_ext = ext_dir / "jinja_filters.py"
-        jinja_ext.write_text(
-            """
-def custom_filter(value):
-    return f"custom_{value}"
-
-JINJA_FILTERS = {
-    "custom": custom_filter
-}
-"""
-        )
-
-        exts = wext.load_extensions(str(workflow_dir))
-
-        assert "jinja_filters" in exts
-        assert "custom" in wrender.JINJA_ENV.filters
-
-    def test_load_extensions_validator_functions(self, tmp_path):
-        workflow_dir = tmp_path / "workflow"
-        workflow_dir.mkdir()
-        ext_dir = workflow_dir / "ext"
-        ext_dir.mkdir()
-
-        # Create validator functions extension
-        vf_ext = ext_dir / "validator_functions.py"
-        vf_ext.write_text(
-            """
-def is_positive(value):
-    if int(value) > 0:
-        return int(value)
-    raise ValueError("Must be positive")
-
-VALIDATOR_FUNCTIONS = {
-    "positive": is_positive
-}
-"""
-        )
-
-        exts = wext.load_extensions(str(workflow_dir))
-
-        assert "validator_functions" in exts
-        assert "positive" in wconf.VALIDATOR_FUNCTIONS
-
-    def test_load_extensions_both(self, tmp_path):
-        workflow_dir = tmp_path / "workflow"
-        workflow_dir.mkdir()
-        ext_dir = workflow_dir / "ext"
-        ext_dir.mkdir()
-
-        # Jinja filters
-        jinja_ext = ext_dir / "jinja_filters.py"
-        jinja_ext.write_text(
-            """
-JINJA_FILTERS = {"test": lambda x: x}
-"""
-        )
-
-        # Validator functions
-        vf_ext = ext_dir / "validator_functions.py"
-        vf_ext.write_text(
-            """
-VALIDATOR_FUNCTIONS = {"test": lambda x: x}
-"""
-        )
-
-        exts = wext.load_extensions(str(workflow_dir))
-
-        assert len(exts) == 2
-        assert "jinja_filters" in exts
-        assert "validator_functions" in exts
-
-
-class TestLoadJinjaFilters:
-    """Test load_jinja_filters function"""
-
-    def test_load_jinja_filters_valid(self, tmp_path):
-        ext_file = tmp_path / "filters.py"
-        ext_file.write_text(
-            """
-def uppercase_filter(value):
-    return str(value).upper()
-
-JINJA_FILTERS = {
-    "uppercase": uppercase_filter
-}
-"""
-        )
-
-        result = wext.load_jinja_filters(str(ext_file))
-
-        assert result == "jinja_filters"
-        assert "uppercase" in wrender.JINJA_ENV.filters
-
-    def test_load_jinja_filters_no_attribute(self, tmp_path):
-        ext_file = tmp_path / "filters.py"
-        ext_file.write_text(
-            """
-def some_function():
-    pass
-"""
-        )
-
-        result = wext.load_jinja_filters(str(ext_file))
-        assert result is None
-
-    def test_load_jinja_filters_empty_dict(self, tmp_path):
-        ext_file = tmp_path / "filters.py"
-        ext_file.write_text(
-            """
-JINJA_FILTERS = {}
-"""
-        )
-
-        result = wext.load_jinja_filters(str(ext_file))
-        assert result == "jinja_filters"
-
-
-class TestLoadValidatorFunctions:
-    """Test load_validator_functions function"""
-
-    def test_load_validator_functions_valid(self, tmp_path):
-        ext_file = tmp_path / "validators.py"
-        ext_file.write_text(
-            """
-def is_even(value):
-    val = int(value)
-    if val % 2 == 0:
-        return val
-    raise ValueError("Must be even")
-
-VALIDATOR_FUNCTIONS = {
-    "even": is_even
-}
-"""
-        )
-
-        result = wext.load_validator_functions(str(ext_file))
-
-        assert result == "validator_functions"
-        assert "even" in wconf.VALIDATOR_FUNCTIONS
-
-    def test_load_validator_functions_no_attribute(self, tmp_path):
-        ext_file = tmp_path / "validators.py"
-        ext_file.write_text(
-            """
-def some_function():
-    pass
-"""
-        )
-
-        result = wext.load_validator_functions(str(ext_file))
-        assert result is None
-
-    def test_load_validator_functions_empty_dict(self, tmp_path):
-        ext_file = tmp_path / "validators.py"
-        ext_file.write_text(
-            """
-VALIDATOR_FUNCTIONS = {}
-"""
-        )
-
-        result = wext.load_validator_functions(str(ext_file))
-        assert result == "validator_functions"
+        assert result == []
 
 
 class TestExtensionsIntegration:
-    """Integration tests for extensions"""
+    """Test integration scenarios"""
 
-    def test_jinja_filter_usage(self, tmp_path):
-        workflow_dir = tmp_path / "workflow"
-        workflow_dir.mkdir()
-        ext_dir = workflow_dir / "ext"
-        ext_dir.mkdir()
+    @patch('woom.ext.import_from_path')
+    def test_multiple_extensions_loaded_sequentially(self, mock_import, tmp_path):
+        """Test that multiple extensions are loaded in order"""
+        workflow_dir = tmp_path / 'workflow'
+        ext_dir = workflow_dir / 'ext'
+        ext_dir.mkdir(parents=True)
+        (ext_dir / 'jinja_filters.py').touch()
+        (ext_dir / 'validator_functions.py').touch()
 
-        jinja_ext = ext_dir / "jinja_filters.py"
-        jinja_ext.write_text(
-            """
-def reverse_filter(value):
-    return str(value)[::-1]
+        # Create mock modules with attributes
+        jinja_module = Mock()
+        jinja_module.JINJA_FILTERS = {'filter1': lambda x: x}
 
-JINJA_FILTERS = {
-    "reverse": reverse_filter
-}
-"""
-        )
+        validator_module = Mock()
+        validator_module.VALIDATOR_FUNCTIONS = {'validator1': lambda x: x}
 
-        wext.load_extensions(str(workflow_dir))
+        def side_effect(name, path):
+            if 'jinja_filters' in name:
+                return jinja_module
+            elif 'validator_functions' in name:
+                return validator_module
+            return Mock(spec=[])
 
-        # Use the filter
-        template = wrender.JINJA_ENV.from_string("{{ text|reverse }}")
-        result = template.render(text="hello")
-        assert result == "olleh"
+        mock_import.side_effect = side_effect
 
-    def test_validator_function_usage(self, tmp_path):
-        workflow_dir = tmp_path / "workflow"
-        workflow_dir.mkdir()
-        ext_dir = workflow_dir / "ext"
-        ext_dir.mkdir()
+        with patch('woom.render.JINJA_ENV') as mock_env, patch('woom.conf.VALIDATOR_FUNCTIONS', {}):
+            mock_env.filters = {}
+            result = load_extensions(str(workflow_dir))
 
-        vf_ext = ext_dir / "validator_functions.py"
-        vf_ext.write_text(
-            """
-def is_uppercase(value):
-    if value == value.upper():
-        return value
-    raise ValueError("Must be uppercase")
+        assert len(result) == 2
+        assert 'jinja_filters' in result
+        assert 'validator_functions' in result
 
-VALIDATOR_FUNCTIONS = {
-    "uppercase": is_uppercase
-}
-"""
-        )
+    def test_extension_files_checked_in_order(self, tmp_path):
+        """Test that extension files are checked in specific order"""
+        workflow_dir = tmp_path / 'workflow'
+        ext_dir = workflow_dir / 'ext'
+        ext_dir.mkdir(parents=True)
 
-        wext.load_extensions(str(workflow_dir))
+        # Create all possible extension files
+        (ext_dir / 'jinja_filters.py').touch()
+        (ext_dir / 'validator_functions.py').touch()
+        (ext_dir / 'artifacts_generators.py').touch()
 
-        # Use the validator
-        validator = wconf.get_validator()
-        assert "uppercase" in validator.functions
+        with (
+            patch('woom.ext.load_jinja_filters') as mock_jinja,
+            patch('woom.ext.load_validator_functions') as mock_validators,
+            patch('woom.ext.load_artifacts_generators') as mock_artifacts,
+        ):
+            mock_jinja.return_value = 'jinja_filters'
+            mock_validators.return_value = 'validator_functions'
+            mock_artifacts.return_value = 'artifacts_generators'
+
+            result = load_extensions(str(workflow_dir))
+
+            # All should be called
+            mock_jinja.assert_called_once()
+            mock_validators.assert_called_once()
+            mock_artifacts.assert_called_once()

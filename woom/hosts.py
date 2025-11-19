@@ -87,8 +87,8 @@ class Host:
         """Dict configuration of this host as loaded from file :file:`hosts.cfg` (:class:`dict`)"""
         return self._config.dict()
 
-    def __getitem__(self, key):
-        return self.config[key]
+    # def __getitem__(self, key):
+    #     return self.config[key]
 
     @functools.lru_cache
     def get_jobmanager(self):  # , session):
@@ -121,10 +121,6 @@ class Host:
         if name in self.queues:
             return self.queues[name]
         return name
-
-    # def get_dirs(self):
-    #     """Get generic directories as dict"""
-    #     return self.config["dirs"]
 
     def get_params(self):
         """Get a context dict for formatting task commandlines with jinja

@@ -362,11 +362,11 @@ class Task:
         -------
         dict
         """
-        if not self.host["scheduler"]:
+        if not self.host.config["scheduler"]:
             return {}
         opts = wconf.strip_out_sections(self.config["submit"]).dict()
         if self.config["submit"]["queue"]:
-            opts["queue"] = self.host["queues"][self.config["submit"]["queue"]]
+            opts["queue"] = self.host.config["queues"][self.config["submit"]["queue"]]
         return opts
 
     def export(self):
