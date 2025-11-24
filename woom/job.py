@@ -73,7 +73,6 @@ class Job:
     overview_format = dict(
         name="20",
         jobid="8",
-        session="22",
         queue="10",
         realqueue="10",
         time="5",
@@ -262,6 +261,7 @@ class Job:
         return "      ".join(heads) + "\n" + "    ".join(tails)
 
     def get_overview(self, update=True):
+        # TODO: Must be converted to use pandas
         if update:
             self.update_status()
         name = self.name
@@ -299,12 +299,8 @@ class BackgroundJobManager(object):
 
     job_class = Job
 
-    # def __init__(self, session):
     def __init__(self):
         self.jobs = []
-        # self.session = session
-        # logger.info(f"Started job manager: {self.__class__.__name__}(session='{self.session}')")
-        # self.load()
         logger.info(f"Started job manager: {self.__class__.__name__}()")
 
     def load_job(self, json_file, append=True):
@@ -317,12 +313,12 @@ class BackgroundJobManager(object):
             self.load_job(json_file, append=True)
 
     def dump(self):
-        """Store jobs to session files"""
+        """Store jobs to json files"""
         for job in self.jobs:
             job.dump()
 
-    def __repr__(self):
-        return f"<{self.__class__.__name__}(session={self.session})>"
+    # def __repr__(self):
+    #     return f"<{self.__class__.__name__}>"
 
     @staticmethod
     def from_scheduler(scheduler):
@@ -694,7 +690,7 @@ class PbsproJobManager(_Scheduler_):
                 user,
                 queue,
                 name,
-                session,
+                _,  # session?
                 nodes,
                 task,
                 mem,

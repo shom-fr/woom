@@ -1,297 +1,329 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Tests for tasks.py module
+Unit tests for woom.tasks module
+
+Place this file at the root of your project (same level as woom/ directory)
+Run: pytest test_tasks.py -v
 """
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
-import configobj
 import pytest
+from configobj import ConfigObj
 
-from woom import env as wenv
-from woom import hosts as whosts
-from woom import tasks as wtasks
+from woom.tasks import ARTIFACTS_GENERATORS, Task, TaskError, TaskManager, TaskTree
+
+
+@pytest.fixture
+def sample_stages():
+    """Create sample stages configuration"""
+    return ConfigObj(
+        {
+            'prolog': {'setup': ['task1', 'task2']},
+            'cycles': {'process': ['task3', 'task4']},
+            'epilog': {'cleanup': ['task5']},
+        }
+    )
+
+
+@pytest.fixture
+def sample_groups():
+    """Create sample groups configuration"""
+    return ConfigObj(
+        {
+            'group1': ['task1', 'task2'],
+        }
+    )
+
+
+@pytest.fixture
+def mock_host():
+    """Create a mock host"""
+    host = Mock()
+    host.name = 'local'
+    host.get_env = Mock()
+    mock_env = Mock()
+    mock_env.vars_set = {}
+    mock_env.copy = Mock(return_value=mock_env)
+    host.get_env.return_value = mock_env
+    host.config = {'scheduler': 'background', 'queues': {'seq': 'sequential'}}
+    return host
+
+
+@pytest.fixture
+def sample_task_config():
+    """Create a sample task configuration"""
+    return ConfigObj(
+        {
+            'task1': {
+                'content': {
+                    'commandline': 'echo "test"',
+                    'run_dir': '/tmp/run',
+                    'env': None,
+                },
+                'artifacts': {
+                    'output': {
+                        'paths': ['/tmp/output.txt'],
+                        'check': True,
+                        'callable': False,
+                        'kwargs': {},
+                    }
+                },
+                'submit': {
+                    'queue': 'seq',
+                    'nnodes': None,
+                    'ncpus': None,
+                    'ngpus': None,
+                    'memory': None,
+                    'pmem': None,
+                    'time': None,
+                    'mail': None,
+                },
+            }
+        }
+    )
 
 
 class TestTaskTree:
     """Test TaskTree class"""
 
-    def test_init_simple(self):
-        stages = configobj.ConfigObj()
-        stages["prolog"] = {}
-        stages["cycles"] = {}
-        stages["epilog"] = {}
+    def test_init(self, sample_stages, sample_groups):
+        """Test TaskTree initialization"""
+        tree = TaskTree(sample_stages, sample_groups)
+        assert tree._stages == sample_stages
+        assert tree._groups == sample_groups
 
-        tree = wtasks.TaskTree(stages)
-        assert tree is not None
-
-    def test_init_with_groups(self):
-        stages = configobj.ConfigObj()
-        stages["prolog"] = {"fetch": ["task1", "group1"]}
-
-        groups = configobj.ConfigObj()
-        groups["group1"] = ["task2", "task3"]
-
-        tree = wtasks.TaskTree(stages, groups)
-        tree_dict = tree.to_dict()
-        assert "prolog" in tree_dict
-
-    def test_to_dict_simple(self):
-        stages = configobj.ConfigObj()
-        stages["prolog"] = {"step1": ["task1"]}
-
-        tree = wtasks.TaskTree(stages)
+    def test_to_dict_basic(self, sample_stages):
+        """Test to_dict with basic stages"""
+        tree = TaskTree(sample_stages, None)
         result = tree.to_dict()
 
-        assert "prolog" in result
-        assert "step1" in result["prolog"]
+        assert 'prolog' in result
+        assert 'cycles' in result
+        assert 'epilog' in result
+        assert result['prolog']['setup'] == [['task1'], ['task2']]
+        assert result['cycles']['process'] == [['task3'], ['task4']]
 
-    def test_to_dict_with_group_expansion(self):
-        stages = configobj.ConfigObj()
-        stages["prolog"] = {"fetch": ["group1"]}
-
-        groups = configobj.ConfigObj()
-        groups["group1"] = ["task1", "task2"]
-
-        tree = wtasks.TaskTree(stages, groups)
+    def test_to_dict_with_groups(self, sample_groups):
+        """Test to_dict with groups"""
+        stages = ConfigObj({'prolog': {'init': ['group1']}})
+        tree = TaskTree(stages, sample_groups)
         result = tree.to_dict()
 
-        assert result["prolog"]["fetch"][0] == ["task1", "task2"]
+        assert result['prolog']['init'] == [['task1', 'task2']]
 
-    def test_duplicate_task_error(self):
-        stages = configobj.ConfigObj()
-        stages["prolog"] = {"step1": ["task1"]}
-        stages["cycles"] = {"step2": ["task1"]}
+    def test_str_representation(self, sample_stages):
+        """Test string representation"""
+        tree = TaskTree(sample_stages, None)
+        tree_str = str(tree)
 
-        tree = wtasks.TaskTree(stages)
-        with pytest.raises(wtasks.TaskError):
+        assert 'prolog' in tree_str
+        assert 'task1' in tree_str
+
+    def test_get_task_stage(self, sample_stages):
+        """Test get_task_stage method"""
+        tree = TaskTree(sample_stages, None)
+
+        assert tree.get_task_stage('task1') == 'prolog'
+        assert tree.get_task_stage('task3') == 'cycles'
+        assert tree.get_task_stage('task5') == 'epilog'
+
+    def test_duplicate_tasks_error(self):
+        """Test error on duplicate tasks"""
+        stages = ConfigObj(
+            {
+                'prolog': {'init': ['task1']},
+                'cycles': {'process': ['task1']},  # Duplicate
+            }
+        )
+        tree = TaskTree(stages, None)
+
+        with pytest.raises(TaskError, match="Duplicate tasks not allowed"):
             tree.to_dict()
-
-    def test_str_representation(self):
-        stages = configobj.ConfigObj()
-        stages["prolog"] = {"fetch": ["task1", "task2"]}
-
-        tree = wtasks.TaskTree(stages)
-        result = str(tree)
-
-        assert "prolog" in result
-        assert "fetch" in result
-
-    def test_empty_workflow(self):
-        stages = configobj.ConfigObj()
-        stages["prolog"] = {}
-        stages["cycles"] = {}
-        stages["epilog"] = {}
-
-        tree = wtasks.TaskTree(stages)
-        result = str(tree)
-        assert "Empty workflow!" in result
 
 
 class TestTaskManager:
     """Test TaskManager class"""
 
-    def test_init(self):
-        host = Mock(spec=whosts.Host)
-        manager = wtasks.TaskManager(host)
-        assert manager._host == host
-        assert isinstance(manager._config, configobj.ConfigObj)
+    def test_init(self, mock_host):
+        """Test TaskManager initialization"""
+        manager = TaskManager(mock_host)
 
-    def test_load_config(self, tmp_path):
-        # Create a simple task config
-        cfg_file = tmp_path / "tasks.cfg"
-        cfg_file.write_text("[task1]\n")
+        assert manager._host is mock_host
+        assert isinstance(manager._config, ConfigObj)
+        assert manager._configs == []
 
-        spec_file = tmp_path / "tasks.ini"
-        spec_file.write_text(
-            """
-[__many__]
-    [[content]]
-    commandline=string(default=None)
-    run_dir=string(default=None)
-    env=string(default=None)
-    [[artifacts]]
-    __many__=string
-    [[submit]]
-    queue=string(default=None)
-        [[[extra]]]
-        __many__=string
-"""
-        )
+    @patch('woom.tasks.wconf.load_cfg')
+    def test_load_config(self, mock_load_cfg, mock_host, sample_task_config):
+        """Test load_config method"""
+        mock_load_cfg.return_value = sample_task_config
+        manager = TaskManager(mock_host)
 
-        host = Mock(spec=whosts.Host)
-        manager = wtasks.TaskManager(host)
+        manager.load_config('tasks.cfg')
 
-        # Mock the CFGSPECS_FILE
-        with patch.object(wtasks, 'CFGSPECS_FILE', str(spec_file)):
-            manager.load_config(str(cfg_file))
+        mock_load_cfg.assert_called_once()
+        assert len(manager._configs) == 1
 
-        assert "task1" in manager._config
+    def test_get_task(self, mock_host, sample_task_config):
+        """Test get_task method"""
+        manager = TaskManager(mock_host)
+        manager._config = sample_task_config
 
-    def test_get_task(self, tmp_path):
-        cfg_file = tmp_path / "tasks.cfg"
-        cfg_file.write_text(
-            """
-[task1]
-    [[content]]
-    commandline = echo test
-"""
-        )
+        task = manager.get_task('task1')
 
-        spec_file = tmp_path / "tasks.ini"
-        spec_file.write_text(
-            """
-[__many__]
-    [[content]]
-    commandline=string(default=None)
-    run_dir=string(default=None)
-    env=string(default=None)
-    [[artifacts]]
-    __many__=string
-    [[submit]]
-    queue=string(default=None)
-        [[[extra]]]
-        __many__=string
-"""
-        )
+        assert isinstance(task, Task)
+        assert task.name == 'task1'
 
-        host = Mock(spec=whosts.Host)
-        manager = wtasks.TaskManager(host)
+    def test_get_task_invalid(self, mock_host):
+        """Test get_task with invalid name"""
+        manager = TaskManager(mock_host)
+        manager._config = ConfigObj()
 
-        with patch.object(wtasks, 'CFGSPECS_FILE', str(spec_file)):
-            manager.load_config(str(cfg_file))
+        with pytest.raises(TaskError, match="Invalid task name"):
+            manager.get_task('nonexistent')
 
-        task = manager.get_task("task1")
-        assert isinstance(task, wtasks.Task)
-        assert task.name == "task1"
-
-    def test_get_task_invalid(self):
-        host = Mock(spec=whosts.Host)
-        manager = wtasks.TaskManager(host)
-
-        with pytest.raises(wtasks.TaskError):
-            manager.get_task("nonexistent")
+    def test_host_property(self, mock_host):
+        """Test host property"""
+        manager = TaskManager(mock_host)
+        assert manager.host is mock_host
 
 
 class TestTask:
     """Test Task class"""
 
-    def setup_method(self):
-        """Setup for each test"""
-        self.mock_host = Mock(spec=whosts.Host)
-        self.mock_host.get_env.return_value = wenv.EnvConfig()
+    def test_init(self, mock_host):
+        """Test Task initialization"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': 'test', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {},
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
 
-        self.task_config = configobj.ConfigObj()
-        self.task_config.name = "test_task"
-        self.task_config["content"] = {
-            "commandline": "echo test",
-            "run_dir": "/tmp/run",
-            "env": None,
-        }
-        self.task_config["artifacts"] = {}
-        self.task_config["submit"] = {
-            "queue": None,
-            "memory": None,
-            "time": None,
-            "mail": None,
-            "extra": {},
-        }
+        assert task._config is config
+        assert task._host is mock_host
 
-    def test_init(self):
-        task = wtasks.Task(self.task_config, self.mock_host)
-        assert task.name == "test_task"
-        assert task.host == self.mock_host
+    def test_properties(self, mock_host):
+        """Test Task properties"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': 'test', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {},
+                'submit': {},
+            }
+        )
+        config.name = 'task1'
+        task = Task(config, mock_host)
 
-    def test_name_property(self):
-        task = wtasks.Task(self.task_config, self.mock_host)
-        assert task.name == "test_task"
+        assert task.config is config
+        assert task.host is mock_host
+        assert task.name == 'task1'
 
-    def test_config_property(self):
-        task = wtasks.Task(self.task_config, self.mock_host)
-        assert task.config == self.task_config
+    def test_run_dir(self, mock_host):
+        """Test run_dir property"""
+        config = ConfigObj(
+            {
+                'content': {'run_dir': '/tmp/test', 'commandline': '', 'env': None},
+                'artifacts': {},
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
 
-    def test_host_property(self):
-        task = wtasks.Task(self.task_config, self.mock_host)
-        assert task.host == self.mock_host
+        assert task.run_dir == '/tmp/test'
 
-    def test_get_run_dir(self):
-        task = wtasks.Task(self.task_config, self.mock_host)
-        run_dir = task.get_run_dir()
-        assert run_dir == "/tmp/run"
+    def test_run_dir_current(self, mock_host):
+        """Test run_dir with 'current' value"""
+        config = ConfigObj(
+            {
+                'content': {'run_dir': 'current', 'commandline': '', 'env': None},
+                'artifacts': {},
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
 
-    def test_get_run_dir_none(self):
-        self.task_config["content"]["run_dir"] = None
-        task = wtasks.Task(self.task_config, self.mock_host)
-        run_dir = task.get_run_dir()
-        assert run_dir == ""
+        assert task.run_dir == os.getcwd()
 
-    def test_get_run_dir_current(self):
-        self.task_config["content"]["run_dir"] = "current"
-        task = wtasks.Task(self.task_config, self.mock_host)
-        run_dir = task.get_run_dir()
-        assert run_dir == os.getcwd()
+    def test_commandline(self, mock_host):
+        """Test commandline property"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': 'echo "hello"', 'run_dir': '', 'env': None},
+                'artifacts': {},
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
 
-    def test_export_commandline(self):
-        task = wtasks.Task(self.task_config, self.mock_host)
-        cmdline = task.export_commandline()
-        assert cmdline == "echo test"
+        assert task.commandline == 'echo "hello"'
 
-    def test_artifacts_property(self):
-        self.task_config["artifacts"] = {"output": "/path/to/output.nc"}
-        task = wtasks.Task(self.task_config, self.mock_host)
-        assert task.artifacts["output"] == "/path/to/output.nc"
+    def test_get_artifacts(self, mock_host):
+        """Test get_artifacts method"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {
+                    'output': {
+                        'paths': ['/tmp/output.txt'],
+                        'check': True,
+                        'callable': False,
+                        'kwargs': {},
+                    }
+                },
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
 
-    def test_export_artifacts_checking(self):
-        self.task_config["artifacts"] = {"out1": "/file1.txt"}
-        task = wtasks.Task(self.task_config, self.mock_host)
-        checks = task.export_artifacts_checking()
-        assert "test -f" in checks
-        assert "/file1.txt" in checks
+        artifacts = task.get_artifacts()
 
-    def test_export_artifacts_checking_empty(self):
-        task = wtasks.Task(self.task_config, self.mock_host)
-        checks = task.export_artifacts_checking()
-        assert checks == ""
+        assert 'output' in artifacts
+        assert artifacts['output'] == ['/tmp/output.txt']
 
-    def test_render_artifacts(self):
-        self.task_config["artifacts"] = {"output": "/abs/path/{{ name }}.nc"}
-        task = wtasks.Task(self.task_config, self.mock_host)
+    def test_context_setter(self, mock_host):
+        """Test context setter"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '', 'env': None},
+                'artifacts': {},
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
+        mock_context = {'task': None}
 
-        params = {"name": "test"}
-        artifacts = task.render_artifacts(params)
-        assert artifacts["output"] == "/abs/path/test.nc"
+        task.context = mock_context
 
-    def test_render_artifacts_relative_with_run_dir(self):
-        self.task_config["artifacts"] = {"output": "relative/{{ name }}.nc"}
-        self.task_config["content"]["run_dir"] = "/run/dir"
-        task = wtasks.Task(self.task_config, self.mock_host)
+        assert task._context is mock_context
+        assert mock_context['task'] is task
 
-        params = {"name": "test"}
-        artifacts = task.render_artifacts(params)
-        assert artifacts["output"] == "/run/dir/relative/test.nc"
+    def test_export_scheduler_options(self, mock_host):
+        """Test export_scheduler_options method"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '', 'env': None},
+                'artifacts': {},
+                'submit': {
+                    'queue': 'seq',
+                    'nnodes': 2,
+                    'ncpus': 4,
+                    'ngpus': None,
+                    'memory': '8GB',
+                    'pmem': None,
+                    'time': '01:00:00',
+                    'mail': None,
+                },
+            }
+        )
+        task = Task(config, mock_host)
 
-    def test_render_artifacts_relative_no_run_dir_error(self):
-        self.task_config["artifacts"] = {"output": "relative.nc"}
-        self.task_config["content"]["run_dir"] = None
-        task = wtasks.Task(self.task_config, self.mock_host)
-
-        with pytest.raises(wtasks.TaskError):
-            task.render_artifacts({})
-
-    def test_export_scheduler_options(self):
-        self.mock_host.__getitem__ = Mock(return_value="slurm")
-        self.mock_host.__getitem__.side_effect = lambda x: {
-            "scheduler": "slurm",
-            "queues": {"seq": "normal"},
-        }.get(x, {})
-
-        self.task_config["submit"]["queue"] = "seq"
-        self.task_config["submit"]["memory"] = "4GB"
-        self.task_config["submit"]["time"] = "01:00:00"
-
-        task = wtasks.Task(self.task_config, self.mock_host)
         opts = task.export_scheduler_options()
 
-        assert opts["memory"] == "4GB"
-        assert opts["time"] == "01:00:00"
+        assert opts['nnodes'] == 2
+        assert opts['ncpus'] == 4
+        assert opts['memory'] == '8GB'
+        assert opts['queue'] == 'sequential'

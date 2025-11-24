@@ -59,6 +59,13 @@ def load_extensions(workflow_dir):
         if label:
             exts.append(label)
 
+    # Artifacts generators
+    ag_ext = os.path.join(ext_dir, "artifacts_generators.py")
+    if os.path.exists(ag_ext):
+        label = load_artifacts_generators(ag_ext)
+        if label:
+            exts.append(label)
+
     return exts
 
 
@@ -83,11 +90,11 @@ def load_jinja_filters(jinja_ext):
 
 
 def load_validator_functions(vf_ext):
-    """Load the validartor functions from a python file
+    """Load the validator functions from a python file
 
     Parameters
     ----------
-    jvf_ext: str
+    vf_ext: str
         Python file with the :attr:`VALIDATOR_FUNCTIONS` attribute
 
     Return
@@ -100,3 +107,23 @@ def load_validator_functions(vf_ext):
 
         VALIDATOR_FUNCTIONS.update(mm.VALIDATOR_FUNCTIONS)
         return "validator_functions"
+
+
+def load_artifacts_generators(ag_ext):
+    """Load the generator function of artifact paths from a python file
+
+    Parameters
+    ----------
+    ag_ext: str
+        Python file with the :attr:`ARTIFACTS_GENERATORS` attribute
+
+    Return
+    ------
+    str
+    """
+    mm = import_from_path("woom.ext.artifacts_generators", ag_ext)
+    if hasattr(mm, "ARTIFACTS_GENERATORS"):
+        from .tasks import ARTIFACTS_GENERATORS
+
+        ARTIFACTS_GENERATORS.update(mm.ARTIFACTS_GENERATORS)
+        return "artifacts_generators"

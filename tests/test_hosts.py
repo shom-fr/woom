@@ -115,7 +115,7 @@ class TestHost:
     def test_getitem(self):
         config = configobj.ConfigObj(self.host_config)
         host = whosts.Host("testhost", config)
-        assert host["scheduler"] == "background"
+        assert host.config["scheduler"] == "background"
 
     def test_module_setup_property(self):
         self.host_config["module_setup"] = "source /etc/modules.sh"

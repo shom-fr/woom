@@ -9,6 +9,7 @@ Library
     woom
     woom.cli
     woom.conf
+    woom.context
     woom.env
     woom.ext
     woom.hosts

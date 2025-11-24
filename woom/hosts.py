@@ -87,8 +87,8 @@ class Host:
         """Dict configuration of this host as loaded from file :file:`hosts.cfg` (:class:`dict`)"""
         return self._config.dict()
 
-    def __getitem__(self, key):
-        return self.config[key]
+    # def __getitem__(self, key):
+    #     return self.config[key]
 
     @functools.lru_cache
     def get_jobmanager(self):  # , session):
@@ -122,16 +122,11 @@ class Host:
             return self.queues[name]
         return name
 
-    # def get_dirs(self):
-    #     """Get generic directories as dict"""
-    #     return self.config["dirs"]
-
     def get_params(self):
         """Get a context dict for formatting task commandlines with jinja
 
         In merges the following contents:
 
-        - The ``params`` config section.
         - The ``dirs`` config section with key suffixed with "dir"
           and with the user "~" symbol and environment variables expanded.
 
@@ -145,19 +140,6 @@ class Host:
                 dval = os.path.expanduser(os.path.expandvars(dval))
                 params[dname + "_dir"] = dval
         return params
-
-    # def get_dir(self, name):
-    #     """Get a directory from its generic name
-
-    #     If the value does not contain a path separator, it is interpreted as
-    #     an environment variable.
-    #     """
-    #     if name == "current":
-    #         return os.getcwd()
-    #     direc = self.config["dirs"][name]
-    #     if os.path in direc:
-    #         return direc
-    #     return "$" + direc
 
     @functools.cache
     def get_env(self, name):

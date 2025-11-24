@@ -72,3 +72,9 @@ intersphinx_mapping = {
 
 # %% Autosumarry
 autosummary_generate = True
+
+# %% Extlinks
+extlinks = {
+    "issue": ("https://github.com/shom-fr/xoa/issues/%s", "GH%s"),
+    "pull": ("https://github.com/shom-fr/xoa/pulls/%s", "PR%s"),
+}
