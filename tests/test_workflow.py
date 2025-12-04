@@ -12,6 +12,7 @@ import pytest
 from configobj import ConfigObj
 
 from woom.iters import Cycle
+from woom.job import PbsproJobManager, SlurmJobManager
 from woom.workflow import Workflow, WorkFlowError
 
 
@@ -179,6 +180,7 @@ class TestWorkflowPaths:
     def test_get_task_path_with_cycle(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_path with cycle"""
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        minimal_config['stages']['cycles'] = {'seq': ['task1']}
         workflow = Workflow(minimal_config, mock_taskmanager)
         cycle = Cycle('2020-01-01')
 
@@ -292,6 +294,30 @@ class TestWorkflowTaskOperations:
         assert members == workflow.members
         assert len(members) == 3
 
+    def test_is_task_blocking_true(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test is_task_blocking returns True for blocking task"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        mock_task = Mock()
+        mock_task.is_blocking = True
+        mock_taskmanager.get_task.return_value = mock_task
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        result = workflow.is_task_blocking('task1')
+
+        assert result is True
+
+    def test_is_task_blocking_false(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test is_task_blocking returns False for non-blocking task"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        mock_task = Mock()
+        mock_task.is_blocking = False
+        mock_taskmanager.get_task.return_value = mock_task
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        result = workflow.is_task_blocking('task1')
+
+        assert result is False
+
 
 class TestWorkflowIterator:
     """Test workflow iteration"""
@@ -299,6 +325,8 @@ class TestWorkflowIterator:
     def test_workflow_iterator_empty(self, minimal_config, mock_taskmanager, tmp_path):
         """Test iterating over empty workflow"""
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        # Configure mock to have no scheduler (no sentinel task)
+        mock_taskmanager.host.get_jobmanager.return_value.with_scheduler = None
         workflow = Workflow(minimal_config, mock_taskmanager)
 
         items = list(workflow)
@@ -348,6 +376,10 @@ class TestWorkflowStatus:
     def test_get_task_status_slurm_time_limit(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_status detects SLURM time limit"""
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        # Configure mock to use actual SlurmJobManager for scheduler
+        mock_jobmanager = Mock()
+        mock_jobmanager.with_scheduler = SlurmJobManager
+        mock_taskmanager.host.get_jobmanager.return_value = mock_jobmanager
         workflow = Workflow(minimal_config, mock_taskmanager)
 
         # Create submission directory with job files
@@ -379,6 +411,10 @@ class TestWorkflowStatus:
     def test_get_task_status_slurm_out_of_memory(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_status detects SLURM out of memory"""
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        # Configure mock to use actual SlurmJobManager for scheduler
+        mock_jobmanager = Mock()
+        mock_jobmanager.with_scheduler = SlurmJobManager
+        mock_taskmanager.host.get_jobmanager.return_value = mock_jobmanager
         workflow = Workflow(minimal_config, mock_taskmanager)
 
         # Create submission directory
@@ -410,6 +446,10 @@ class TestWorkflowStatus:
     def test_get_task_status_pbspro_walltime(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_status detects PBS Pro walltime"""
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        # Configure mock to use actual PbsproJobManager for scheduler
+        mock_jobmanager = Mock()
+        mock_jobmanager.with_scheduler = PbsproJobManager
+        mock_taskmanager.host.get_jobmanager.return_value = mock_jobmanager
         workflow = Workflow(minimal_config, mock_taskmanager)
 
         # Create submission directory
@@ -455,6 +495,30 @@ class TestWorkflowClean:
 
         # Should not raise error
         workflow.clean_task('task1')
+
+    def test_terminate_blocking_jobs(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test terminate_blocking_jobs method"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        # Create mock jobs - one blocking, one non-blocking
+        mock_job_blocking = Mock()
+        mock_job_blocking.blocking = True
+        mock_job_blocking.kill = Mock()
+
+        mock_job_nonblocking = Mock()
+        mock_job_nonblocking.blocking = False
+        mock_job_nonblocking.kill = Mock()
+
+        # Setup workflow with mock jobmanager
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow.jobmanager.jobs = [mock_job_blocking, mock_job_nonblocking]
+
+        # Call terminate_blocking_jobs
+        workflow.terminate_blocking_jobs()
+
+        # Verify only non-blocking job was killed
+        mock_job_blocking.kill.assert_not_called()
+        mock_job_nonblocking.kill.assert_called_once_with(graceful=True)
 
 
 class TestWorkflowOverview:

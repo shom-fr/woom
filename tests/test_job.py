@@ -251,6 +251,26 @@ class TestSlurmJobManager:
         assert wjob.JobStatus.RUNNING in wjob.SlurmJobManager.status_names.values()
         assert wjob.JobStatus.PENDING in wjob.SlurmJobManager.status_names.values()
 
+    def test_get_killed_time_limit(self):
+        """Test get_killed detects SLURM time limit"""
+        content = "Job output\nCANCELLED AT 2025-01-01 DUE TO TIME LIMIT\nExiting..."
+        status = wjob.SlurmJobManager.get_killed(content)
+        assert status is not None
+        assert status.name == 'FAILED'
+
+    def test_get_killed_out_of_memory(self):
+        """Test get_killed detects SLURM OOM"""
+        content = "slurmstepd: error: Detected 1 oom-kill event(s) Killed process 12345"
+        status = wjob.SlurmJobManager.get_killed(content)
+        assert status is not None
+        assert status.name == 'FAILED'
+
+    def test_get_killed_no_error(self):
+        """Test get_killed returns None for normal output"""
+        content = "Job completed successfully"
+        status = wjob.SlurmJobManager.get_killed(content)
+        assert status is None
+
 
 class TestPbsproJobManager:
     """Test PbsproJobManager class"""
@@ -267,3 +287,16 @@ class TestPbsproJobManager:
     def test_status_names(self):
         assert wjob.JobStatus.RUNNING in wjob.PbsproJobManager.status_names.values()
         assert wjob.JobStatus.INQUEUE in wjob.PbsproJobManager.status_names.values()
+
+    def test_get_killed_walltime(self):
+        """Test get_killed detects PBS walltime exceeded"""
+        content = "PBS: job killed: walltime exceeded\nTerminated"
+        status = wjob.PbsproJobManager.get_killed(content)
+        assert status is not None
+        assert status.name == 'FAILED'
+
+    def test_get_killed_no_error(self):
+        """Test get_killed returns None for normal output"""
+        content = "Job completed successfully"
+        status = wjob.PbsproJobManager.get_killed(content)
+        assert status is None

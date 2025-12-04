@@ -557,13 +557,17 @@ class Workflow:
 
         # Killed status from output
         out_file = os.path.join(submission_dir, "job.out")
-        if self.jobmanager.with_scheduler and os.path.exists(out_file):
-            with open(out_file) as f:
-                content = f.read()
-            status = self.jobmanager.with_scheduler.get_killed(content)
-            if status:
-                status.jobid = job.jobid
-                return status
+        err_file = os.path.join(submission_dir, "job.err")
+        if self.jobmanager.with_scheduler:
+            # Check both stdout and stderr for kill signals
+            for file_path in [out_file, err_file]:
+                if os.path.exists(file_path):
+                    with open(file_path) as f:
+                        content = f.read()
+                    status = self.jobmanager.with_scheduler.get_killed(content)
+                    if status:
+                        status.jobid = job.jobid
+                        return status
 
         # Finish with success
         status_file = os.path.join(submission_dir, "job.status")

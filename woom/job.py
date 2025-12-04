@@ -838,7 +838,7 @@ class PbsproJobManager(_Scheduler_):
     def get_killed(content):
         """Check the terminated status from job output"""
         if "PBS: job killed: walltime" in content and "Terminated" in content:
-            status = JobStatus["KILLED"]
+            status = JobStatus["FAILED"]
             return status
 
 
@@ -1027,5 +1027,5 @@ class SlurmJobManager(_Scheduler_):
         if ("DUE TO TIME LIMIT" in content or "CANCELLED AT" in content) or (
             "OUT OF MEMORY" in content or ("slurmstepd: error:" in content and "Killed process" in content)
         ):
-            status = JobStatus["KILLED"]
+            status = JobStatus["FAILED"]
             return status
