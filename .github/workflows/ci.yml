@@ -48,8 +48,22 @@ jobs:
     name: Security Checks
     runs-on: ubuntu-latest
     steps:
-      - name: Perform Bandit Analysis
-        uses: PyCQA/bandit-action@v1
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install bandit
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit[toml]
+
+      - name: Run Bandit security checks
+        run: bandit -c pyproject.toml -r woom
         continue-on-error: true
 
   # Test matrix across Python versions
