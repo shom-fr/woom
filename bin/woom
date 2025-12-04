@@ -14,4 +14,4 @@ if (this_file.parent.parent / "woom" / "__init__.py").exists():
 from woom.cli import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -209,7 +209,7 @@ class Member:
         self._props = set()
 
     def __str__(self):
-        return str(self.id)
+        return str(self.label)
 
     def set_prop(self, name, value):
         """Set a property"""

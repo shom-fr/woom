@@ -90,6 +90,11 @@ class Host:
     # def __getitem__(self, key):
     #     return self.config[key]
 
+    @property
+    def scheduler(self):
+        """Scheduler like background, pbsproc or slurm"""
+        return self.config["scheduler"]
+
     @functools.lru_cache
     def get_jobmanager(self):  # , session):
         """Get a :mod:`~woom.job` manager instance

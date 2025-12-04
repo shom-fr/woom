@@ -6,13 +6,12 @@ Unit tests for woom.workflow module
 Place this file at the root of your project (same level as woom/ directory)
 Run: pytest test_workflow.py -v
 """
-import os
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from configobj import ConfigObj
 
-from woom.iters import Cycle, Member
+from woom.iters import Cycle
 from woom.workflow import Workflow, WorkFlowError
 
 
@@ -230,6 +229,7 @@ class TestWorkflowCyclesMembers:
         minimal_config['stages']['cycles'] = {'seq': ['task']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
         workflow = Workflow(minimal_config, mock_taskmanager)
+
         cycle = workflow.cycles[0]
         retrieved = workflow.get_cycle(str(cycle))
 
@@ -344,6 +344,99 @@ class TestWorkflowStatus:
         status = workflow.get_task_status('task1')
 
         assert status is not None
+
+    def test_get_task_status_slurm_time_limit(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test get_task_status detects SLURM time limit"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        # Create submission directory with job files
+        submission_dir = tmp_path / 'jobs' / 'test_app' / 'test_conf' / 'exp1' / 'task1'
+        submission_dir.mkdir(parents=True)
+
+        # Create job.json
+        job_json = submission_dir / 'job.json'
+        job_json.write_text(
+            '{"manager": "SlurmJobManager", "jobid": "12345", '
+            '"name": "task1", "script": "job.sh", "args": [], '
+            '"queue": null, "status": "RUNNING", "submission_date": "2025-01-01"}'
+        )
+
+        # Create job.out with SLURM time limit error
+        job_out = submission_dir / 'job.out'
+        job_out.write_text('Job output\nCANCELLED AT 2025-01-01 DUE TO TIME LIMIT\nExiting...')
+
+        with patch.object(workflow.jobmanager, 'load_job') as mock_load:
+            mock_job = Mock()
+            mock_job.jobid = '12345'
+            mock_load.return_value = mock_job
+
+            status = workflow.get_task_status('task1')
+
+        assert status.name == 'FAILED'
+        assert status.jobid == '12345'
+
+    def test_get_task_status_slurm_out_of_memory(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test get_task_status detects SLURM out of memory"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        # Create submission directory
+        submission_dir = tmp_path / 'jobs' / 'test_app' / 'test_conf' / 'exp1' / 'task1'
+        submission_dir.mkdir(parents=True)
+
+        # Create job.json
+        job_json = submission_dir / 'job.json'
+        job_json.write_text(
+            '{"manager": "SlurmJobManager", "jobid": "12346", '
+            '"name": "task1", "script": "job.sh", "args": [], '
+            '"queue": null, "status": "RUNNING", "submission_date": "2025-01-01"}'
+        )
+
+        # Create job.err with SLURM OOM error
+        job_err = submission_dir / 'job.err'
+        job_err.write_text('slurmstepd: error: Detected 1 oom-kill event(s) Killed process 12345')
+
+        with patch.object(workflow.jobmanager, 'load_job') as mock_load:
+            mock_job = Mock()
+            mock_job.jobid = '12346'
+            mock_load.return_value = mock_job
+
+            status = workflow.get_task_status('task1')
+
+        assert status.name == 'FAILED'
+        assert status.jobid == '12346'
+
+    def test_get_task_status_pbspro_walltime(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test get_task_status detects PBS Pro walltime"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        # Create submission directory
+        submission_dir = tmp_path / 'jobs' / 'test_app' / 'test_conf' / 'exp1' / 'task1'
+        submission_dir.mkdir(parents=True)
+
+        # Create job.json
+        job_json = submission_dir / 'job.json'
+        job_json.write_text(
+            '{"manager": "PbsproJobManager", "jobid": "12347", '
+            '"name": "task1", "script": "job.sh", "args": [], '
+            '"queue": null, "status": "RUNNING", "submission_date": "2025-01-01"}'
+        )
+
+        # Create job.out with PBS walltime error
+        job_out = submission_dir / 'job.out'
+        job_out.write_text('PBS: job killed: walltime exceeded\nTerminated')
+
+        with patch.object(workflow.jobmanager, 'load_job') as mock_load:
+            mock_job = Mock()
+            mock_job.jobid = '12347'
+            mock_load.return_value = mock_job
+
+            status = workflow.get_task_status('task1')
+
+        assert status.name == 'FAILED'
+        assert status.jobid == '12347'
 
 
 class TestWorkflowClean:
