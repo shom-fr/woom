@@ -15,6 +15,16 @@ import pandas as pd
 
 
 class WoomDate(pd.Timestamp):
+    """Extended pandas Timestamp with custom formatting and time arithmetic
+
+    Parameters
+    ----------
+    date : str or datetime-like
+        Date specification
+    round : str, optional
+        Frequency string for rounding
+    """
+
     re_match_since = re.compile(r"^(years|months|days|hours|minutes|seconds)\s+since\s+(\d+.*)$", re.I).match
     # re_match_add = re.compile(r"^([+\-].+)$").match
 
@@ -60,15 +70,17 @@ def check_dir(filepath, dry=False, logger=None):
 
     Parameters
     ----------
-    filepath: str
+    filepath : str
         File path
-    dry: bool
+    dry : bool
         Fake mode. Do not create the directory
-    logger: logging.Logger
+    logger : logging.Logger, optional
         To inform that we create the directory, even in dry mode
 
-    Return
-    ------
+    Returns
+    -------
+    str
+        Absolute file path
     """
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -85,6 +97,8 @@ def check_dir(filepath, dry=False, logger=None):
 
 
 class WoomJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for woom objects"""
+
     def default(self, obj):
         if isinstance(obj, collections.UserDict):
             return dict(obj)
@@ -97,7 +111,22 @@ class WoomJSONEncoder(json.JSONEncoder):
 
 
 def params2env_vars(params=None, select=None, **extra_params):
-    """Convert a dict of parameters to env vars start whose name starts with ``'WOOM_'``"""
+    """Convert a dict of parameters to env vars whose name starts with WOOM_
+
+    Parameters
+    ----------
+    params : dict, optional
+        Parameters dictionary
+    select : list, optional
+        Keys to select from params
+    **extra_params
+        Additional parameters
+
+    Returns
+    -------
+    dict
+        Environment variables dictionary
+    """
     if params is None:
         params = extra_params
     else:
@@ -118,7 +147,20 @@ def params2env_vars(params=None, select=None, **extra_params):
 
 
 def pages2ints(pages, n):
-    """Convert a list of 1-based integers and zero-based slices to a pure list of one-based integers"""
+    """Convert a list of 1-based integers and zero-based slices to a pure list of one-based integers
+
+    Parameters
+    ----------
+    pages : list
+        List of integers or slices
+    n : int
+        Total number of pages
+
+    Returns
+    -------
+    list
+        List of 1-based integer indices
+    """
     out = []
     indices = [i + 1 for i in range(n)]
     for page in pages:

@@ -26,6 +26,21 @@ class Context(UserDict):
     """
 
     def __init__(self, workflow, task_name=None, cycle=None, member=None, extra_params=None):
+        """Initialize rendering context
+
+        Parameters
+        ----------
+        workflow : Workflow
+            Workflow instance
+        task_name : str, optional
+            Task name
+        cycle : Cycle, str, optional
+            Current cycle
+        member : Member, optional
+            Ensemble member
+        extra_params : dict, optional
+            Extra parameters for rendering
+        """
         initialdata = {
             "workflow": workflow,
             "host": workflow.host,

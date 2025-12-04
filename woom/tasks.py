@@ -37,11 +37,13 @@ class TaskTree:
     """Postprocess configuration to build a task tree"""
 
     def __init__(self, stages, groups=None):
-        """
+        """Initialize a task tree
+
         Parameters
         ----------
-        stages: :class:`configobj.Section`
-        groups: None, :class:`configobj.Section`
+        stages : configobj.Section
+            Workflow stages configuration
+        groups : configobj.Section, optional
             Group of tasks that can be used in stages
         """
         self._stages = configobj.ConfigObj(stages)
@@ -114,6 +116,13 @@ class TaskManager:
     """Manager of :class:`Task` instances"""
 
     def __init__(self, host):
+        """Initialize a task manager
+
+        Parameters
+        ----------
+        host : Host
+            Host instance
+        """
         self._configs = []
         self._config = wconf.load_cfg(CFG_DEFAULT_FILE, CFGSPECS_FILE, interpolation=False)
         self._host = host
@@ -199,6 +208,15 @@ class TaskManager:
 
 class Task:
     def __init__(self, taskconfig, host):
+        """Initialize a task
+
+        Parameters
+        ----------
+        taskconfig : configobj.Section
+            Task configuration section
+        host : Host
+            Host instance
+        """
         self._config = taskconfig
         self._host = host
         self._context = None

@@ -43,6 +43,15 @@ class Workflow:
     output_directories = ["log", "tasks"]
 
     def __init__(self, cfgfile, taskmanager):
+        """Initialize a workflow
+
+        Parameters
+        ----------
+        cfgfile : str or configobj.ConfigObj
+            Path to workflow configuration file or configuration object
+        taskmanager : TaskManager
+            Task manager instance
+        """
         self.logger = logging.getLogger(__name__)
         if isinstance(cfgfile, str):
             self._cfgfile = cfgfile

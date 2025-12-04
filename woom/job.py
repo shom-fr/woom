@@ -70,7 +70,35 @@ class JobStatus(Enum):
 
 
 class Job:
-    """Single job"""
+    """Single job
+
+    Parameters
+    ----------
+    manager : JobManager
+        Job manager instance
+    name : str
+        Job name
+    script : str
+        Path to job script
+    args : list
+        Command line arguments
+    queue : str, optional
+        Queue name
+    jobid : str, optional
+        Job identifier
+    submission_date : str, optional
+        Date of submission
+    status : str or JobStatus, optional
+        Job status
+    subproc : subprocess.Popen, optional
+        Subprocess object for background jobs
+    artifacts : dict, optional
+        Job artifacts
+    submission_dir : str, optional
+        Submission directory path
+    blocking : bool, optional
+        Whether job is blocking
+    """
 
     overview_format = dict(
         name="20",
