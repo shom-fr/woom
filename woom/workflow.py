@@ -715,7 +715,9 @@ class Workflow:
                                         )
                                 else:
                                     if status.jobid:
-                                        self.logger.debug(f"Droping from job manager because forcing run: {status.jobid}")
+                                        self.logger.debug(
+                                            f"Droping from job manager because forcing run: {status.jobid}"
+                                        )
                                         self.jobmanager.drop(status.jobid)
 
                                 # Clean
@@ -787,7 +789,6 @@ class Workflow:
         else:
             self.logger.debug("Starting the sentinel")
             with self.set_context("sentinel"):
-
                 self.clean_task("sentinel")
 
                 # Add more to context
@@ -797,7 +798,9 @@ class Workflow:
                 for job in self.jobmanager.jobs:
                     job_status_files[str(job)] = job.files["status"]
                 self.context["status_files"] = job_status_files
-                self.context["job_blocking_status"] = dict((str(job), job.blocking) for job in self.jobmanager.jobs)
+                self.context["job_blocking_status"] = dict(
+                    (str(job), job.blocking) for job in self.jobmanager.jobs
+                )
 
                 # Submit
                 if self._dry:  # Fake mode

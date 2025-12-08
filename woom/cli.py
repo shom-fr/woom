@@ -339,7 +339,8 @@ def add_parser_run(subparsers):
         action="store_true",
     )
     parser_run.add_argument(
-        "--force", "--update",
+        "--force",
+        "--update",
         help="do not run if it has already been run",
         action="store_true",
     )

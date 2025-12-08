@@ -20,7 +20,9 @@ from jinja2 import (
 from . import util as wutil
 
 #: :class:`jinja2.Environment` used to render woom commandline templates
-JINJA_ENV = Environment(loader=PackageLoader("woom"), undefined=StrictUndefined, trim_blocks=True, extensions=['jinja2.ext.do'])
+JINJA_ENV = Environment(
+    loader=PackageLoader("woom"), undefined=StrictUndefined, trim_blocks=True, extensions=['jinja2.ext.do']
+)
 
 
 def setup_template_loader(workflow_dir):

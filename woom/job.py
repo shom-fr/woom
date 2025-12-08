@@ -724,7 +724,9 @@ class _Scheduler_(BackgroundJobManager):
             opts["depend"] = ":".join([str(job) for job in depend])
         return super().get_submission_command(script, opts, depend=depend)
 
-    def submit(self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None, blocking=True):
+    def submit(
+        self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None, blocking=True
+    ):
         """Submit the script and instantiate a :class:`Job` object"""
 
         # stdout and stderr
