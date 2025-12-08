@@ -33,9 +33,10 @@ class TestJobStatus:
         assert wjob.JobStatus.UNKNOWN.is_unknown()
         assert not wjob.JobStatus.RUNNING.is_unknown()
 
-    def test_is_killed(self):
-        assert wjob.JobStatus.KILLED.is_killed()
-        assert not wjob.JobStatus.FINISHED.is_killed()
+    def test_has_been_canceled(self):
+        assert wjob.JobStatus.KILLED.has_been_canceled()
+        assert wjob.JobStatus.TERMINATED.has_been_canceled()
+        assert not wjob.JobStatus.FINISHED.has_been_canceled()
 
     def test_jobid_property(self):
         status = wjob.JobStatus.RUNNING

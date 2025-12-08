@@ -379,6 +379,7 @@ class TestWorkflowStatus:
         # Configure mock to use actual SlurmJobManager for scheduler
         mock_jobmanager = Mock()
         mock_jobmanager.with_scheduler = SlurmJobManager
+        mock_jobmanager.get_killed = SlurmJobManager.get_killed
         mock_taskmanager.host.get_jobmanager.return_value = mock_jobmanager
         workflow = Workflow(minimal_config, mock_taskmanager)
 
@@ -414,6 +415,7 @@ class TestWorkflowStatus:
         # Configure mock to use actual SlurmJobManager for scheduler
         mock_jobmanager = Mock()
         mock_jobmanager.with_scheduler = SlurmJobManager
+        mock_jobmanager.get_killed = SlurmJobManager.get_killed
         mock_taskmanager.host.get_jobmanager.return_value = mock_jobmanager
         workflow = Workflow(minimal_config, mock_taskmanager)
 
@@ -449,6 +451,7 @@ class TestWorkflowStatus:
         # Configure mock to use actual PbsproJobManager for scheduler
         mock_jobmanager = Mock()
         mock_jobmanager.with_scheduler = PbsproJobManager
+        mock_jobmanager.get_killed = PbsproJobManager.get_killed
         mock_taskmanager.host.get_jobmanager.return_value = mock_jobmanager
         workflow = Workflow(minimal_config, mock_taskmanager)
 
