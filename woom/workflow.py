@@ -573,7 +573,7 @@ class Workflow:
                 if os.path.exists(file_path):
                     with open(file_path) as f:
                         content = f.read()
-                    status = self.jobmanager.with_scheduler.get_killed(content)
+                    status = self.jobmanager.get_killed(content)
                     if status:
                         status.jobid = job.jobid
                         return status
@@ -603,24 +603,25 @@ class Workflow:
         - :file:`job.out`
         - :file:`job.json`
         - :file:`job.status`
+        - :file:`job.terminating`
         """
         # self.logger.debug(f"Cleaning task: {task_name}")
         submission_dir = self.get_task_submission_dir(task_name, cycle, member)
-        for ext in ("sh", "err", "out", "json", "status"):
+        for ext in ("sh", "err", "out", "json", "status", "terminating"):
             fname = os.path.join(submission_dir, "job." + ext)
             if os.path.exists(fname):
                 if not self._dry:
                     os.remove(fname)
                 self.logger.debug(f"Removed: {fname}")
 
-    def run(self, dry=False, update=False):
+    def run(self, dry=False, force=False):
         """Run the workflow by submiting all tasks"""
         self._dry = dry
-        self._update = update
+        self._force = force
         if dry:
             self.logger.debug("Running the workflow in fake mode")
-        if update:
-            self.logger.debug("Running the workflow in update mode")
+        if force:
+            self.logger.debug("Running the workflow in force mode")
         sequence_depend = []
         stage_depend = []
         for stage in self.task_tree:
@@ -697,13 +698,13 @@ class Workflow:
                                 if status.is_running():
                                     raise WorkFlowError(
                                         "Can't run a task that is already running. Aborting... "
-                                        "Run 'woom kill {status.jobid}' to kill the associated "
+                                        f"Run 'woom kill {status.jobid}' to kill the associated "
                                         "job before re-running."
                                     )
 
-                                if update:
+                                if not force:
                                     if status.name is wjob.JobStatus.SUCCESS:
-                                        self.logger.debug(f"Skip update of task: {long_task}")
+                                        self.logger.debug(f"Task already succeeded. Skiping: {long_task}")
                                         continue
 
                                     elif status is wjob.JobStatus.ERROR:
@@ -712,6 +713,10 @@ class Workflow:
                                         self.logger.warning(
                                             "Unknown status for existing task job task. Re-running..."
                                         )
+                                else:
+                                    if status.jobid:
+                                        self.logger.debug(f"Droping from job manager because forcing run: {status.jobid}")
+                                        self.jobmanager.drop(status.jobid)
 
                                 # Clean
                                 self.logger.debug(f"Cleaning task: {long_task}")
@@ -739,6 +744,7 @@ class Workflow:
                                     # The next task of this group depend on this job member
                                     if blocking:
                                         task_jobs.append(job)
+                                    print("xyz jobs", self.jobmanager.jobs)
 
                             # Dependencies for the next task in the group
                             task_depend = task_jobs
@@ -776,24 +782,32 @@ class Workflow:
         jobs: list(Job), list(str)
             The list of :class:`~woom.job.Job` instances to monitor
         """
-        with self.set_context("sentinel"):
-            # Add more to context
-            self.context["jobids"] = [str(job) for job in self.jobmanager.jobs]
-            self.context["check_interval"] = self.config["stages"]["sentinel_check_interval"]
-            job_status_files = {}
-            for job in self.jobmanager.jobs:
-                job_status_files[str(job)] = job.files["status"]
-            self.context["status_files"] = job_status_files
+        if not self.jobmanager.jobs:
+            self.logger.debug("No job to monitor with the sentinel")
+        else:
+            self.logger.debug("Starting the sentinel")
+            with self.set_context("sentinel"):
 
-            # Submit
-            if self._dry:  # Fake mode
-                job = self.submit_task_fake()
+                self.clean_task("sentinel")
 
-            else:  # Real submission mode
-                job = self.submit_task()
+                # Add more to context
+                self.context["jobids"] = [str(job) for job in self.jobmanager.jobs]
+                self.context["check_interval"] = self.config["stages"]["sentinel_check_interval"]
+                job_status_files = {}
+                for job in self.jobmanager.jobs:
+                    job_status_files[str(job)] = job.files["status"]
+                self.context["status_files"] = job_status_files
+                self.context["job_blocking_status"] = dict((str(job), job.blocking) for job in self.jobmanager.jobs)
 
-            self.logger.info("Submitted sentinel job.")
-            return job
+                # Submit
+                if self._dry:  # Fake mode
+                    job = self.submit_task_fake()
+
+                else:  # Real submission mode
+                    job = self.submit_task()
+
+                self.logger.info("Submitted sentinel job")
+                return job
 
     def terminate_blocking_jobs(self):
         """Terminate blocking jobs"""

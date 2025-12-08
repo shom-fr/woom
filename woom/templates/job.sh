@@ -4,18 +4,27 @@
 # Prolog
 set -eo pipefail
 # - handler for graceful termination
-on_term() {
-    echo "Received termination signal, cleaning up..." >&2
+on_sigterm() {
+    echo "Received termination signal, cleaning up..."
     # Just exit cleanly, let on_exit handle status
     exit 0
+}
+# - handler for killing termination
+on_sigkill() {
+    echo "Received kill signal, cleaning up..." >&2
+    # Just exit cleanly, let on_exit handle status
+    exit 1
 }
 # - handler for exit (always called)
 on_exit() {
     status=$?
-    echo $status > "{{ submission_dir }}/job.status"
+    if [ ! -f "{{ submission_dir }}/job.terminating" ]; then
+        echo $status > "{{ submission_dir }}/job.status"
+    fi
     exit $status
 }
-trap on_term SIGTERM SIGINT
+trap on_sigterm SIGKILL
+trap on_sigkill SIGTERM SIGINT
 trap on_exit EXIT
 {% endblock %}
 

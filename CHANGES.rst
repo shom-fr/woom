@@ -22,6 +22,7 @@ Breaking changes
 * Artifacts are now configured with one section per artifact [:pull:`16`].
 * ``Workflow.get_submission_dir`` is renamed `Workflow.get_task_submission_dir``
 * ``Workflow.get_run_dir`` is renamed ``Workflow.get_task_run_dir``.
+* ``--update `` run option is renamed ``--force`` [:pull:`18`].
 
 Deprecations
 ------------

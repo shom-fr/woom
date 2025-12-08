@@ -52,8 +52,11 @@ class JobStatus(Enum):
     def is_unknown(self):
         return self.value == 0
 
-    def is_killed(self):
-        return self.name == "KILLED"
+    def has_been_canceled(self):
+        return self.name in ["KILLED", "TERMINATED"]
+
+    def has_failed(self):
+        return self.name in ["ERROR", "FAILED", "KILLED"]
 
     @property
     def jobid(self):
@@ -63,7 +66,7 @@ class JobStatus(Enum):
 
     @jobid.setter
     def jobid(self, jobid):
-        self._jobid = jobid
+        self._jobid = str(jobid)
 
 
 # %% Background processes
@@ -211,6 +214,9 @@ class Job:
             self.name, self.status.name, self.jobid, self.script
         )
 
+    def __eq__(self, job):
+        return str(self) == str(job)
+
     @property
     def files(self):
         """:class:`dict` of job files like script, status, out, err and json"""
@@ -221,6 +227,7 @@ class Job:
             "err": os.path.join(submdir, "job.err"),
             "out": os.path.join(submdir, "job.out"),
             "json": os.path.join(submdir, "job.json"),
+            "terminating": os.path.join(submdir, "job.terminating"),
         }
 
     def _get_proc_(self):
@@ -246,7 +253,7 @@ class Job:
 
     def get_status(self, fallback=None):
         """Query and set the status of this job"""
-        if self.status.is_killed():  # don't query in this case
+        if self.status.has_been_canceled():  # don't query in this case
             return self.status
         return self.set_status(self.query_status(), fallback=fallback)
 
@@ -316,11 +323,11 @@ class Job:
 
             # Since SIGKILL can't be trapped, we must write the status file ourselves
             status_file = self.files["status"]
-            logger.debug(f"Writing error status to {status_file}")
+            exit_code = "0" if graceful else "1"
+            logger.debug(f"Writing exit status to {status_file}: {exit_status}")
             with open(status_file, 'w') as f:
-                f.write('1')  # Non-zero status indicates forced termination
-
-            self.set_status("KILLED")
+                f.write(exit_code)
+            self.set_status("TERMINATED" if graceful else "KILLED")
 
     def wait(self):
         """Wait for a job to finish"""
@@ -426,9 +433,6 @@ class BackgroundJobManager(object):
             if job.jobid == jobid:
                 return job
 
-    def __contains__(self, job):
-        return self.get_job(job) is not None
-
     def get_jobs(self, jobids=None, name=None, queue=None):
         """Get job ids
 
@@ -464,7 +468,7 @@ class BackgroundJobManager(object):
                     continue
                 jobs.append(job)
         else:
-            jobs = self.jobs
+            jobs = list(self.jobs)
         return jobs
 
     def get_status(self, jobids=None, name=None, queue=None, fallback=None):
@@ -494,8 +498,22 @@ class BackgroundJobManager(object):
         if show:
             print(overview)
 
+    def __contains__(self, job):
+        return self.get_job(job) is not None
+
     def __getitem__(self, jobid):
         return self.get_job(jobid)
+
+    def drop(self, job):
+        for j in list(self.jobs):
+            if j == job:
+                self.jobs.remove(j)
+                print("xxx ok droped", str(job))
+                return
+        raise WoomJobError(f"Can't drop job from manager: {job}")
+
+    def __delitem__(self, jobid):
+        self.drop(jobid)
 
     def __str__(self):
         return self.get_overview()
@@ -525,11 +543,11 @@ class BackgroundJobManager(object):
                     if ovalue is not None:
                         fmt = cls.commands[command]["options"][oname]
                         if isinstance(ovalue, bool):
-                            args += fmt
+                            args += shlex.split(fmt)
                         elif isinstance(ovalue, list):
                             ovalue = [val for val in ovalue if val]
                             for val in ovalue:
-                                args += fmt.format(val)
+                                args += shlex.split(fmt.format(val))
                         else:
                             fmt = shlex.split(fmt.format(ovalue))
                             args += fmt
@@ -639,7 +657,7 @@ class ScheduledJob(Job):
         # Parse active jobs
         status_list = self.manager._parse_status_res_(res)
         if status_list:
-            return status_list[0]
+            return status_list[0]["status"]
 
         # Fallback to history if job not in active queue
         if hasattr(self.manager, '_query_history_status_'):
@@ -667,7 +685,7 @@ class ScheduledJob(Job):
         if graceful:
             # Send SIGTERM using scheduler command
             logger.debug(f"Sending SIGTERM to job: {self.jobid}")
-            args = self.manager.get_command_args("delete", jobid=self.jobid)
+            args = self.manager.get_command_args("delete", force=False, terminate=True, jobid=self.jobid)
             res = subprocess.run(args, capture_output=True)
 
             if res.returncode == 0:
@@ -679,22 +697,22 @@ class ScheduledJob(Job):
                         logger.debug(f"Job {self.jobid} terminated gracefully")
                         # Let get_task_status in workflow.py read the status file
                         return
-                    # time.sleep(1)
+                    time.sleep(1)
 
                 logger.warning(f"Job {self.jobid} did not terminate gracefully, forcing kill")
 
         # Force kill with SIGKILL
         logger.debug(f"Forcing kill of job: {self.jobid}")
-        args = self.manager.get_command_args("delete", force=True, jobid=self.jobid)
+        args = self.manager.get_command_args("delete", force=True, terminate=False, jobid=self.jobid)
         res = subprocess.run(args, capture_output=True, check=True)
         if res.returncode == 0:
             # SIGKILL won't trigger bash handlers, write status ourselves
             status_file = self.files["status"]
-            logger.debug(f"Writing error status to {status_file}")
+            exit_code = "0" if graceful else "1"
+            logger.debug(f"Writing exit status to {status_file}: {exit_code}")
             with open(status_file, 'w') as f:
-                f.write('1')
-
-            self.set_status("KILLED")
+                f.write(exit_code)
+            self.set_status("TERMINATED" if graceful else "KILLED")
 
 
 class _Scheduler_(BackgroundJobManager):
@@ -706,15 +724,15 @@ class _Scheduler_(BackgroundJobManager):
             opts["depend"] = ":".join([str(job) for job in depend])
         return super().get_submission_command(script, opts, depend=depend)
 
-    def submit(self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None):
+    def submit(self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None, blocking=True):
         """Submit the script and instantiate a :class:`Job` object"""
 
         # stdout and stderr
         rootname = os.path.splitext(script)[0]
         if stdout is None:
-            stdout = f"localhost:{rootname}.out"
+            stdout = f"{rootname}.out"
         if stderr is None:
-            stderr = f"localhost:{rootname}.err"
+            stderr = f"{rootname}.err"
         opts["log_out"] = stdout
         opts["log_err"] = stderr
 
@@ -727,6 +745,7 @@ class _Scheduler_(BackgroundJobManager):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             artifacts=artifacts,
+            blocking=blocking,
         )
         job.subproc.wait()
 
@@ -916,6 +935,7 @@ class SlurmJobManager(_Scheduler_):
             "options": {
                 "jobid": "{}",
                 "force": "--signal=KILL",
+                "terminate": "--signal=TERM",
             },
         },
     }

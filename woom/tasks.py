@@ -100,7 +100,7 @@ class TaskTree:
     def get_task_stage(self, task_name):
         """Get the stage name of task
 
-        It can be either "prolog", "cycles" or "epilog"
+        It can be either "prolog", "cycles", "epilog" or None
         """
         dd = self.to_dict()
         for stage, scontent in dd.items():
@@ -246,7 +246,7 @@ class Task:
 
         Parameters
         ----------
-        context: wooom.context.Context
+        context: woom.context.Context
         """
         context["task"] = self
         self._context = context
