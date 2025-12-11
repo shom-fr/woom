@@ -147,8 +147,6 @@ max-locals = 20
 
 # Bandit configuration
 [tool.bandit]
-exclude_dirs = ["/tests", "/build", "/dist"]
+exclude_dirs = ["tests", "build", "dist", ".venv"]
 tests = ["B201", "B301"]
 skips = ["B101", "B601"]
-[tool.bandit.assert_used]
-skips = ["*test_*.py"]

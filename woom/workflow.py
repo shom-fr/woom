@@ -43,6 +43,15 @@ class Workflow:
     output_directories = ["log", "tasks"]
 
     def __init__(self, cfgfile, taskmanager):
+        """Initialize a workflow
+
+        Parameters
+        ----------
+        cfgfile : str or configobj.ConfigObj
+            Path to workflow configuration file or configuration object
+        taskmanager : TaskManager
+            Task manager instance
+        """
         self.logger = logging.getLogger(__name__)
         if isinstance(cfgfile, str):
             self._cfgfile = cfgfile
@@ -132,10 +141,12 @@ class Workflow:
 
     @functools.cached_property
     def task_tree(self):
+        """Current :class:`~woom.tasks.TaskTree`"""
         return self._task_tree.to_dict()
 
     @property
     def paths(self):
+        """:class:`dict` of standard paths that must be prepended"""
         return self._paths
 
     @property
@@ -218,15 +229,46 @@ class Workflow:
         """Shortcut to ``self.taskmanager.get_task(task_name)``"""
         return self.taskmanager.get_task(task_name)
 
+    def get_task_cycle(self, task_name, cycle):
+        """Like :meth:`get_cycle` but check that it is compatible with a given task"""
+        stage = self._task_tree.get_task_stage(task_name)
+        if stage != "cycles":
+            if cycle is not None and stage != cycle:
+                raise WorkFlowError(f"Cycle '{cycle}' is not compatible with task '{task_name}'")
+            return stage
+        elif cycle is None:
+            raise WorkFlowError(f"You must specify the cycle for task: {task_name}")
+
+        return self.get_cycle(cycle)
+
+    def get_task_member(self, task_name, member):
+        """Like :meth:`get_member` but check that it is compatible with a given task"""
+        task_members = self.get_task_members(task_name)
+        member = self.get_member(member)
+        if member is not None and task_members is None:
+            raise WorkFlowError(f"Task '{task_name}' has no member")
+        if member is None and task_members is not None:
+            raise WorkFlowError(f"Task '{task_name}' needs a member")
+        return member
+
     def get_task_path(self, task_name, cycle=None, member=None, sep=os.path.sep):
         """Concatenate the :attr:`app_path`, the cycle and, `task_name` and the member label"""
         parts = self._app_path.copy()
+        cycle = self.get_task_cycle(task_name, cycle)
         if cycle:
             parts.append(str(cycle))
         parts.append(task_name)
-        if member is not None and self.get_task_members(task_name):
-            parts.append(member.label)
+        member = self.get_task_member(task_name, member)
+        if member is not None:
+            parts.append(str(member))
         return sep.join(parts)
+
+    def is_task_blocking(self, task_name):
+        """Is this task blocking?
+
+        If not, it cannot be added as a dependency
+        """
+        return self.get_task(task_name).is_blocking
 
     def get_task_items(self, getter, task_name, cycle=None, member=None, flat=False, **kwargs):
         """Loop on cycles and members to retreive task items
@@ -256,21 +298,14 @@ class Workflow:
             else:
                 cycles = [stage]
         else:
-            if stage == "cycles":
-                cycle = self.get_cycle(cycle)
-            elif stage != "cycles" and cycle != stage:
-                raise WoomError(f"Invalid cycle for task '{task_name}': {cycle} {self.cycles} {stage}")
-            cycles = [cycle]
+            cycles = [self.get_task_cycle(task_name, cycle)]
 
         # Members
         task_members = self.get_task_members(task_name)
         if member is None:
             members = task_members or [None]
         else:
-            member = self.get_member(member)
-            if task_members is None:
-                raise WoomError(f"Task '{task_name}' has no member")
-            members = [member]
+            members = [self.get_task_member(task_name, member)]
 
         # Loops
         out = {}
@@ -439,7 +474,7 @@ class Workflow:
             'artifacts': task_specs["artifacts"],
         }
 
-    def submit_task(self, depend=None):
+    def submit_task(self, depend=None, blocking=True):
         """Submit a task
 
         Parameters
@@ -464,11 +499,15 @@ class Workflow:
         del submission_args["content"]  # no longer needed since on disk
 
         # Submit it
-        job = self.jobmanager.submit(**submission_args)
+        job = self.jobmanager.submit(blocking=blocking, **submission_args)
 
+        # Check submission
+        if job is None:
+            task_path = self.context["task_path"]
+            raise WorkFlowError(f"Task submission aborted: {task_path}. Stopping workflow...")
         return job
 
-    def submit_task_fake(self, depend=None):
+    def submit_task_fake(self, depend=None, blocking=True):
         """Don't submit a task, just display it"""
 
         # Get the submission arguments
@@ -500,7 +539,9 @@ class Workflow:
         content += "-" * 50
 
         self.logger.debug(content)
-        return jobid
+
+        # Create fake job
+        return self.jobmanager.create_job(script=self.context["script_path"], jobid=jobid, blocking=blocking)
 
     def get_task_status(self, task_name, cycle=None, member=None):
         """Get the job status of a task
@@ -523,26 +564,19 @@ class Workflow:
         else:
             return wjob.JobStatus["NOTSUBMITTED"]
 
-        # Walltime exceeded
+        # Killed status from output
         out_file = os.path.join(submission_dir, "job.out")
-        if os.path.exists(out_file):
-            with open(out_file) as f:
-                content = f.read()
-            if "PBS: job killed: walltime" in content and "Terminated" in content:
-                status = wjob.JobStatus["FAILED"]
-                status.jobid = job.jobid
-                return status
-
-        # Walltime exceeded
-        # FIXME: to be integrated in job
-        out_file = os.path.join(submission_dir, "job.out")
-        if os.path.exists(out_file):
-            with open(out_file) as f:
-                content = f.read()
-            if "PBS: job killed: walltime" in content and "Terminated" in content:
-                status = wjob.JobStatus["FAILED"]
-                status.jobid = job.jobid
-                return status
+        err_file = os.path.join(submission_dir, "job.err")
+        if self.jobmanager.with_scheduler:
+            # Check both stdout and stderr for kill signals
+            for file_path in [out_file, err_file]:
+                if os.path.exists(file_path):
+                    with open(file_path) as f:
+                        content = f.read()
+                    status = self.jobmanager.get_killed(content)
+                    if status:
+                        status.jobid = job.jobid
+                        return status
 
         # Finish with success
         status_file = os.path.join(submission_dir, "job.status")
@@ -569,24 +603,25 @@ class Workflow:
         - :file:`job.out`
         - :file:`job.json`
         - :file:`job.status`
+        - :file:`job.terminating`
         """
         # self.logger.debug(f"Cleaning task: {task_name}")
         submission_dir = self.get_task_submission_dir(task_name, cycle, member)
-        for ext in ("sh", "err", "out", "json", "status"):
+        for ext in ("sh", "err", "out", "json", "status", "terminating"):
             fname = os.path.join(submission_dir, "job." + ext)
             if os.path.exists(fname):
                 if not self._dry:
                     os.remove(fname)
                 self.logger.debug(f"Removed: {fname}")
 
-    def run(self, dry=False, update=False):
+    def run(self, dry=False, force=False):
         """Run the workflow by submiting all tasks"""
         self._dry = dry
-        self._update = update
+        self._force = force
         if dry:
             self.logger.debug("Running the workflow in fake mode")
-        if update:
-            self.logger.debug("Running the workflow in update mode")
+        if force:
+            self.logger.debug("Running the workflow in force mode")
         sequence_depend = []
         stage_depend = []
         for stage in self.task_tree:
@@ -663,13 +698,13 @@ class Workflow:
                                 if status.is_running():
                                     raise WorkFlowError(
                                         "Can't run a task that is already running. Aborting... "
-                                        "Run 'woom kill {status.jobid}' to kill the associated "
+                                        f"Run 'woom kill {status.jobid}' to kill the associated "
                                         "job before re-running."
                                     )
 
-                                if update:
+                                if not force:
                                     if status.name is wjob.JobStatus.SUCCESS:
-                                        self.logger.debug(f"Skip update of task: {long_task}")
+                                        self.logger.debug(f"Task already succeeded. Skiping: {long_task}")
                                         continue
 
                                     elif status is wjob.JobStatus.ERROR:
@@ -678,6 +713,12 @@ class Workflow:
                                         self.logger.warning(
                                             "Unknown status for existing task job task. Re-running..."
                                         )
+                                else:
+                                    if status.jobid:
+                                        self.logger.debug(
+                                            f"Droping from job manager because forcing run: {status.jobid}"
+                                        )
+                                        self.jobmanager.drop(status.jobid)
 
                                 # Clean
                                 self.logger.debug(f"Cleaning task: {long_task}")
@@ -685,26 +726,27 @@ class Workflow:
 
                                 # Context
                                 with self.set_context(task_name, cycle, member):
+                                    # Blocking?
+                                    blocking = self.is_task_blocking(task_name)
+
                                     # Submit
                                     self.logger.debug(f"Submitting task: {long_task}")
                                     jobids = ", ".join([str(job) for job in task_depend])
                                     self.logger.debug(f"  Dependencies: {jobids}")
                                     if dry:  # Fake mode
-                                        job = self.submit_task_fake(task_depend)
+                                        job = self.submit_task_fake(task_depend, blocking)
 
                                     else:  # Real submission mode
-                                        job = self.submit_task(task_depend)
-                                        if job is None:
-                                            raise WorkFlowError(
-                                                f"Task submission aborted: {long_task}. Stopping workflow..."
-                                            )
+                                        job = self.submit_task(task_depend, blocking)
                                     depending = f" depending on [{jobids}]" if task_depend else ""
                                     self.logger.info(
                                         f"Submitted task: {long_task} with job id {job}{depending}"
                                     )
 
-                                # The next task of this group depend on this job member
-                                task_jobs.append(job)
+                                    # The next task of this group depend on this job member
+                                    if blocking:
+                                        task_jobs.append(job)
+                                    print("xyz jobs", self.jobmanager.jobs)
 
                             # Dependencies for the next task in the group
                             task_depend = task_jobs
@@ -727,6 +769,57 @@ class Workflow:
                     self.logger.info("Successfully submitted stage: " + stage)
 
             stage_depend = stage_jobs
+
+        # Sentinel job
+        if self.jobmanager.with_scheduler:
+            self.submit_sentinel()
+        else:
+            self.terminate_blocking_jobs()
+
+    def submit_sentinel(self):
+        """Submit a sentinel job that regularly checks the status of all task jobs
+
+        Parameters
+        ----------
+        jobs: list(Job), list(str)
+            The list of :class:`~woom.job.Job` instances to monitor
+        """
+        if not self.jobmanager.jobs:
+            self.logger.debug("No job to monitor with the sentinel")
+        else:
+            self.logger.debug("Starting the sentinel")
+            with self.set_context("sentinel"):
+                self.clean_task("sentinel")
+
+                # Add more to context
+                self.context["jobids"] = [str(job) for job in self.jobmanager.jobs]
+                self.context["check_interval"] = self.config["stages"]["sentinel_check_interval"]
+                job_status_files = {}
+                for job in self.jobmanager.jobs:
+                    job_status_files[str(job)] = job.files["status"]
+                self.context["status_files"] = job_status_files
+                self.context["job_blocking_status"] = dict(
+                    (str(job), job.blocking) for job in self.jobmanager.jobs
+                )
+
+                # Submit
+                if self._dry:  # Fake mode
+                    job = self.submit_task_fake()
+
+                else:  # Real submission mode
+                    job = self.submit_task()
+
+                self.logger.info("Submitted sentinel job")
+                return job
+
+    def terminate_blocking_jobs(self):
+        """Terminate blocking jobs"""
+        self.logger.debug("Terminating non-blocking jobs")
+        for job in self.jobmanager.jobs:
+            if not job.blocking:
+                if not self._dry:
+                    job.kill(graceful=True)
+                self.logger.info(f"Terminated non-blocking job gracefully: {job}")
 
     def show_overview(self):
         """Display an overview of the workflow, like its task tree and cycles"""
@@ -779,6 +872,8 @@ class Workflow:
                         for task_name in group:
                             for member in self.get_task_members(task_name) or [None]:
                                 yield task_name, cycle, member
+        if self.jobmanager.with_scheduler:
+            yield "sentinel", None, None
 
     @property
     def submission_dirs(self):

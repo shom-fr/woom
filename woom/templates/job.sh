@@ -3,16 +3,32 @@
 
 # Prolog
 set -eo pipefail
+# - handler for graceful termination
+on_sigterm() {
+    echo "Received termination signal, cleaning up..."
+    # Just exit cleanly, let on_exit handle status
+    exit 0
+}
+# - handler for killing termination
+on_sigkill() {
+    echo "Received kill signal, cleaning up..." >&2
+    # Just exit cleanly, let on_exit handle status
+    exit 1
+}
+# - handler for exit (always called)
 on_exit() {
     status=$?
-    echo $status > "{{ submission_dir }}/job.status"
+    if [ ! -f "{{ submission_dir }}/job.terminating" ]; then
+        echo $status > "{{ submission_dir }}/job.status"
+    fi
     exit $status
 }
+trap on_sigterm SIGKILL
+trap on_sigkill SIGTERM SIGINT
 trap on_exit EXIT
 {% endblock %}
 
 {% block env -%}
-{# task.export_env(params) #}
 {% include "env.sh" %}
 {% endblock %}
 
@@ -31,12 +47,10 @@ trap on_exit EXIT
 {% block post_run -%}
 {% if task.artifacts %}
 # Check artifacts
-{# task.export_artifacts_checking() #}
 {% for name, paths in task.artifacts.items() -%}
   {% for path in paths -%}
 test -f "{{ path }}" || { echo artifact not created: {{ name }}={{ path }}; exit 1; }
   {% endfor %}
 {% endfor %}
-
 {% endif %}
 {% endblock %}

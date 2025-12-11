@@ -7,6 +7,34 @@ import os
 
 
 class EnvConfig:
+    """Configuration for environment variables, modules, and conda environments
+
+    Parameters
+    ----------
+    raw_text : str, optional
+        Raw environment setup text
+    vars_forward : list, optional
+        Environment variables to forward
+    vars_set : dict, optional
+        Environment variables to set
+    vars_append : dict, optional
+        Paths to append to environment variables
+    vars_prepend : dict, optional
+        Paths to prepend to environment variables
+    module_setup : str, optional
+        Module system setup command
+    module_use : list, optional
+        Module paths to use
+    module_load : list, optional
+        Modules to load
+    conda_setup : str, optional
+        Conda setup command
+    conda_activate : str, optional
+        Conda environment to activate
+    uv_venv : str, optional
+        UV virtual environment path
+    """
+
     def __init__(
         self,
         raw_text=None,

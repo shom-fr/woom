@@ -26,6 +26,7 @@ class HostError(WoomError):
 
 class HostManager:
     def __init__(self):
+        """Initialize host manager with default configuration"""
         self._config = wconf.load_cfg(CFG_DEFAULT_FILE, CFGSPECS_FILE)
         self._host = None
 
@@ -69,6 +70,15 @@ class HostManager:
 
 class Host:
     def __init__(self, name, config):
+        """Initialize a host
+
+        Parameters
+        ----------
+        name : str
+            Host name
+        config : configobj.Section
+            Host configuration section
+        """
         self._name = name
         self._config = config
         self._env = None
@@ -89,6 +99,11 @@ class Host:
 
     # def __getitem__(self, key):
     #     return self.config[key]
+
+    @property
+    def scheduler(self):
+        """Scheduler like background, pbsproc or slurm"""
+        return self.config["scheduler"]
 
     @functools.lru_cache
     def get_jobmanager(self):  # , session):

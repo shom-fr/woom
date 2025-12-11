@@ -20,7 +20,9 @@ from jinja2 import (
 from . import util as wutil
 
 #: :class:`jinja2.Environment` used to render woom commandline templates
-JINJA_ENV = Environment(loader=PackageLoader("woom"), undefined=StrictUndefined, trim_blocks=True)
+JINJA_ENV = Environment(
+    loader=PackageLoader("woom"), undefined=StrictUndefined, trim_blocks=True, extensions=['jinja2.ext.do']
+)
 
 
 def setup_template_loader(workflow_dir):
@@ -57,9 +59,14 @@ def setup_template_loader(workflow_dir):
 
 
 class WoomLoader(BaseLoader):
-    """Jinja loader that searches for use templates
+    """Jinja loader that searches for user templates
 
-    Base template is laodable with a "!" prefix.
+    Base template is loadable with a "!" prefix.
+
+    Parameters
+    ----------
+    workflow_dir : str
+        Workflow directory path
     """
 
     def __init__(self, workflow_dir):

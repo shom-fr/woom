@@ -14,11 +14,18 @@ from . import conf as wconf
 from . import render as wrender
 from .__init__ import WoomError
 
-CFGSPECS_FILE = os.path.join(os.path.dirname(__file__), "tasks.ini")
+thisdir = os.path.dirname(__file__)
+
+#: Specifications file for tasks configuration
+CFGSPECS_FILE = os.path.join(thisdir, "tasks.ini")
+
 RE_SPLIT_COMMAS = re.compile(r"\s*,\s*").split
 
+#: Default tasks configuration
+CFG_DEFAULT_FILE = os.path.join(thisdir, "tasks.cfg")
 
-#: Function that generate artifact paths taking a context as first argument
+
+#: Functions that generate artifact paths taking a context as first argument
 ARTIFACTS_GENERATORS = {}
 
 
@@ -30,11 +37,13 @@ class TaskTree:
     """Postprocess configuration to build a task tree"""
 
     def __init__(self, stages, groups=None):
-        """
+        """Initialize a task tree
+
         Parameters
         ----------
-        stages: :class:`configobj.Section`
-        groups: None, :class:`configobj.Section`
+        stages : configobj.Section
+            Workflow stages configuration
+        groups : configobj.Section, optional
             Group of tasks that can be used in stages
         """
         self._stages = configobj.ConfigObj(stages)
@@ -91,7 +100,7 @@ class TaskTree:
     def get_task_stage(self, task_name):
         """Get the stage name of task
 
-        It can be either "prolog", "cycles" or "epilog"
+        It can be either "prolog", "cycles", "epilog" or None
         """
         dd = self.to_dict()
         for stage, scontent in dd.items():
@@ -104,12 +113,34 @@ class TaskTree:
 
 
 class TaskManager:
+    """Manager of :class:`Task` instances"""
+
     def __init__(self, host):
+        """Initialize a task manager
+
+        Parameters
+        ----------
+        host : Host
+            Host instance
+        """
         self._configs = []
-        self._config = configobj.ConfigObj(interpolation=False)
+        self._config = wconf.load_cfg(CFG_DEFAULT_FILE, CFGSPECS_FILE, interpolation=False)
         self._host = host
 
     def load_config(self, cfgfile):
+        """Load a user configuration file
+
+        .. note:: It is merged with the current one
+
+        Parameters
+        ----------
+        cfgfile: str
+            A valid config file
+
+        Return
+        ------
+        configobj.ConfigObj
+        """
         cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE, list_values=False)
         self._configs.append(cfg)
         self._postproc_()
@@ -145,7 +176,13 @@ class TaskManager:
                     content["artifacts"][artifact_name] = {"paths": [path], "check": True, "callable": False}
 
     @property
+    def config(self):
+        """The tasks configuration as loaded from the :file:`tasks.cfg` (:class:`~configobj.ConfigObj`)"""
+        return self._config
+
+    @property
     def host(self):
+        """The associated :class:`~woom.hosts.Host` instance"""
         return self._host
 
     @functools.lru_cache
@@ -171,6 +208,15 @@ class TaskManager:
 
 class Task:
     def __init__(self, taskconfig, host):
+        """Initialize a task
+
+        Parameters
+        ----------
+        taskconfig : configobj.Section
+            Task configuration section
+        host : Host
+            Host instance
+        """
         self._config = taskconfig
         self._host = host
         self._context = None
@@ -190,12 +236,17 @@ class Task:
         """The task name (:class:`str`)"""
         return self.config.name
 
+    @property
+    def is_blocking(self):
+        """It is blocking?"""
+        return self.config["submit"]["blocking"]
+
     def set_context(self, context):
         """Set the context to be used for jinja rendering
 
         Parameters
         ----------
-        context: wooom.context.Context
+        context: woom.context.Context
         """
         context["task"] = self
         self._context = context
@@ -344,8 +395,8 @@ class Task:
     def render_content(self):
         """Render the task content with jinja
 
-        Rendering uses parameters and the :ref:`job.sh template <templates.job.sh>`
-
+        Rendering uses parameters and the template defined in the configuration,
+        which defaults to :ref:`job.sh<templates.job.sh>`.
 
         Return
         ------
@@ -353,7 +404,8 @@ class Task:
         """
         # context = context.copy()
         # context["context"] = context
-        return wrender.render(wrender.JINJA_ENV.get_template("job.sh"), self.context)
+        template = wrender.JINJA_ENV.get_template(self.config["content"]["template"])
+        return wrender.render(template, self.context)
 
     def export_scheduler_options(self):
         """Export a dict of scheduler options

@@ -9,6 +9,7 @@ import logging
 import os
 import shlex
 import subprocess
+import time
 from enum import Enum
 
 import psutil
@@ -28,6 +29,7 @@ class WoomJobError(WoomError):
 
 
 class JobStatus(Enum):
+    TERMINATED = -7
     FAILED = -6
     ERROR = -5
     SUCCESS = -4
@@ -50,8 +52,11 @@ class JobStatus(Enum):
     def is_unknown(self):
         return self.value == 0
 
-    def is_killed(self):
-        return self.name == "KILLED"
+    def has_been_canceled(self):
+        return self.name in ["KILLED", "TERMINATED"]
+
+    def has_failed(self):
+        return self.name in ["ERROR", "FAILED", "KILLED"]
 
     @property
     def jobid(self):
@@ -61,14 +66,42 @@ class JobStatus(Enum):
 
     @jobid.setter
     def jobid(self, jobid):
-        self._jobid = jobid
+        self._jobid = str(jobid)
 
 
 # %% Background processes
 
 
 class Job:
-    """Single job"""
+    """Single job
+
+    Parameters
+    ----------
+    manager : JobManager
+        Job manager instance
+    name : str
+        Job name
+    script : str
+        Path to job script
+    args : list
+        Command line arguments
+    queue : str, optional
+        Queue name
+    jobid : str, optional
+        Job identifier
+    submission_date : str, optional
+        Date of submission
+    status : str or JobStatus, optional
+        Job status
+    subproc : subprocess.Popen, optional
+        Subprocess object for background jobs
+    artifacts : dict, optional
+        Job artifacts
+    submission_dir : str, optional
+        Submission directory path
+    blocking : bool, optional
+        Whether job is blocking
+    """
 
     overview_format = dict(
         name="20",
@@ -94,6 +127,8 @@ class Job:
         status="UNKNOWN",
         subproc=None,
         artifacts=None,
+        submission_dir=None,
+        blocking=True,
     ):
         self.manager = manager
         self.name = name
@@ -104,13 +139,17 @@ class Job:
         self.realqueue = None
         self.time = None
         self.memory = None
-        self.submission_date = submission_date
+        self.submission_date = submission_date if submission_date else str(datetime.datetime.now())[:-7]
+        if script is not None and submission_dir is None:
+            submission_dir = os.path.dirname(script)
+        self.submission_dir = submission_dir
         self.subproc = subproc
         if isinstance(status, str):
             status = JobStatus[status]
         self.status = status
         self.status.jobid = jobid
         self.artifacts = artifacts
+        self.blocking = blocking
 
     @classmethod
     def load(cls, manager, json_file, append=True):
@@ -129,6 +168,7 @@ class Job:
             status=content["status"],
             submission_date=content["submission_date"],
             artifacts=content.get("artifacts"),
+            blocking=content.get("blocking", True),
         )
         if append and content["jobid"] not in manager:
             manager.jobs.append(job)
@@ -160,7 +200,7 @@ class Job:
         """Export to json in job script directory"""
         jobdict = self.to_dict()
         if json_file is None:
-            json_file = os.path.splitext(self.script)[0] + ".json"
+            json_file = self.files["json"]
         with open(json_file, "w") as f:
             json.dump(jobdict, f, indent=4, cls=wutil.WoomJSONEncoder)
             json_path = f.name
@@ -173,6 +213,22 @@ class Job:
         return "<Job(name={}, status={}, jobid={}, script={})>".format(
             self.name, self.status.name, self.jobid, self.script
         )
+
+    def __eq__(self, job):
+        return str(self) == str(job)
+
+    @property
+    def files(self):
+        """:class:`dict` of job files like script, status, out, err and json"""
+        submdir = os.path.dirname(self.script)
+        return {
+            "script": self.script,
+            "status": os.path.join(submdir, "job.status"),
+            "err": os.path.join(submdir, "job.err"),
+            "out": os.path.join(submdir, "job.out"),
+            "json": os.path.join(submdir, "job.json"),
+            "terminating": os.path.join(submdir, "job.terminating"),
+        }
 
     def _get_proc_(self):
         if isinstance(self.jobid, subprocess.Popen):
@@ -197,7 +253,7 @@ class Job:
 
     def get_status(self, fallback=None):
         """Query and set the status of this job"""
-        if self.status.is_killed():  # don't query in this case
+        if self.status.has_been_canceled():  # don't query in this case
             return self.status
         return self.set_status(self.query_status(), fallback=fallback)
 
@@ -234,12 +290,47 @@ class Job:
         except psutil.NoSuchProcess:
             return False
 
-    def kill(self):
+    def kill(self, graceful=True, timeout=10):
+        """Kill the job, optionally trying graceful termination first
+
+        Parameters
+        ----------
+        graceful: bool
+            If True, send SIGTERM first and wait for graceful shutdown
+        timeout: int
+            Seconds to wait for graceful shutdown before forcing SIGKILL
+        """
         if self.is_running():
-            self._get_proc_().kill()
-            self.set_status("KILLED")
+            proc = self._get_proc_()
+
+            if graceful:
+                # Try graceful termination first
+                logger.debug(f"Sending SIGTERM to process: {proc.pid}")
+                proc.terminate()  # Sends SIGTERM
+
+                try:
+                    # Wait for the process to terminate gracefully
+                    proc.wait(timeout=timeout)
+                    logger.debug(f"Process {proc.pid} terminated gracefully")
+                    # The script's on_term handler wrote status 0
+                    self.set_status("SUCCESS")
+                    return
+                except psutil.TimeoutExpired:
+                    logger.warning(f"Process {proc.pid} did not terminate gracefully, forcing kill")
+
+            # Force kill with SIGKILL
+            proc.kill()
+
+            # Since SIGKILL can't be trapped, we must write the status file ourselves
+            status_file = self.files["status"]
+            exit_code = "0" if graceful else "1"
+            logger.debug(f"Writing exit status to {status_file}: {exit_status}")
+            with open(status_file, 'w') as f:
+                f.write(exit_code)
+            self.set_status("TERMINATED" if graceful else "KILLED")
 
     def wait(self):
+        """Wait for a job to finish"""
         if self.is_running():
             p = self._get_proc_()
             logger.debug(f"Waiting for process to finish: {p.pid}")
@@ -282,6 +373,8 @@ class Job:
 
 class BackgroundJobManager(object):
     """Manager for jobs that run in background"""
+
+    with_scheduler = False
 
     commands = {
         "submit": {
@@ -340,9 +433,6 @@ class BackgroundJobManager(object):
             if job.jobid == jobid:
                 return job
 
-    def __contains__(self, job):
-        return self.get_job(job) is not None
-
     def get_jobs(self, jobids=None, name=None, queue=None):
         """Get job ids
 
@@ -378,7 +468,7 @@ class BackgroundJobManager(object):
                     continue
                 jobs.append(job)
         else:
-            jobs = self.jobs
+            jobs = list(self.jobs)
         return jobs
 
     def get_status(self, jobids=None, name=None, queue=None, fallback=None):
@@ -408,8 +498,22 @@ class BackgroundJobManager(object):
         if show:
             print(overview)
 
+    def __contains__(self, job):
+        return self.get_job(job) is not None
+
     def __getitem__(self, jobid):
         return self.get_job(jobid)
+
+    def drop(self, job):
+        for j in list(self.jobs):
+            if j == job:
+                self.jobs.remove(j)
+                print("xxx ok droped", str(job))
+                return
+        raise WoomJobError(f"Can't drop job from manager: {job}")
+
+    def __delitem__(self, jobid):
+        self.drop(jobid)
 
     def __str__(self):
         return self.get_overview()
@@ -438,16 +542,12 @@ class BackgroundJobManager(object):
                 if oname in cls.commands[command]["options"]:
                     if ovalue is not None:
                         fmt = cls.commands[command]["options"][oname]
-                        if isinstance(ovalue, list):
+                        if isinstance(ovalue, bool):
+                            args += shlex.split(fmt)
+                        elif isinstance(ovalue, list):
                             ovalue = [val for val in ovalue if val]
-                            # if not isinstance(
-                            #     cls.commands[command]["options"][oname], tuple
-                            # ):
-                            #     sep = ","
-                            # else:
-                            #     fmt, sep = fmt
                             for val in ovalue:
-                                args.append(fmt.format(val))
+                                args += shlex.split(fmt.format(val))
                         else:
                             fmt = shlex.split(fmt.format(ovalue))
                             args += fmt
@@ -468,7 +568,15 @@ class BackgroundJobManager(object):
         # Format commandline arguments
         return self.get_command_args("submit", **opts)
 
-    def submit(self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None):
+    def create_job(self, script=None, name=None, args=[], **kwargs):
+        """Quickly create a job instance and add it to the manager"""
+        job = self.job_class(manager=self, script=script, name=name, args=args, **kwargs)
+        self.jobs.append(job)
+        return job
+
+    def submit(
+        self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None, blocking=True
+    ):
         # Wait for dependencies
         if depend:
             status = None
@@ -498,19 +606,18 @@ class BackgroundJobManager(object):
         logger.debug("Submitted")
 
         # Init Job instance
-        job = self.job_class(
-            manager=self,
+        job = self.create_job(
             script=script,
             name=opts.get("name"),
             queue=opts.get("queue"),
             args=subproc.args,
             jobid=str(subproc.pid),
-            submission_date=str(datetime.datetime.now())[:-7],
             subproc=subproc,
             artifacts=artifacts,
+            submission_dir=submdir,
+            blocking=blocking,
         )
         job.dump()
-        self.jobs.append(job)
         return job
 
     def _parse_status_res_(self, res):
@@ -536,14 +643,28 @@ class BackgroundJobManager(object):
 
 class ScheduledJob(Job):
     def query_status(self):
-        """Query status for a single job"""
+        """Query status for a single job
+
+        First tries the active jobs queue, then falls back to history if available.
+        """
         args = self.manager._extra_status_args_(self.manager.get_command_args("status", jobid=self.jobid))
         logger.debug("Get status: " + " ".join(args))
         res = subprocess.run(args, capture_output=True, check=True)
         logger.debug("Got status")
         if res.returncode:
-            return "UNKNOWN"
-        return self.manager._parse_status_res_(res)[0]
+            return JobStatus.UNKNOWN
+
+        # Parse active jobs
+        status_list = self.manager._parse_status_res_(res)
+        if status_list:
+            return status_list[0]["status"]
+
+        # Fallback to history if job not in active queue
+        if hasattr(self.manager, '_query_history_status_'):
+            logger.debug("Job not in active queue, checking history")
+            return self.manager._query_history_status_(self.jobid)
+
+        return JobStatus.UNKNOWN
 
     def is_running(self):
         return self.get_status().is_running()
@@ -551,30 +672,69 @@ class ScheduledJob(Job):
     def wait(self):
         pass
 
-    def kill(self):
-        args = self.manager.get_command_args("delete", force="-W force", jobid=self.jobid)
+    def kill(self, graceful=True, timeout=10):
+        """Kill the job using scheduler commands
+
+        Parameters
+        ----------
+        graceful: bool
+            If True, send SIGTERM and wait before forcing SIGKILL
+        timeout: int
+            Seconds to wait for graceful shutdown before forcing
+        """
+        if graceful:
+            # Send SIGTERM using scheduler command
+            logger.debug(f"Sending SIGTERM to job: {self.jobid}")
+            args = self.manager.get_command_args("delete", force=False, terminate=True, jobid=self.jobid)
+            res = subprocess.run(args, capture_output=True)
+
+            if res.returncode == 0:
+                # Poll status to wait for graceful termination
+                start_time = time.time()
+                while time.time() - start_time < timeout:
+                    status = self.query_status()
+                    if status.is_not_running():
+                        logger.debug(f"Job {self.jobid} terminated gracefully")
+                        # Let get_task_status in workflow.py read the status file
+                        return
+                    time.sleep(1)
+
+                logger.warning(f"Job {self.jobid} did not terminate gracefully, forcing kill")
+
+        # Force kill with SIGKILL
+        logger.debug(f"Forcing kill of job: {self.jobid}")
+        args = self.manager.get_command_args("delete", force=True, terminate=False, jobid=self.jobid)
         res = subprocess.run(args, capture_output=True, check=True)
-        if not res.returncode:
-            self.set_status("KILLED")
+        if res.returncode == 0:
+            # SIGKILL won't trigger bash handlers, write status ourselves
+            status_file = self.files["status"]
+            exit_code = "0" if graceful else "1"
+            logger.debug(f"Writing exit status to {status_file}: {exit_code}")
+            with open(status_file, 'w') as f:
+                f.write(exit_code)
+            self.set_status("TERMINATED" if graceful else "KILLED")
 
 
 class _Scheduler_(BackgroundJobManager):
     job_class = ScheduledJob
+    with_scheduler = True
 
     def get_submission_command(self, script, opts, depend=None):
         if depend:
             opts["depend"] = ":".join([str(job) for job in depend])
         return super().get_submission_command(script, opts, depend=depend)
 
-    def submit(self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None):
+    def submit(
+        self, script, opts, depend=None, submdir=None, stdout=None, stderr=None, artifacts=None, blocking=True
+    ):
         """Submit the script and instantiate a :class:`Job` object"""
 
         # stdout and stderr
         rootname = os.path.splitext(script)[0]
         if stdout is None:
-            stdout = f"localhost:{rootname}.out"
+            stdout = f"{rootname}.out"
         if stderr is None:
-            stderr = f"localhost:{rootname}.err"
+            stderr = f"{rootname}.err"
         opts["log_out"] = stdout
         opts["log_err"] = stderr
 
@@ -587,6 +747,7 @@ class _Scheduler_(BackgroundJobManager):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             artifacts=artifacts,
+            blocking=blocking,
         )
         job.subproc.wait()
 
@@ -595,19 +756,10 @@ class _Scheduler_(BackgroundJobManager):
         stderr = job.subproc.stderr.read().decode("utf-8", errors="ignore")
         logger.debug("Job submit stdout: " + stdout)
         logger.debug("Job submit stderr: " + stderr)
-        # if job.subproc.stderr:
-        # logger.debug(
-        # "Job submit stderr: " + job.subproc.stderr.read().decode("utf-8", errors="ignore")
-        # )
-        # if job.subproc.stdout:
-        # logger.debug(
-        # "Job submit stdout: " + job.subproc.stdout.read().decode("utf-8", errors="ignore")
-        # )
         if job.subproc.returncode:
             raise WoomJobError(f"Submission failed with error message: {stderr}")
         self._parse_submit_job_(job, stdout)  # update jobid
         job.dump()
-        # self.check_status(show=False)
         return job
 
     def _parse_status_res_(self, res):
@@ -663,6 +815,8 @@ class PbsproJobManager(_Scheduler_):
         "E": JobStatus.EXITING,
         "Q": JobStatus.INQUEUE,
         "H": JobStatus.PENDING,
+        "C": JobStatus.SUCCESS,  # Completed
+        "X": JobStatus.SUCCESS,  # Finished successfully
     }
 
     jobid_sep = " "
@@ -729,6 +883,13 @@ class PbsproJobManager(_Scheduler_):
             )
         return out
 
+    @staticmethod
+    def get_killed(content):
+        """Check the terminated status from job output"""
+        if "PBS: job killed: walltime" in content and "Terminated" in content:
+            status = JobStatus["FAILED"]
+            return status
+
 
 class SlurmJobManager(_Scheduler_):
     """Slurm Job Manager"""
@@ -745,7 +906,7 @@ class SlurmJobManager(_Scheduler_):
                 "mem": "--mem={}",
                 "pmem": "--mem-per-cpu={0} --mem-per-gpu={0}",
                 "time": "--time={}",
-                "depend": "--dependency=afterok:{}",
+                "depend": "--dependency=afterok:{} --kill-on-invalid-dep=yes",
                 "log_out": "-o {}",
                 "log_err": "-e {}",
                 "script": "{}",
@@ -762,10 +923,21 @@ class SlurmJobManager(_Scheduler_):
                 "noheader": "--noheader",
             },
         },
+        "history": {
+            "command": "sacct",
+            "options": {
+                "jobid": "-j {}",
+                "format": "--format=JobID,State,Elapsed",
+                "parsable": "--parsable2",
+                "noheader": "--noheader",
+            },
+        },
         "delete": {
             "command": "scancel",
             "options": {
                 "jobid": "{}",
+                "force": "--signal=KILL",
+                "terminate": "--signal=TERM",
             },
         },
     }
@@ -775,6 +947,13 @@ class SlurmJobManager(_Scheduler_):
         "CD": JobStatus.FINISHED,
         "PD": JobStatus.PENDING,
         "CG": JobStatus.COMPLETING,
+        "COMPLETED": JobStatus.SUCCESS,
+        "FAILED": JobStatus.FAILED,
+        "CANCELLED": JobStatus.KILLED,
+        "TIMEOUT": JobStatus.FAILED,
+        "OUT_OF_MEMORY": JobStatus.FAILED,
+        "NODE_FAIL": JobStatus.FAILED,
+        "DEADLINE": JobStatus.FAILED,
     }
 
     jobid_sep = ","
@@ -831,3 +1010,72 @@ class SlurmJobManager(_Scheduler_):
                     }
                 )
         return out
+
+    def _query_history_status_(self, jobid):
+        """Query job status from sacct history
+
+        Parameters
+        ----------
+        jobid : str
+            Job ID to query
+
+        Returns
+        -------
+        JobStatus
+            Status from history or UNKNOWN if not found
+        """
+        args = self.get_command_args(
+            "history",
+            jobid=jobid,
+            format=True,
+            parsable=True,
+            noheader=True,
+        )
+        logger.debug("Query history: " + " ".join(args))
+
+        try:
+            res = subprocess.run(args, capture_output=True, check=True, timeout=5)
+            if res.returncode or not res.stdout:
+                return JobStatus.UNKNOWN
+
+            # Parse: JobID|State|Elapsed
+            lines = res.stdout.decode("utf-8", errors="ignore").strip().split("\n")
+            if not lines or not lines[0]:
+                return JobStatus.UNKNOWN
+
+            # Take first line (main job, not job steps like 12345.0)
+            for line in lines:
+                if not line or '.batch' in line or '.extern' in line:
+                    continue
+
+                parts = line.split("|")
+                if len(parts) >= 2:
+                    # Extract just the job ID without steps
+                    line_jobid = parts[0].split(".")[0]
+                    if line_jobid != str(jobid):
+                        continue
+
+                    # Remove details like "CANCELLED by 12345"
+                    state = parts[1].split()[0]
+                    status = self.history_status_names.get(state, JobStatus.FINISHED)
+                    status.jobid = jobid
+                    logger.debug(f"Found job {jobid} in history with state: {state}")
+                    return status
+
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Timeout querying job history for {jobid}")
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"Failed to query job history for {jobid}: {e}")
+        except Exception as e:
+            logger.warning(f"Error parsing sacct output for {jobid}: {e}")
+
+        return JobStatus.UNKNOWN
+
+    @staticmethod
+    def get_killed(content):
+        """Check the terminated status from job output"""
+        if ("DUE TO TIME LIMIT" in content or "CANCELLED AT" in content) or (
+            "OUT OF MEMORY" in content or ("slurmstepd: error:" in content and "Killed process" in content)
+        ):
+            status = JobStatus["FAILED"]
+            return status

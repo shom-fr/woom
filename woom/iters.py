@@ -198,7 +198,15 @@ def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, a
 
 
 class Member:
-    """Container for an ensemble member"""
+    """Container for an ensemble member
+
+    Parameters
+    ----------
+    member_id : int
+        Member id starting from 1
+    nmembers : int
+        Total number of members in the ensemble
+    """
 
     def __init__(self, member_id, nmembers):
         #: Member id starting from 1 (:class:`int`)
@@ -209,7 +217,7 @@ class Member:
         self._props = set()
 
     def __str__(self):
-        return str(self.id)
+        return str(self.label)
 
     def set_prop(self, name, value):
         """Set a property"""

@@ -5,8 +5,6 @@ Commandline interface
 """
 
 import argparse
-
-# from pathlib import Path
 import logging
 import os
 
@@ -341,6 +339,7 @@ def add_parser_run(subparsers):
         action="store_true",
     )
     parser_run.add_argument(
+        "--force",
         "--update",
         help="do not run if it has already been run",
         action="store_true",
@@ -360,7 +359,7 @@ def main_run(parser, args):
     # Run the workflow
     logger.debug("Run the workflow")
     try:
-        workflow.run(dry=args.dry_run, update=args.update)
+        workflow.run(dry=args.dry_run, force=args.force)
     except Exception as e:
         logger.exception(f"Workflow failed: {e.args[0]}")
         return 1

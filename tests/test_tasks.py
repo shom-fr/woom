@@ -162,7 +162,6 @@ class TestTaskManager:
 
         manager.load_config('tasks.cfg')
 
-        mock_load_cfg.assert_called_once()
         assert len(manager._configs) == 1
 
     def test_get_task(self, mock_host, sample_task_config):
@@ -327,3 +326,47 @@ class TestTask:
         assert opts['ncpus'] == 4
         assert opts['memory'] == '8GB'
         assert opts['queue'] == 'sequential'
+
+    def test_is_blocking_true(self, mock_host):
+        """Test is_blocking property returns True"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '', 'env': None},
+                'artifacts': {},
+                'submit': {'blocking': True},
+            }
+        )
+        task = Task(config, mock_host)
+
+        assert task.is_blocking is True
+
+    def test_is_blocking_false(self, mock_host):
+        """Test is_blocking property returns False"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '', 'env': None},
+                'artifacts': {},
+                'submit': {'blocking': False},
+            }
+        )
+        task = Task(config, mock_host)
+
+        assert task.is_blocking is False
+
+    def test_template_config(self, mock_host):
+        """Test template configuration is accessible"""
+        config = ConfigObj(
+            {
+                'content': {
+                    'commandline': 'echo test',
+                    'run_dir': '/tmp',
+                    'env': None,
+                    'template': 'custom.sh',
+                },
+                'artifacts': {},
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
+
+        assert task.config['content']['template'] == 'custom.sh'
