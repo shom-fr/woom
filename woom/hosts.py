@@ -180,6 +180,7 @@ class Host:
 
         # Get registered env
         return wenv.EnvConfig(
+            raw_text=cfg["raw_text"],
             vars_forward=cfg["vars"]["forward"],
             vars_set=env_vars,
             vars_append=cfg["vars"]["append"],
@@ -189,4 +190,5 @@ class Host:
             module_load=cfg["modules"]["load"],
             conda_setup=self.config["conda_setup"],
             conda_activate=cfg["conda_activate"],
+            uv_venv=cfg["uv_venv"],
         )

@@ -28,6 +28,7 @@ module load {{ env.module_load }}
 source {{ venv_activate }}
 {% endif %}
 {% endif %}
+
 {% endblock %}
 {% block env_vars -%}
 {% if env.has_vars() %}

@@ -29,6 +29,7 @@ Deprecations
 
 Bug fixes
 ---------
+* Fix ``Host.get_env`` that was ignoring ``raw_text`` and ``uv_venv`` configuration options.
 
 Documentation
 -------------
