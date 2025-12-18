@@ -5,6 +5,7 @@ Task manager
 """
 
 import functools
+import logging
 import os
 import re
 
@@ -12,6 +13,7 @@ import configobj
 
 from . import conf as wconf
 from . import render as wrender
+from . import util as wutil
 from .__init__ import WoomError
 
 thisdir = os.path.dirname(__file__)
@@ -126,6 +128,8 @@ class TaskManager:
         self._configs = []
         self._config = wconf.load_cfg(CFG_DEFAULT_FILE, CFGSPECS_FILE, interpolation=False)
         self._host = host
+        self.logger = logging.getLogger(__name__)
+        self._config_files = []
 
     def load_config(self, cfgfile):
         """Load a user configuration file
@@ -142,6 +146,7 @@ class TaskManager:
         configobj.ConfigObj
         """
         cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE, list_values=False)
+        self._config_files.append(cfgfile)
         self._configs.append(cfg)
         self._postproc_()
 
@@ -174,6 +179,16 @@ class TaskManager:
                     path = content["artifacts"][artifact_name]
                     del content["artifacts"][artifact_name]
                     content["artifacts"][artifact_name] = {"paths": [path], "check": True, "callable": False}
+
+    def to_json_entry(self):
+        return self._config_files
+
+    @classmethod
+    def from_config_files(cls, host, *config_files):
+        taskmanager = cls(host)
+        for config_file in config_files:
+            taskmanager.load(config_file)
+        return taskmanager
 
     @property
     def config(self):
@@ -406,6 +421,26 @@ class Task:
         # context["context"] = context
         template = wrender.JINJA_ENV.get_template(self.config["content"]["template"])
         return wrender.render(template, self.context)
+
+    def fill_templates(self, dry=False):
+        """Fill static user template files"""
+        for name in self.config["fill"].sections:
+            config = self.config["fill"][name]
+
+            # Render paths
+            template_file = wrender.render(config["template"], self.context)
+            destination = wrender.render(config["destination"], self.context)
+
+            # Fill template
+            self.logger.debug(f"Fill task '{name}' template '{name}: {template_file} → {destination}")
+            content = wrender.render(template_file, self.context)
+
+            # Write destination
+            destination = wutil.check_dir(destination, dry=dry, logger=self.logger)
+            if not dry:
+                with open(destination, "w") as f:
+                    f.Write(content)
+            self.logger.info(f"Filled task '{name}' template '{name}: {template_file} → {destination}")
 
     def export_scheduler_options(self):
         """Export a dict of scheduler options

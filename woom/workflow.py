@@ -113,6 +113,9 @@ class Workflow:
             if self._config["app"][key]:
                 self._app_path.append(self._config["app"][key])
 
+    def to_json_entry(self):
+        return self._cfgfile
+
     def __str__(self):
         return f'<Workflow[cfgfile: "{self._cfgfile}">\n'
 
@@ -465,6 +468,10 @@ class Workflow:
         # Submission options
         opts = task_specs["scheduler_options"].copy()
         opts["name"] = task.name
+
+        # Export context to json
+        if not self._dry:
+            self.context.to_json()
 
         return {
             "script": script_path,

@@ -3,6 +3,8 @@
 """
 Context for job script generation
 """
+import json
+import logging
 import os
 from collections import UserDict
 
@@ -124,6 +126,9 @@ class Context(UserDict):
             # Environment
             self["env"] = task.env
 
+            # Json file
+            self["context_json"] = os.path.join(submission_dir, "context.json")
+
         # Extra params
         if extra_params:
             params.update(extra_params)
@@ -187,3 +192,12 @@ class Context(UserDict):
     def __exit__(self, exc_type, exc_value, traceback):
         del self.workflow.context
         del self.task.context
+
+    def to_json(self):
+        """Export context to json"""
+        if "context_json" in self:
+            content = self.copy()
+            if "context" in content:
+                del content["context"]
+            with open(self["context_json"], "w") as f:
+                json.dump(content, f, indent=4, cls=wutil.WoomJSONEncoder)

@@ -68,6 +68,10 @@ The minimal content of this dictionary is the following, in alphabetical order:
      - :class:`str` or `None`
      - Rounding precision
      - ``"D"``
+   * - ``context_json``
+     - :class:`str`
+     - Path to the json file if this context
+     - ``"{{ submission_dir }}/context.json"``
    * - ``env``
      - :class:`~woom.env.EnvConfig`
      - Task environment if task is not `None`

@@ -100,10 +100,18 @@ class WoomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder for woom objects"""
 
     def default(self, obj):
+        # Dict
         if isinstance(obj, collections.UserDict):
             return dict(obj)
+
+        # Process
         if hasattr(obj, "pid") or isinstance(obj, subprocess.Popen):
             return obj.pid
+
+        # Workflow and managers
+        if hasattr(obj, "to_json_entry"):
+            return obj.to_json_entry()
+
         try:
             return super().default(obj)
         except TypeError:
