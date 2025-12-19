@@ -64,7 +64,7 @@ def sample_task_config():
                 },
                 'artifacts': {
                     'output': {
-                        'paths': ['/tmp/output.txt'],
+                        'path': ['/tmp/output.txt'],
                         'check': True,
                         'callable': False,
                         'kwargs': {},
@@ -267,7 +267,7 @@ class TestTask:
                 'content': {'commandline': '', 'run_dir': '/tmp', 'env': None},
                 'artifacts': {
                     'output': {
-                        'paths': ['/tmp/output.txt'],
+                        'path': ['/tmp/output.txt'],
                         'check': True,
                         'callable': False,
                         'kwargs': {},

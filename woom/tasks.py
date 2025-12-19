@@ -126,7 +126,7 @@ class TaskManager:
             Host instance
         """
         self._configs = []
-        self._config = wconf.load_cfg(CFG_DEFAULT_FILE, CFGSPECS_FILE, interpolation=False)
+        self._config = wconf.load_cfg(CFG_DEFAULT_FILE, CFGSPECS_FILE, interpolation=False, list_values=True)
         self._host = host
         self.logger = logging.getLogger(__name__)
         self._config_files = []
@@ -145,7 +145,7 @@ class TaskManager:
         ------
         configobj.ConfigObj
         """
-        cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE, list_values=False)
+        cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE, interpolation=False, list_values=True)
         self._config_files.append(cfgfile)
         self._configs.append(cfg)
         self._postproc_()
@@ -178,7 +178,7 @@ class TaskManager:
                 for artifact_name in content["artifacts"].scalars:
                     path = content["artifacts"][artifact_name]
                     del content["artifacts"][artifact_name]
-                    content["artifacts"][artifact_name] = {"paths": [path], "check": True, "callable": False}
+                    content["artifacts"][artifact_name] = {"path": path, "check": True, "callable": False}
 
     def to_json_entry(self):
         return self._config_files
@@ -235,6 +235,7 @@ class Task:
         self._config = taskconfig
         self._host = host
         self._context = None
+        self.logger = logging.getLogger(__name__)
 
     @property
     def config(self):
@@ -263,7 +264,8 @@ class Task:
         ----------
         context: woom.context.Context
         """
-        context["task"] = self
+        if context is not None:
+            context["task"] = self
         self._context = context
 
     @property
@@ -318,12 +320,12 @@ class Task:
         """
         artifacts = {}
         for name, specs in self.config["artifacts"].items():
-            artifacts[name] = self.get_artifact_paths(name)
+            artifacts[name] = self.get_artifact_path(name)
         return artifacts
 
     @functools.lru_cache
-    def get_artifact_paths(self, name):
-        """Get the paths of a single artifact from its name
+    def get_artifact_path(self, name):
+        """Get the path of a single artifact from its name
 
         Parameters
         ----------
@@ -332,33 +334,26 @@ class Task:
 
         Returns
         -------
-        list(str)
-            Lists of raw artifact paths
+        str or list(str)
+            A single pr a lists of raw artifact paths
         """
-        specs = self.config["artifacts"][name]
-        if not isinstance(specs["paths"], list):
-            specs["paths"] = [specs["paths"]]
+        specs = self.config["artifacts"][name].dict()
+        # if not isinstance(specs["path"], list):
+        #     specs["paths"] = [specs["paths"]]
         if specs["callable"]:
-            func_name = specs["paths"][0]
+            func_name = specs["path"]
+            if isinstance(func_name):
+                func_name = func_name[0]
             if func_name not in ARTIFACTS_GENERATORS:
                 raise TaskError(f"Artifact generator function not found: {func_name}")
             kwargs = dict(self.context)
             kwargs.update(specs["kwargs"])
-            paths = ARTIFACTS_GENERATORS[func_name](**kwargs)
-            if isinstance(paths, str):
-                paths = [paths]
+            path = ARTIFACTS_GENERATORS[func_name](**kwargs)
+            # if isinstance(paths, str):
+            #     paths = [paths]
         else:
-            paths = specs["paths"]
-        return paths
-
-    # def get_run_dir(self):
-    #     """Get the run directory without rendering"""
-    #     run_dir = self.config["content"]["run_dir"]
-    #     if run_dir is None:
-    #         return ""
-    #     if run_dir == "current":
-    #         run_dir = os.getcwd()
-    #     return run_dir.strip()
+            path = specs["path"]
+        return path
 
     @functools.cached_property
     def run_dir(self):
@@ -392,11 +387,12 @@ class Task:
         if not self.artifacts:
             return {}
         artifacts = {}
-        for name, paths in self.get_artifacts().items():
+        for name, path in self.get_artifacts().items():
             artifacts[name] = []
-            for path in paths:
-                rendered = wrender.render(path.strip(), self.context)
-                if not os.path.isabs(path):
+            paths = [path] if isinstance(path, str) else path
+            for path_ in paths:
+                rendered = wrender.render(path_.strip(), self.context)
+                if not os.path.isabs(path_):
                     if self.run_dir:
                         rendered = os.path.join(self.run_dir, rendered)
                     else:
@@ -432,15 +428,16 @@ class Task:
             destination = wrender.render(config["destination"], self.context)
 
             # Fill template
-            self.logger.debug(f"Fill task '{name}' template '{name}: {template_file} → {destination}")
-            content = wrender.render(template_file, self.context)
+            self.logger.debug(f"Fill template '{name}': {template_file} → {destination}")
+            template = wrender.JINJA_ENV.get_template(template_file)
+            content = wrender.render(template, self.context)
 
             # Write destination
             destination = wutil.check_dir(destination, dry=dry, logger=self.logger)
             if not dry:
                 with open(destination, "w") as f:
-                    f.Write(content)
-            self.logger.info(f"Filled task '{name}' template '{name}: {template_file} → {destination}")
+                    f.write(content)
+            self.logger.info(f"Filled ttemplate '{name}': {template_file} → {destination}")
 
     def export_scheduler_options(self):
         """Export a dict of scheduler options

@@ -16,6 +16,7 @@ New features
 * Add a `template` and `blocking` option to task configuration [:pull:`18`].
 * Add a `graceful` option to ``Workflow.kill`` to terminate jobs without killing them [:pull:`18`].
 * Add a sentinel job that monitor jobs when using a scheduler [:pull:`18`].
+* Add the capability to fill templates with a decated section in tasks and with the ``woom fill`` command.
 
 Breaking changes
 ----------------

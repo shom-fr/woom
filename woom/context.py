@@ -185,13 +185,21 @@ class Context(UserDict):
             self.task.env.vars_set.update(self["env_vars"])
 
     def __enter__(self):
+        self._old_workflow_context = self.workflow._context
+        self._old_task_context = self.task._context
         self.workflow.context = self
         self.task.context = self
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        del self.workflow.context
-        del self.task.context
+        if hasattr(self, '_old_workflow_context'):
+            self.workflow._context = self._old_workflow_context
+        if hasattr(self.workflow, 'context'):
+            delattr(self.workflow, 'context')
+        if hasattr(self, '_old_task_context'):
+            self.task._context = self._old_task_context
+        if hasattr(self.task, 'context'):
+            delattr(self.task, 'context')
 
     def to_json(self):
         """Export context to json"""

@@ -47,10 +47,14 @@ trap on_exit EXIT
 {% block post_run -%}
 {% if task.artifacts %}
 # Check artifacts
-{% for name, paths in task.artifacts.items() -%}
-  {% for path in paths -%}
+{% for name, path in task.artifacts.items() -%}
+  {% if path is string %}
 test -f "{{ path }}" || { echo artifact not created: {{ name }}={{ path }}; exit 1; }
-  {% endfor %}
+  {% else %}
+    {% for path_ in path -%}
+test -f "{{ path_ }}" || { echo artifact not created: {{ name }}={{ path_ }}; exit 1; }
+    {% endfor %}
+  {% endif %}
 {% endfor %}
 {% endif %}
 {% endblock %}
