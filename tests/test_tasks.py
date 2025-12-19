@@ -370,3 +370,188 @@ class TestTask:
         task = Task(config, mock_host)
 
         assert task.config['content']['template'] == 'custom.sh'
+
+
+class TestTaskFillTemplates:
+    """Test Task.fill_templates functionality"""
+
+    def test_fill_templates_empty_config(self, mock_host):
+        """Test fill_templates with no fill configuration"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '', 'env': None},
+                'artifacts': {},
+                'fill': {},
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
+        mock_context = {'task': task}
+        task.context = mock_context
+
+        # Should not raise any errors
+        task.fill_templates(dry=True)
+
+    @patch('woom.tasks.wrender.JINJA_ENV.get_template')
+    @patch('woom.tasks.wrender.render')
+    @patch('woom.tasks.wutil.check_dir')
+    def test_fill_templates_single_template(
+        self, mock_check_dir, mock_render, mock_get_template, mock_host, tmp_path
+    ):
+        """Test fill_templates with a single template"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {},
+                'fill': {
+                    'namelist': {
+                        'template': 'ocean.nml.j2',
+                        'destination': '{{ run_dir }}/ocean.nml',
+                    }
+                },
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
+        mock_context = {'task': task, 'run_dir': '/tmp'}
+        task.context = mock_context
+
+        # Setup mocks
+        mock_template = MagicMock()
+        mock_get_template.return_value = mock_template
+        mock_render.side_effect = ['ocean.nml.j2', '/tmp/ocean.nml', 'rendered content']
+        dest_file = tmp_path / 'ocean.nml'
+        mock_check_dir.return_value = str(dest_file)
+
+        # Execute
+        task.fill_templates(dry=True)
+
+        # Verify
+        mock_get_template.assert_called_once_with('ocean.nml.j2')
+        assert mock_render.call_count >= 2  # template path, destination, content
+
+    @patch('woom.tasks.wrender.JINJA_ENV.get_template')
+    @patch('woom.tasks.wrender.render')
+    @patch('woom.tasks.wutil.check_dir')
+    def test_fill_templates_multiple_templates(
+        self, mock_check_dir, mock_render, mock_get_template, mock_host, tmp_path
+    ):
+        """Test fill_templates with multiple templates"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {},
+                'fill': {
+                    'namelist': {
+                        'template': 'ocean.nml.j2',
+                        'destination': '{{ run_dir }}/ocean.nml',
+                    },
+                    'config': {
+                        'template': 'config.cfg.j2',
+                        'destination': '{{ run_dir }}/config.cfg',
+                    },
+                },
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
+        mock_context = {'task': task, 'run_dir': '/tmp'}
+        task.context = mock_context
+
+        # Setup mocks
+        mock_template = MagicMock()
+        mock_get_template.return_value = mock_template
+        mock_render.side_effect = [
+            'ocean.nml.j2',
+            '/tmp/ocean.nml',
+            'namelist content',
+            'config.cfg.j2',
+            '/tmp/config.cfg',
+            'config content',
+        ]
+        mock_check_dir.side_effect = [
+            str(tmp_path / 'ocean.nml'),
+            str(tmp_path / 'config.cfg'),
+        ]
+
+        # Execute
+        task.fill_templates(dry=True)
+
+        # Verify both templates were processed
+        assert mock_get_template.call_count == 2
+        assert mock_check_dir.call_count == 2
+
+    @patch('woom.tasks.wrender.JINJA_ENV.get_template')
+    @patch('woom.tasks.wrender.render')
+    @patch('woom.tasks.wutil.check_dir')
+    @patch('builtins.open', new_callable=MagicMock)
+    def test_fill_templates_writes_file(
+        self, mock_open, mock_check_dir, mock_render, mock_get_template, mock_host, tmp_path
+    ):
+        """Test that fill_templates actually writes the file when not in dry mode"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {},
+                'fill': {
+                    'namelist': {
+                        'template': 'ocean.nml.j2',
+                        'destination': '/tmp/ocean.nml',
+                    }
+                },
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
+        mock_context = {'task': task, 'run_dir': '/tmp'}
+        task.context = mock_context
+
+        # Setup mocks
+        mock_template = MagicMock()
+        mock_get_template.return_value = mock_template
+        mock_render.side_effect = ['ocean.nml.j2', '/tmp/ocean.nml', 'rendered content']
+        mock_check_dir.return_value = '/tmp/ocean.nml'
+
+        # Execute without dry mode
+        task.fill_templates(dry=False)
+
+        # Verify file was opened and written
+        mock_open.assert_called_once_with('/tmp/ocean.nml', 'w')
+        mock_open().__enter__().write.assert_called_once_with('rendered content')
+
+    @patch('woom.tasks.wrender.JINJA_ENV.get_template')
+    @patch('woom.tasks.wrender.render')
+    @patch('woom.tasks.wutil.check_dir')
+    @patch('builtins.open', new_callable=MagicMock)
+    def test_fill_templates_dry_mode(
+        self, mock_open, mock_check_dir, mock_render, mock_get_template, mock_host
+    ):
+        """Test that fill_templates doesn't write files in dry mode"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': '', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {},
+                'fill': {
+                    'namelist': {
+                        'template': 'ocean.nml.j2',
+                        'destination': '/tmp/ocean.nml',
+                    }
+                },
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
+        mock_context = {'task': task, 'run_dir': '/tmp'}
+        task.context = mock_context
+
+        # Setup mocks
+        mock_template = MagicMock()
+        mock_get_template.return_value = mock_template
+        mock_render.side_effect = ['ocean.nml.j2', '/tmp/ocean.nml', 'rendered content']
+        mock_check_dir.return_value = '/tmp/ocean.nml'
+
+        # Execute in dry mode
+        task.fill_templates(dry=True)
+
+        # Verify file was NOT opened/written
+        mock_open.assert_not_called()

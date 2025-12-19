@@ -99,3 +99,26 @@ You can fine tune which jobs you want to kill::
     workflow.kill(task_name="mytask")                              # by task
     workflow.kill(cycle="2020-01-01T00:00:00-2020-01-01T06:00:00") # by cycle
     workflow.kill(member=1)                                        # by ensemble member id
+
+Filling templates
+-----------------
+
+If your tasks have a ``[[fill]]`` configuration section, you can manually **fill templates** using :meth:`~woom.workflow.Workflow.fill_templates`.
+
+First, set the context for the task you want to fill templates for::
+
+    workflow.set_context(task_name="run_model", cycle="2020-01-01T00:00:00", member=1)
+
+Then fill all templates configured for this task::
+
+    workflow.fill_templates()
+
+This will render all templates defined in the task's ``[[fill]]`` section and write them to their destination paths.
+
+Alternatively, you can fill a single template directly::
+
+    task = workflow.get_task("run_model")
+    task.set_context(workflow.get_context(task_name="run_model", cycle="2020-01-01T00:00:00"))
+    task.fill_templates()
+
+See :ref:`templates.user` for more information about user templates and the fill feature.

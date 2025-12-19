@@ -184,6 +184,25 @@ The user can extend these templates by providing its own :file:`job.sh` and :fil
 
 Jinja perform substitutions thanks to a :class:`~woom.context.Context` instance that is a dictionary containing the useful objects for a given task, a given cycle and a given member, as explained in the :ref:`inputs_context` section.
 
+Template Filling
+================
+
+Woom can automatically fill Jinja2 templates to generate configuration files, namelists, or scripts before task execution.
+
+Configure in the ``[[fill]]`` section of your task:
+
+.. code-block:: ini
+
+    [run_model]
+        [[fill]]
+            [[[namelist]]]
+            template = ocean.nml.j2
+            destination = {{ run_dir }}/ocean.nml
+
+Templates use the same context variables as job scripts (``{{ cycle.begin_date }}``, ``{{ params.timestep }}``, etc.) and are stored in the :file:`templates/` directory.
+
+.. seealso:: :ref:`indepth.templating` for complete guide and :ref:`cli.woom.fill` for manual filling
+
 Artifacts
 =========
 
