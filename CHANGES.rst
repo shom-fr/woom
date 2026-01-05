@@ -7,6 +7,7 @@ Develop
 
 New features
 ------------
+* Add colors to ``woom show status``.
 * App name is now inferred from ``workflow_dir`` when undefined.
 * Add the ``nnodes``, ``ncpus``, ``nnodes`` and ``pmem`` submission options to tasks.
 * Add the ``Context`` class that holds the input mappings for Jinja substitutions [:pull:`16`].
