@@ -121,4 +121,4 @@ Alternatively, you can fill a single template directly::
     task.set_context(workflow.get_context(task_name="run_model", cycle="2020-01-01T00:00:00"))
     task.fill_templates()
 
-See :ref:`templates.user` for more information about user templates and the fill feature.
+See :ref:`indepth.templating` for more information about user templates and the fill feature.

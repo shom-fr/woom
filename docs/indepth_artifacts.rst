@@ -627,4 +627,4 @@ See Also
 
 - :ref:`indepth.tasks` - Task configuration including artifacts
 - :ref:`cfgspecs.tasks` - Artifact configuration reference
-- :ref:`cli.woom.show.artifacts` - Command line artifact viewing
+- :ref:`woom_show_artifacts` - Command line artifact viewing

@@ -654,6 +654,6 @@ See Also
 ========
 
 - :ref:`indepth.context` - Variables available in templates
-- :ref:`templates.user` - User template configuration
+- :ref:`templates` - Default templates
 - :ref:`ext` - Extension system for custom filters
 - `Jinja2 Documentation <https://jinja.palletsprojects.com/>`_ - Full Jinja2 reference
