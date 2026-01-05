@@ -67,17 +67,19 @@ class Context(UserDict):
             for key, val in workflow.config[sec].items():
                 self[f"{sec}_{key}"] = val
         self["app_path"] = workflow.get_app_path()
+        self["app"] = workflow.config["app"].dict()
+        self["app"]["path"] = workflow.get_app_path()
 
         # Host params
-        params.update(workflow.host.get_params())
+        self.update(workflow.host.get_params())
         if workflow.host.name in workflow.config["params"]["hosts"]:
             host_params = wconf.strip_out_sections(
                 workflow.config["params"]["hosts"][workflow.host.name]
             ).dict()
-            params.update(host_params)
+            self.update(host_params)
 
         # Workflow directories
-        params.update(workflow_dir=workflow.workflow_dir, log_dir=os.path.join(workflow.workflow_dir, "log"))
+        self.update(workflow_dir=workflow.workflow_dir, log_dir=os.path.join(workflow.workflow_dir, "log"))
 
         # Current cycle
         self["cycle"] = cycle
@@ -107,7 +109,7 @@ class Context(UserDict):
             # Task specific params
             if task_name in workflow.config["params"]["tasks"]:
                 task_params = workflow.config["params"]["tasks"][task_name].dict()
-                params.update(task_params)  # too dangerous?
+                self.update(task_params)  # too dangerous?
 
                 # if workflow.host.name in workflow.config["params"]["tasks"][task_name]:
                 #     params.update(
@@ -202,7 +204,7 @@ class Context(UserDict):
             delattr(self.workflow, 'context')
         if hasattr(self, '_old_task_context'):
             self.task._context = self._old_task_context
-        if hasattr(self.task, 'context'):
+        if self.task.has_context():
             delattr(self.task, 'context')
 
     def to_json(self):

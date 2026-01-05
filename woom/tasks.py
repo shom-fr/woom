@@ -284,6 +284,10 @@ class Task:
     def context(self):
         self._context = None
 
+    def has_context(self):
+        """Is the :attr:`context` already set for this task"""
+        return self._context is not None
+
     @functools.cached_property
     def env(self):
         """Instance of :class:`woom.env.EnvConfig` specific to this task (:class:`~woom.env.EnvConfig`)"""

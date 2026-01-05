@@ -72,10 +72,15 @@ class Cycle:
         if isinstance(other, str):
             m = re.match(r"^(\d+-\d+-\d+.*)-(\d+-\d+-\d+.*)$", other)
             if m:
-                other = m.groups()
+                try:
+                    other = [wutil.WoomDate(o) for o in m.groups()]
+                except Exception:
+                    return False
             else:
-                other = [wutil.WoomDate(other)]
-            # other = [wutil.WoomDate(o) for o in other.split("-")]
+                try:
+                    other = [wutil.WoomDate(other)]
+                except Exception:
+                    return False
         elif isinstance(other, wutil.WoomDate):
             other = [other]
         if other[0] != self.begin_date:
