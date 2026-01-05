@@ -213,7 +213,7 @@ class Workflow:
         if cycle is None:
             return
         for cycle_ in self.cycles:
-            if str(cycle_) == str(cycle):
+            if cycle_ == cycle:
                 return cycle_
         raise WoomError(f"Invalid cycle: {cycle}")
 

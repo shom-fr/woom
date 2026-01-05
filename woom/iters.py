@@ -5,6 +5,7 @@ Iteration utilities for date cycles and ensembles
 """
 
 import math
+import re
 
 import pandas as pd
 
@@ -64,6 +65,26 @@ class Cycle:
         for attr in "duration", "date", "label", "token", "is_first", "is_last", "prev", "next":
             ss += " {}: {}\n".format(attr, getattr(self, attr))
         return ss
+
+    def __eq__(self, other):
+        if str(self) == str(other):
+            return True
+        if isinstance(other, str):
+            m = re.match(r"^(\d+-\d+-\d+.*)-(\d+-\d+-\d+.*)$", other)
+            if m:
+                other = m.groups()
+            else:
+                other = [wutil.WoomDate(other)]
+            # other = [wutil.WoomDate(o) for o in other.split("-")]
+        elif isinstance(other, wutil.WoomDate):
+            other = [other]
+        if other[0] != self.begin_date:
+            return False
+        if len(other) == 1 or self.end_date is None:
+            return True
+        if other[1] != self.end_date:
+            return False
+        return True
 
     def describe(self):
         return self.__repr__()
