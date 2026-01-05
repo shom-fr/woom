@@ -3,6 +3,7 @@
 """
 Context for job script generation
 """
+import json
 import os
 from collections import UserDict
 
@@ -60,11 +61,12 @@ class Context(UserDict):
         super().__init__(initialdata)
 
         # Config subsections
-        params = wconf.strip_out_sections(workflow.config["params"]).dict()
+        params = workflow.config["params"].dict()
+        del params["hosts"], params["tasks"]
         for sec in "app", "cycles":
             for key, val in workflow.config[sec].items():
-                params[f"{sec}_{key}"] = val
-        params["app_path"] = workflow.get_app_path()
+                self[f"{sec}_{key}"] = val
+        self["app_path"] = workflow.get_app_path()
 
         # Host params
         params.update(workflow.host.get_params())
@@ -78,33 +80,33 @@ class Context(UserDict):
         params.update(workflow_dir=workflow.workflow_dir, log_dir=os.path.join(workflow.workflow_dir, "log"))
 
         # Current cycle
-        params["cycle"] = cycle
+        self["cycle"] = cycle
         if isinstance(cycle, witers.Cycle):
-            params.update(cycle.get_params())
+            self.update(cycle.get_params())
             if isinstance(cycle.prev, witers.Cycle):
-                params.update(cycle.prev.get_params(suffix="prev"))
+                self.update(cycle.prev.get_params(suffix="prev"))
             if isinstance(cycle.next, witers.Cycle):
-                params.update(cycle.next.get_params(suffix="next"))
+                self.update(cycle.next.get_params(suffix="next"))
 
         # Current member
-        params["member"] = member
+        self["member"] = member
         if member:
-            params.update(member.params)
+            self.update(member.params)
 
         # Current task
-        params["task_name"] = task_name
+        self["task_name"] = task_name
         if task_name is None:
             self["task"] = None
         else:
             self["task"] = task = workflow.get_task(task_name)
-            params.update(
+            self.update(
                 task_path=workflow.get_task_path(task_name, cycle, member),
                 task_name=task_name,
             )
 
             # Task specific params
             if task_name in workflow.config["params"]["tasks"]:
-                task_params = wconf.strip_out_sections(workflow.config["params"]["tasks"][task_name]).dict()
+                task_params = workflow.config["params"]["tasks"][task_name].dict()
                 params.update(task_params)  # too dangerous?
 
                 # if workflow.host.name in workflow.config["params"]["tasks"][task_name]:
@@ -114,7 +116,7 @@ class Context(UserDict):
 
             # Paths
             submission_dir = workflow.get_task_submission_dir(task_name, cycle, member)
-            params.update(
+            self.update(
                 run_dir=task.run_dir,
                 submission_dir=submission_dir,
                 script_path=os.path.join(submission_dir, "job.sh"),
@@ -124,12 +126,15 @@ class Context(UserDict):
             # Environment
             self["env"] = task.env
 
+            # Json file
+            self["context_json"] = os.path.join(submission_dir, "context.json")
+
         # Extra params
         if extra_params:
             params.update(extra_params)
 
         # Store params and set env vars
-        self.set_params(params)
+        self.params2env_vars(params)
         self["params"] = params
         self["context"] = self
 
@@ -153,6 +158,11 @@ class Context(UserDict):
         return self["config"]
 
     @property
+    def params(self):
+        """A :class:`dict` of user parameters as declared in the 'params' section of the workflow configuration"""
+        return self["params"]
+
+    @property
     def env_vars(self):
         """A :class:`dict` of environment variables as declared in the workflow configuration"""
         return self["env_vars"]
@@ -172,18 +182,34 @@ class Context(UserDict):
         """The current :class:`~woom.iters.Member` instance or `None`"""
         return self.get("member")
 
-    def set_params(self, params):
+    def params2env_vars(self, params):
         """Fill the dict and declare environment variables prefixed with WOOM\_"""
-        self.update(params)
         self["env_vars"].update(wutil.params2env_vars(params))
         if self.task:
             self.task.env.vars_set.update(self["env_vars"])
 
     def __enter__(self):
+        self._old_workflow_context = self.workflow._context
+        self._old_task_context = self.task._context
         self.workflow.context = self
         self.task.context = self
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        del self.workflow.context
-        del self.task.context
+        if hasattr(self, '_old_workflow_context'):
+            self.workflow._context = self._old_workflow_context
+        if hasattr(self.workflow, 'context'):
+            delattr(self.workflow, 'context')
+        if hasattr(self, '_old_task_context'):
+            self.task._context = self._old_task_context
+        if hasattr(self.task, 'context'):
+            delattr(self.task, 'context')
+
+    def to_json(self):
+        """Export context to json"""
+        if "context_json" in self:
+            content = self.copy()
+            if "context" in content:
+                del content["context"]
+            with open(self["context_json"], "w") as f:
+                json.dump(content, f, indent=4, cls=wutil.WoomJSONEncoder)

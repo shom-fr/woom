@@ -1,4 +1,4 @@
-.. _cfgspecs.host:
+.. _cfgspecs.hosts:
 
 Hosts configuration specifications
 ==================================

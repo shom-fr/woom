@@ -172,8 +172,8 @@ class TestParams2EnvVars:
 
         result = params2env_vars(params)
 
-        assert result['WOOM_KEY'] == 'value'
-        assert result['WOOM_NUMBER'] == '42'
+        assert result['WOOM_PARAMS_KEY'] == 'value'
+        assert result['WOOM_PARAMS_NUMBER'] == '42'
 
     def test_params2env_vars_with_select(self):
         """Test conversion with select"""
@@ -181,8 +181,8 @@ class TestParams2EnvVars:
 
         result = params2env_vars(params, select=['key1'])
 
-        assert 'WOOM_KEY1' in result
-        assert 'WOOM_KEY2' not in result
+        assert 'WOOM_PARAMS_KEY1' in result
+        assert 'WOOM_PARAMS_KEY2' not in result
 
     def test_params2env_vars_timestamp(self):
         """Test conversion of Timestamp"""
@@ -190,8 +190,8 @@ class TestParams2EnvVars:
 
         result = params2env_vars(params)
 
-        assert 'WOOM_DATE' in result
-        assert '2020-01-01' in result['WOOM_DATE']
+        assert 'WOOM_PARAMS_DATE' in result
+        assert '2020-01-01' in result['WOOM_PARAMS_DATE']
 
     def test_params2env_vars_bool(self):
         """Test conversion of boolean"""
@@ -199,8 +199,8 @@ class TestParams2EnvVars:
 
         result = params2env_vars(params)
 
-        assert result['WOOM_FLAG'] == '1'
-        assert result['WOOM_OTHER'] == '0'
+        assert result['WOOM_PARAMS_FLAG'] == '1'
+        assert result['WOOM_PARAMS_OTHER'] == '0'
 
     def test_params2env_vars_none(self):
         """Test conversion of None"""
@@ -208,7 +208,7 @@ class TestParams2EnvVars:
 
         result = params2env_vars(params)
 
-        assert result['WOOM_EMPTY'] == ''
+        assert result['WOOM_PARAMS_EMPTY'] == ''
 
 
 class TestPages2Ints:

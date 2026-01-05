@@ -13,6 +13,7 @@ from . import conf as wconf
 from . import ext as wext
 from . import hosts as whosts
 from . import log as wlog
+from . import render as wrender
 from . import tasks as wtasks
 from . import util as wutil
 from . import workflow as wworkflow
@@ -48,6 +49,7 @@ def get_parser():
     add_parser_run(subparsers)
     add_parser_kill(subparsers)
     add_parser_clean(subparsers)
+    add_parser_fill(subparsers)
 
     return parser
 
@@ -193,6 +195,7 @@ def add_parser_show(subparsers):
     subparsers_show = parser_show.add_subparsers(help="sub-command help")
     add_parser_show_overview(subparsers_show)
     add_parser_show_status(subparsers_show)
+    add_parser_show_submission_dirs(subparsers_show)
     add_parser_show_run_dirs(subparsers_show)
     add_parser_show_artifacts(subparsers_show)
 
@@ -260,6 +263,37 @@ def main_show_status(parser, args):
     return 0
 
 
+def add_parser_show_submission_dirs(subparsers):
+    # Setup argument parser
+    parser_show_submission_dirs = subparsers.add_parser(
+        "submission_dirs",
+        help="show the submission directory of all worklow tasks",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser_show_submission_dirs.add_argument(
+        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
+    )
+    wlog.add_logging_parser_arguments(parser_show_submission_dirs, default_level="warning")
+    parser_show_submission_dirs.set_defaults(func=main_show_submission_dirs)
+
+    return parser_show_submission_dirs
+
+
+def main_show_submission_dirs(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)
+    if not workflow:
+        return 0
+
+    # Show
+    try:
+        workflow.show_submission_dirs(tablefmt=args.tablefmt)
+    except Exception:
+        logger.exception("Failed showing the submission directories")
+        return 1
+    return 1
+
+
 def add_parser_show_run_dirs(subparsers):
     # Setup argument parser
     parser_show_run_dirs = subparsers.add_parser(
@@ -295,7 +329,7 @@ def add_parser_show_artifacts(subparsers):
     # Setup argument parser
     parser_show_artifacts = subparsers.add_parser(
         "artifacts",
-        help="show the run directory of all worklow tasks",
+        help="show the artifacts of all worklow tasks",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_show_artifacts.add_argument(
@@ -463,5 +497,60 @@ def main_clean(parser, args):
         )
     except Exception:
         logger.exception("Failed to clean workflow")
+        return 1
+    return 0
+
+
+# %% Fill
+def add_parser_fill(subparsers):
+    # Setup argument parser
+    parser_fill = subparsers.add_parser(
+        "fill",
+        help="remove temporary files",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser_fill.add_argument("template", help="template file")
+    parser_fill.add_argument("destination", help="output file")
+    parser_fill.add_argument("--task-name", help="target task name", default=os.environ.get("WOOM_TASK_NAME"))
+    parser_fill.add_argument("--cycle", help="target cycle", default=os.environ.get("WOOM_CYCLE"))
+    parser_fill.add_argument("--member", help="target member", default=os.environ.get("WOOM_MEMBER"))
+    parser_fill.add_argument(
+        "--dry-run",
+        "--test",
+        help="run in fake mode for testing purpose",
+        action="store_true",
+    )
+    wlog.add_logging_parser_arguments(parser_fill, default_level="info")
+    parser_fill.set_defaults(func=main_fill)
+
+    return parser_fill
+
+
+def main_fill(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)
+    if not workflow:
+        return 0
+
+    # Fill templates
+    try:
+        # Set the context
+        if args.task_name:
+            workflow.set_context(task_name=args.task_name, cycle=args.cycle, member=args.member)
+
+        # Fill
+        logger.debug(f"Fill template: {args.template} → {args.destination}")
+        template = wrender.JINJA_ENV.get_template(args.template)
+        content = wrender.render(template, workflow.context)
+
+        # Write destination
+        destination = wutil.check_dir(args.destination, dry=args.dry_run, logger=logger)
+        if not args.dry_run:
+            with open(destination, "w") as f:
+                f.write(content)
+        logger.info(f"Filled template: {args.template} → {destination}")
+
+    except Exception:
+        logger.exception("Failed to fill template")
         return 1
     return 0

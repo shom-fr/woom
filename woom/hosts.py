@@ -29,6 +29,7 @@ class HostManager:
         """Initialize host manager with default configuration"""
         self._config = wconf.load_cfg(CFG_DEFAULT_FILE, CFGSPECS_FILE)
         self._host = None
+        self._config_files = []
 
     @property
     def config(self):
@@ -50,7 +51,18 @@ class HostManager:
         configobj.ConfigObj
         """
         self._config.merge(wconf.load_cfg(cfgfile, CFGSPECS_FILE))
+        self._config_files.append(cfgfile)
         return self._config
+
+    def to_json_entry(self):
+        return self._config_files
+
+    @classmethod
+    def from_config_files(cls, *config_files):
+        hostmanager = cls()
+        for config_file in config_files:
+            hostmanager.load(config_file)
+        return hostmanager
 
     def get_host(self, name):
         """Get a :class:`Host` instance from its name"""

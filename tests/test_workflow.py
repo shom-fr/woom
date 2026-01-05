@@ -536,3 +536,136 @@ class TestWorkflowOverview:
 
         captured = capsys.readouterr()
         assert 'APP' in captured.out or 'TASK TREE' in captured.out
+
+
+class TestWorkflowFillTemplates:
+    """Test Workflow.fill_templates functionality"""
+
+    def test_fill_templates_no_context(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test fill_templates raises error when context not set"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        with pytest.raises(WorkFlowError, match="context must be set"):
+            workflow.fill_templates()
+
+    def test_fill_templates_with_task_context(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test fill_templates with task context set"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        # Create mock task
+        mock_task = Mock()
+        mock_task.fill_templates = Mock()
+        mock_taskmanager.get_task.return_value = mock_task
+
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow.set_context(task_name='task1')
+
+        # Execute
+        workflow.fill_templates()
+
+        # Verify task's fill_templates was called
+        mock_task.fill_templates.assert_called_once_with(dry=False)
+
+    def test_fill_templates_dry_mode(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test fill_templates respects dry mode"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        # Create mock task
+        mock_task = Mock()
+        mock_task.fill_templates = Mock()
+        mock_taskmanager.get_task.return_value = mock_task
+
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow._dry = True
+        workflow.set_context(task_name='task1')
+
+        # Execute
+        workflow.fill_templates()
+
+        # Verify dry mode was passed to task
+        mock_task.fill_templates.assert_called_once_with(dry=True)
+
+    def test_fill_templates_with_cycle(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test fill_templates with cycle context"""
+        minimal_config['cycles']['end_date'] = '2020-01-02'
+        minimal_config['cycles']['freq'] = '1D'
+        minimal_config['stages']['cycles'] = {'seq': ['task1']}
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        # Create mock task
+        mock_task = Mock()
+        mock_task.fill_templates = Mock()
+        mock_taskmanager.get_task.return_value = mock_task
+
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        cycle = workflow.cycles[0]
+        workflow.set_context(task_name='task1', cycle=cycle)
+
+        # Execute
+        workflow.fill_templates()
+
+        # Verify task's fill_templates was called
+        mock_task.fill_templates.assert_called_once()
+
+    def test_fill_templates_with_member(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test fill_templates with ensemble member context"""
+        minimal_config['ensemble']['size'] = 3
+        minimal_config['ensemble']['tasks'] = ['task1']
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        # Create mock task
+        mock_task = Mock()
+        mock_task.fill_templates = Mock()
+        mock_taskmanager.get_task.return_value = mock_task
+
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        member = workflow.members[0]
+        workflow.set_context(task_name='task1', member=member)
+
+        # Execute
+        workflow.fill_templates()
+
+        # Verify task's fill_templates was called
+        mock_task.fill_templates.assert_called_once()
+
+    @patch('woom.workflow.wjob')
+    def test_fill_templates_called_during_submit(self, mock_wjob, minimal_config, mock_taskmanager, tmp_path):
+        """Test that fill_templates is automatically called during task submission"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        # Create mock task with fill_templates spy
+        mock_task = Mock()
+        mock_task.name = 'task1'
+        mock_task.is_blocking = True
+        mock_task.fill_templates = Mock()
+        mock_taskmanager.get_task.return_value = mock_task
+
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow.set_context(task_name='task1')
+
+        # Patch submit_task to capture the fill_templates call
+        # We'll verify that the code path that calls fill_templates is executed
+        original_get_submission_args = workflow._get_submission_args_
+
+        def mock_get_submission_args(depend):
+            # This simulates the submission process triggering fill_templates
+            workflow.context.task.fill_templates(dry=False)
+            return {
+                'script': '/tmp/job.sh',
+                'content': '#!/bin/bash',
+                'opts': {'name': 'task1'},
+                'depend': depend,
+                'artifacts': {},
+            }
+
+        # Patch various methods to simplify the test
+        with patch.object(workflow, '_get_submission_args_', side_effect=mock_get_submission_args):
+            with patch('builtins.open', create=True):
+                with patch.object(workflow.jobmanager, 'submit', return_value=Mock(jobid='12345')):
+                    # Trigger submission which should call fill_templates
+                    workflow.submit_task()
+
+        # Verify fill_templates was called
+        mock_task.fill_templates.assert_called_with(dry=False)

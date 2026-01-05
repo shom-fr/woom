@@ -84,6 +84,7 @@ class TestHost:
                 "default": {
                     "raw_text": None,
                     "conda_activate": None,
+                    "uv_venv": True,
                     "modules": {"use": None, "load": None},
                     "vars": {"forward": [], "set": {}, "prepend": {}, "append": {}},
                 }

@@ -78,6 +78,17 @@ class WoomLoader(BaseLoader):
         self._woom_package_loader = PackageLoader("woom")
 
     def get_source(self, environment, template):
+        # Handle absolute paths
+        if os.path.isabs(template):
+            if os.path.exists(template):
+                dirname = os.path.dirname(template)
+                basename = os.path.basename(template)
+                loader = FileSystemLoader(dirname)
+                return loader.get_source(environment, basename)
+            else:
+                raise TemplateNotFound(f"Template file not found: {template}")
+
+        # Handle base template prefix and user templates
         loaders = [self._woom_package_loader]
         if not template.startswith('!') and self._woom_user_loader:
             loaders.insert(0, self._woom_user_loader)
@@ -87,6 +98,12 @@ class WoomLoader(BaseLoader):
                 return loader.get_source(environment, template)
             except TemplateNotFound:
                 pass
+
+        # Fall back to path
+        if os.path.exists(template):
+            loader = FileSystemLoader(".")
+            return loader.get_source(environment, template)
+
         raise TemplateNotFound(f"Templates {template} not found")
 
 

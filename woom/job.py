@@ -324,7 +324,7 @@ class Job:
             # Since SIGKILL can't be trapped, we must write the status file ourselves
             status_file = self.files["status"]
             exit_code = "0" if graceful else "1"
-            logger.debug(f"Writing exit status to {status_file}: {exit_status}")
+            logger.debug(f"Writing exit status to {status_file}: {exit_code}")
             with open(status_file, 'w') as f:
                 f.write(exit_code)
             self.set_status("TERMINATED" if graceful else "KILLED")
@@ -516,7 +516,11 @@ class BackgroundJobManager(object):
         self.drop(jobid)
 
     def __str__(self):
-        return self.get_overview()
+        # return self.get_overview()
+        return self.__class__.__name__
+
+    def __repr__(self):
+        return f"<{self}"
 
     @classmethod
     def get_command_args(cls, command, **opts):
@@ -568,7 +572,7 @@ class BackgroundJobManager(object):
         # Format commandline arguments
         return self.get_command_args("submit", **opts)
 
-    def create_job(self, script=None, name=None, args=[], **kwargs):
+    def create_job(self, script=None, name=None, args=[], fake=False, **kwargs):
         """Quickly create a job instance and add it to the manager"""
         job = self.job_class(manager=self, script=script, name=name, args=args, **kwargs)
         self.jobs.append(job)
