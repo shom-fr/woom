@@ -142,7 +142,7 @@ The minimal content of this dictionary is the following, in alphabetical order:
      -
    * - ``params``
      - :class:`dict`
-     - User and generated parameters
+     - User-defined parameters from the ``[params]`` section of the workflow configuration. Access with ``params.<name>`` (e.g., ``{{ params.my_param }}``)
      -
    * - ``workflow``
      - :class:`~woom.workflow.Workflow`

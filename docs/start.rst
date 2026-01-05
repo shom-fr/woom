@@ -87,7 +87,7 @@ This file helps you configure hosts:
 * A few commands.
 * A list of environments with their name and specifications that describe environment modules and variables, or a conda environment to load.
 
-See the :mod:`configobj` :ref:`specifications <cfgspecs.host>` for this configuration.
+See the :mod:`configobj` :ref:`specifications <cfgspecs.hosts>` for this configuration.
 
 This example file declares the resources available on the datarmor host, in particular its scheduler, the scratch dir taken from the :envvar:`SCRATCH` environment variable and the name of the ``seq`` queue.
 An environment called ``prepost`` is declared using environment modules and environment variables.

@@ -86,8 +86,8 @@ def test_context_properties(mock_workflow):
     assert context.member is None
 
 
-def test_context_set_params(mock_workflow):
-    """Test set_params method"""
+def test_context_params2env_vars(mock_workflow):
+    """Test params2env_vars method"""
     mock_task = Mock()
     mock_task.env = Mock()
     mock_task.env.vars_set = {}
@@ -96,12 +96,14 @@ def test_context_set_params(mock_workflow):
     context = Context(mock_workflow, task_name='task1')
 
     # Add some parameters
-    context.set_params({'test_param': 'test_value', 'number': 42})
+    context.params2env_vars({'test_param': 'test_value', 'number': 42})
 
-    assert context['test_param'] == 'test_value'
-    assert context['number'] == 42
-    assert 'WOOM_TEST_PARAM' in context['env_vars']
-    assert context['env_vars']['WOOM_TEST_PARAM'] == 'test_value'
+    # Parameters should NOT be in top-level context
+    assert 'test_param' not in context
+    assert 'number' not in context
+    # But should be converted to env vars with WOOM_PARAMS_ prefix
+    assert 'WOOM_PARAMS_TEST_PARAM' in context['env_vars']
+    assert context['env_vars']['WOOM_PARAMS_TEST_PARAM'] == 'test_value'
 
 
 def test_context_manager(mock_workflow):
@@ -129,7 +131,8 @@ def test_context_with_cycle(mock_workflow):
 
     assert context.cycle is cycle
     assert context['cycle'] is cycle
-    assert 'cycle_begin_date' in context['params']
+    # Cycle params should be in top-level context, not in params sub-dict
+    assert 'cycle_begin_date' in context
 
 
 def test_context_with_member(mock_workflow):

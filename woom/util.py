@@ -119,7 +119,7 @@ class WoomJSONEncoder(json.JSONEncoder):
 
 
 def params2env_vars(params=None, select=None, **extra_params):
-    """Convert a dict of parameters to env vars whose name starts with WOOM_
+    """Convert a dict of parameters to env vars whose name starts with WOOM_PARAMS_
 
     Parameters
     ----------
@@ -150,7 +150,7 @@ def params2env_vars(params=None, select=None, **extra_params):
             value = ""
         if isinstance(value, bool):
             value = str(int(value))
-        env_vars["WOOM_" + key.upper()] = str(value)
+        env_vars["WOOM_PARAMS_" + key.upper()] = str(value)
     return env_vars
 
 

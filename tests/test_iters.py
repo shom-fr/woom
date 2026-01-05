@@ -63,7 +63,7 @@ class TestCycle:
     def test_cycle_get_env_vars(self):
         cycle = witers.Cycle("2025-01-15")
         env_vars = cycle.get_env_vars()
-        assert any(key.startswith("WOOM_CYCLE") for key in env_vars)
+        assert any(key.startswith("WOOM_PARAMS_CYCLE") for key in env_vars)
 
 
 class TestGenCycles:
