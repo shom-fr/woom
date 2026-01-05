@@ -18,6 +18,7 @@ New features
 * Add a `graceful` option to ``Workflow.kill`` to terminate jobs without killing them [:pull:`18`].
 * Add a sentinel job that monitor jobs when using a scheduler [:pull:`18`].
 * Add the capability to fill templates with a decated section in tasks and with the ``woom fill`` command.
+* User paramaters specified in the workflow configuration can now contain sub-sections.
 
 Breaking changes
 ----------------
@@ -25,6 +26,7 @@ Breaking changes
 * ``Workflow.get_submission_dir`` is renamed `Workflow.get_task_submission_dir``
 * ``Workflow.get_run_dir`` is renamed ``Workflow.get_task_run_dir``.
 * ``--update `` run option is renamed ``--force`` [:pull:`18`].
+* User paramaters used in jinja rendering are now only accessible in the ``params`` variable.
 
 Deprecations
 ------------
