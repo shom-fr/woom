@@ -68,13 +68,13 @@ The minimal content of this dictionary is the following, in alphabetical order:
      - :class:`str` or `None`
      - Rounding precision
      - ``"D"``
-   * - ``context_json``
+   * - ``task_context_json``
      - :class:`str`
-     - Path to the json file if this context
-     - ``"{{ submission_dir }}/context.json"``
-   * - ``env``
+     - Path to the json file for this task context [#task]_
+     - ``"{{ task_submission_dir }}/context.json"``
+   * - ``task_env``
      - :class:`~woom.env.EnvConfig`
-     - Task environment if task is not `None`
+     - Task environment configuration [#task]_
      -
    * - ``env_vars``
      - :class:`dict`
@@ -100,14 +100,18 @@ The minimal content of this dictionary is the following, in alphabetical order:
      - :class:`int`
      - Ensemble size
      - ``5``
-   * - ``submission_dir``
+   * - ``task_submission_dir``
      - :class:`str`
-     - Job submission dir [#task]_
-     - `"/home/username/woom/myworkflow"``
-   * - ``run_dir``
+     - Job submission directory [#task]_
+     - `"/home/username/woom/myworkflow/jobs/task_path"``
+   * - ``task_run_dir``
      - :class:`str`
-     - Job run dir [#task]_
-     - `"/scrtach/username/woom/myapp/prolog/mytask"``
+     - Job run directory [#task]_
+     - `"/scratch/username/woom/myapp/prolog/mytask"``
+   * - ``task_script_path``
+     - :class:`str`
+     - Path to the job script [#task]_
+     - ``"{{ task_submission_dir }}/job.sh"``
    * - ``paths``
      - :class:`dict`
      - Local workflow paths (bin, lib, lib/python...)

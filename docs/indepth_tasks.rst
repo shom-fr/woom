@@ -27,7 +27,7 @@ A task configuration consists of several sections:
         [[fill]]
             [[[config]]]
             template = model.cfg.j2
-            destination = {{ run_dir }}/model.cfg
+            destination = {{ task_run_dir }}/model.cfg
 
         [[submit]]
         queue = normal
@@ -63,7 +63,7 @@ Use shell syntax (&&, ;, ||):
 
 .. code-block:: ini
 
-    commandline = cd {{ run_dir }} && ./prepare.sh && ./run_model.exe
+    commandline = cd {{ task_run_dir }} && ./prepare.sh && ./run_model.exe
 
 **Multi-Line Commands:**
 
@@ -243,11 +243,11 @@ Use template variables in paths:
 
     [[artifacts]]
         [[[model_output]]]
-        path = {{ run_dir }}/output_{{ cycle.token }}.nc
+        path = {{ task_run_dir }}/output_{{ cycle.token }}.nc
         check = True
 
         [[[restart_file]]]
-        path = {{ run_dir }}/restart_{{ cycle.end_date_str }}.nc
+        path = {{ task_run_dir }}/restart_{{ cycle.end_date_str }}.nc
         check = True
 
 Dynamic Paths with Callables
@@ -264,7 +264,7 @@ For complex path generation, use a callable:
         callable = True
 
             [[[[kwargs]]]]
-            base_dir = {{ run_dir }}
+            base_dir = {{ task_run_dir }}
             pattern = member_{:03d}.nc
 
 Register the generator function in an extension file:
@@ -314,11 +314,11 @@ Basic Template Filling
     [[fill]]
         [[[namelist]]]
         template = ocean.nml.j2
-        destination = {{ run_dir }}/ocean.nml
+        destination = {{ task_run_dir }}/ocean.nml
 
         [[[config]]]
         template = config.xml.j2
-        destination = {{ run_dir }}/config.xml
+        destination = {{ task_run_dir }}/config.xml
 
 **How it Works:**
 
@@ -346,7 +346,7 @@ Create :file:`templates/ocean.nml.j2`:
     /
 
     &output
-        output_file = "{{ run_dir }}/output.nc"
+        output_file = "{{ task_run_dir }}/output.nc"
         output_freq = {{ params.output_frequency }}
     /
 
@@ -361,7 +361,7 @@ Configure in tasks.cfg:
         [[fill]]
             [[[namelist]]]
             template = ocean.nml.j2
-            destination = {{ run_dir }}/ocean.nml
+            destination = {{ task_run_dir }}/ocean.nml
 
 Multiple Templates
 ------------------
@@ -373,15 +373,15 @@ Fill multiple configuration files:
     [[fill]]
         [[[main_config]]]
         template = model.cfg.j2
-        destination = {{ run_dir }}/model.cfg
+        destination = {{ task_run_dir }}/model.cfg
 
         [[[forcing_list]]]
         template = forcings.txt.j2
-        destination = {{ run_dir }}/forcings.txt
+        destination = {{ task_run_dir }}/forcings.txt
 
         [[[submission_script]]]
         template = post_process.sh.j2
-        destination = {{ run_dir }}/post_process.sh
+        destination = {{ task_run_dir }}/post_process.sh
 
 Member-Specific Configurations
 -------------------------------
@@ -393,7 +393,7 @@ Generate different configurations for ensemble members:
     [[fill]]
         [[[member_config]]]
         template = ensemble_config.j2
-        destination = {{ run_dir }}/config_{{ member.label }}.cfg
+        destination = {{ task_run_dir }}/config_{{ member.label }}.cfg
 
 Template:
 
@@ -484,7 +484,7 @@ Example: Monitoring Task
 
     [monitor_progress]
         [[content]]
-        commandline = watch -n 60 'ls -lh {{ run_dir }}/output*'
+        commandline = watch -n 60 'ls -lh {{ task_run_dir }}/output*'
         run_dir = {{ workflow_dir }}
 
         [[submit]]
@@ -541,7 +541,7 @@ Example 2: MPI Simulation
         [[fill]]
             [[[namelist]]]
             template = ocean.nml.j2
-            destination = {{ run_dir }}/ocean.nml
+            destination = {{ task_run_dir }}/ocean.nml
 
         [[artifacts]]
             [[[output]]]
@@ -568,7 +568,7 @@ Example 3: Data Download
         [[content]]
         commandline = '''
             wget https://data.example.com/forcing_{{ cycle.date }}.nc
-            mv forcing_{{ cycle.date }}.nc {{ run_dir }}/
+            mv forcing_{{ cycle.date }}.nc {{ task_run_dir }}/
             '''
         run_dir = {{ params.forcing_dir }}
 
@@ -589,14 +589,14 @@ Example 4: Post-Processing with Ensemble
 
     [compute_ensemble_mean]
         [[content]]
-        commandline = python ensemble_mean.py --input {{ run_dir }} --output mean.nc
+        commandline = python ensemble_mean.py --input {{ task_run_dir }} --output mean.nc
         run_dir = {{ scratch_dir }}/postprocess
         env = python_analysis
 
         [[fill]]
             [[[file_list]]]
             template = ensemble_files.txt.j2
-            destination = {{ run_dir }}/files.txt
+            destination = {{ task_run_dir }}/files.txt
 
         [[artifacts]]
             [[[mean_output]]]
@@ -621,7 +621,7 @@ Example 5: Conditional Execution
     [conditional_analysis]
         [[content]]
         commandline = '''
-            if [ -f {{ run_dir }}/trigger.flag ]; then
+            if [ -f {{ task_run_dir }}/trigger.flag ]; then
                 python special_analysis.py
             else
                 echo "Skipping - no trigger file"

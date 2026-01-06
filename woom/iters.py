@@ -128,7 +128,7 @@ class Cycle:
     def get_env_vars(self, suffix=None):
         """Export a dict of WOOM environment variables about this cycle"""
         params = self.get_params(suffix=suffix)
-        return wutil.params2env_vars(params)
+        return wutil.dict_to_env_vars(params)
 
 
 def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, as_intervals=True):
@@ -278,7 +278,7 @@ class Member:
     @property
     def env_vars(self):
         """Conversion of :attr:`params` to a dict of environment variables  (:class:`dict`)"""
-        return wutil.params2env_vars(self.params)
+        return wutil.dict_to_env_vars(self.params)
 
 
 def gen_ensemble(nmembers, skip=None, **iters):

@@ -34,6 +34,7 @@ Deprecations
 Bug fixes
 ---------
 * Fix ``Host.get_env`` that was ignoring ``raw_text`` and ``uv_venv`` configuration options.
+* ``run_dir``, ``submission_dir``, ``script_path``, ``env`` must now be prefixed with ``task_`` in a jinja rendering.
 
 Documentation
 -------------

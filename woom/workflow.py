@@ -117,7 +117,8 @@ class Workflow:
         return self._cfgfile
 
     def __str__(self):
-        return f'<Workflow[cfgfile: "{self._cfgfile}">\n'
+        return self._cfgfile
+        # return f'<Workflow[cfgfile: "{self._cfgfile}">\n'
 
     @property
     def config(self):

@@ -197,7 +197,7 @@ Configure in the ``[[fill]]`` section of your task:
         [[fill]]
             [[[namelist]]]
             template = ocean.nml.j2
-            destination = {{ run_dir }}/ocean.nml
+            destination = {{ task_run_dir }}/ocean.nml
 
 Templates use the same context variables as job scripts (``{{ cycle.begin_date }}``, ``{{ params.timestep }}``, etc.) and are stored in the :file:`templates/` directory.
 
@@ -228,9 +228,9 @@ Artifacts are declared in the :file:`tasks.cfg` as subsections of the ``[[artifa
 
         [[artifacts]]
             [[[clim_file]]]
-                paths={{ run_dir }}/clim.c
+                paths={{ task_run_dir }}/clim.c
 
-.. warning:: All artifacts must ultimately be able to be converted to an absolute path. So you must either declare an artifact with an absolute path, prepend it with a directory mapping like ``{{ run_dir }}`` or provide a relative path and fill the ``run_dir`` option of a task.
+.. warning:: All artifacts must ultimately be able to be converted to an absolute path. So you must either declare an artifact with an absolute path, prepend it with a directory mapping like ``{{ task_run_dir }}`` or provide a relative path and fill the ``run_dir`` option of a task.
 
 To make reference to an artifact in a task, there are two cases:
 

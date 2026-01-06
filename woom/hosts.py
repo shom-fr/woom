@@ -203,4 +203,5 @@ class Host:
             conda_setup=self.config["conda_setup"],
             conda_activate=cfg["conda_activate"],
             uv_venv=cfg["uv_venv"],
+            name=name,
         )

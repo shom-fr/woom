@@ -127,9 +127,10 @@ class TaskManager:
         """
         self._configs = []
         self._config = wconf.load_cfg(CFG_DEFAULT_FILE, CFGSPECS_FILE, interpolation=False, list_values=True)
+        self._config_files = [CFG_DEFAULT_FILE]
         self._host = host
         self.logger = logging.getLogger(__name__)
-        self._config_files = []
+        # self._config_files = []
 
     def load_config(self, cfgfile):
         """Load a user configuration file
@@ -145,6 +146,7 @@ class TaskManager:
         ------
         configobj.ConfigObj
         """
+        cfgfile = os.path.abspath(cfgfile)
         cfg = wconf.load_cfg(cfgfile, CFGSPECS_FILE, interpolation=False, list_values=True)
         self._config_files.append(cfgfile)
         self._configs.append(cfg)
@@ -179,6 +181,9 @@ class TaskManager:
                     path = content["artifacts"][artifact_name]
                     del content["artifacts"][artifact_name]
                     content["artifacts"][artifact_name] = {"path": path, "check": True, "callable": False}
+
+    def __str__(self):
+        return os.pathsep.join(self._config_files)
 
     def to_json_entry(self):
         return self._config_files
@@ -251,6 +256,9 @@ class Task:
     def name(self):
         """The task name (:class:`str`)"""
         return self.config.name
+
+    def __str__(self):
+        return self.name
 
     @property
     def is_blocking(self):

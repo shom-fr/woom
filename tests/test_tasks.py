@@ -406,14 +406,14 @@ class TestTaskFillTemplates:
                 'fill': {
                     'namelist': {
                         'template': 'ocean.nml.j2',
-                        'destination': '{{ run_dir }}/ocean.nml',
+                        'destination': '{{ task_run_dir }}/ocean.nml',
                     }
                 },
                 'submit': {},
             }
         )
         task = Task(config, mock_host)
-        mock_context = {'task': task, 'run_dir': '/tmp'}
+        mock_context = {'task': task, 'task_run_dir': '/tmp'}
         task.context = mock_context
 
         # Setup mocks
@@ -444,18 +444,18 @@ class TestTaskFillTemplates:
                 'fill': {
                     'namelist': {
                         'template': 'ocean.nml.j2',
-                        'destination': '{{ run_dir }}/ocean.nml',
+                        'destination': '{{ task_run_dir }}/ocean.nml',
                     },
                     'config': {
                         'template': 'config.cfg.j2',
-                        'destination': '{{ run_dir }}/config.cfg',
+                        'destination': '{{ task_run_dir }}/config.cfg',
                     },
                 },
                 'submit': {},
             }
         )
         task = Task(config, mock_host)
-        mock_context = {'task': task, 'run_dir': '/tmp'}
+        mock_context = {'task': task, 'task_run_dir': '/tmp'}
         task.context = mock_context
 
         # Setup mocks
@@ -503,7 +503,7 @@ class TestTaskFillTemplates:
             }
         )
         task = Task(config, mock_host)
-        mock_context = {'task': task, 'run_dir': '/tmp'}
+        mock_context = {'task': task, 'task_run_dir': '/tmp'}
         task.context = mock_context
 
         # Setup mocks
@@ -541,7 +541,7 @@ class TestTaskFillTemplates:
             }
         )
         task = Task(config, mock_host)
-        mock_context = {'task': task, 'run_dir': '/tmp'}
+        mock_context = {'task': task, 'task_run_dir': '/tmp'}
         task.context = mock_context
 
         # Setup mocks

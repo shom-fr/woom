@@ -18,8 +18,8 @@ on_sigkill() {
 # - handler for exit (always called)
 on_exit() {
     status=$?
-    if [ ! -f "{{ submission_dir }}/job.terminating" ]; then
-        echo $status > "{{ submission_dir }}/job.status"
+    if [ ! -f "{{ task_submission_dir }}/job.terminating" ]; then
+        echo $status > "{{ task_submission_dir }}/job.status"
     fi
     exit $status
 }
@@ -33,9 +33,9 @@ trap on_exit EXIT
 {% endblock %}
 
 {% block pre_run -%}
-{% if run_dir %}
+{% if task_run_dir %}
 # Go to run dir
-{ mkdir -p {{ run_dir }}; cd {{ run_dir }}; } || exit 1
+{ mkdir -p {{ task_run_dir }}; cd {{ task_run_dir }}; } || exit 1
 {% endif %}
 {% endblock %}
 

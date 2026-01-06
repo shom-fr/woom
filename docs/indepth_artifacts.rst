@@ -107,7 +107,7 @@ Use template variables:
 
     [[artifacts]]
         [[[output]]]
-        path = {{ run_dir }}/output_{{ cycle.token }}.nc
+        path = {{ task_run_dir }}/output_{{ cycle.token }}.nc
 
         [[[dated_output]]]
         path = /data/outputs/{{ cycle.date.year }}/{{ cycle.date.month }}/data.nc
@@ -179,7 +179,7 @@ Cycle-Dependent:
 
     [[artifacts]]
         [[[daily_output]]]
-        path = {{ run_dir }}/output_{{ cycle.date_str }}.nc
+        path = {{ task_run_dir }}/output_{{ cycle.date_str }}.nc
 
 Member-Dependent:
 
@@ -187,7 +187,7 @@ Member-Dependent:
 
     [[artifacts]]
         [[[ensemble_output]]]
-        path = {{ run_dir }}/output_{{ member.label }}.nc
+        path = {{ task_run_dir }}/output_{{ member.label }}.nc
 
 Combined:
 
@@ -213,7 +213,7 @@ For complex path generation:
         check = True
 
             [[[[kwargs]]]]
-            base_dir = {{ run_dir }}
+            base_dir = {{ task_run_dir }}
             prefix = member
 
 **ext/artifacts_generators.py:**
@@ -276,7 +276,7 @@ Generate daily file list:
         callable = True
 
             [[[[kwargs]]]]
-            output_dir = {{ run_dir }}/daily
+            output_dir = {{ task_run_dir }}/daily
             pattern = output_{year:04d}{month:02d}{day:02d}.nc
 
 Viewing Artifacts
@@ -353,15 +353,15 @@ Model Outputs
     [run_ocean_model]
         [[artifacts]]
             [[[output]]]
-            path = {{ run_dir }}/ocean_{{ cycle.token }}.nc
+            path = {{ task_run_dir }}/ocean_{{ cycle.token }}.nc
             check = True
 
             [[[restart]]]
-            path = {{ run_dir }}/restart_{{ cycle.end_date_str }}.nc
+            path = {{ task_run_dir }}/restart_{{ cycle.end_date_str }}.nc
             check = True
 
             [[[diagnostics]]]
-            path = {{ run_dir }}/diagnostics.nc
+            path = {{ task_run_dir }}/diagnostics.nc
             check = False  # Optional
 
 Analysis Results

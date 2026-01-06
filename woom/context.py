@@ -109,7 +109,7 @@ class Context(UserDict):
             # Task specific params
             if task_name in workflow.config["params"]["tasks"]:
                 task_params = workflow.config["params"]["tasks"][task_name].dict()
-                self.update(task_params)  # too dangerous?
+                params.update(task_params)
 
                 # if workflow.host.name in workflow.config["params"]["tasks"][task_name]:
                 #     params.update(
@@ -117,28 +117,37 @@ class Context(UserDict):
                 #     )
 
             # Paths
-            submission_dir = workflow.get_task_submission_dir(task_name, cycle, member)
+            task_submission_dir = workflow.get_task_submission_dir(task_name, cycle, member)
             self.update(
-                run_dir=task.run_dir,
-                submission_dir=submission_dir,
-                script_path=os.path.join(submission_dir, "job.sh"),
+                task_run_dir=task.run_dir,
+                task_submission_dir=task_submission_dir,
+                task_script_path=os.path.join(task_submission_dir, "job.sh"),
             )
+            for key in "run_dir", "submission_dir", "script_path":
+                self[key] = self["task_" + key]  # backward compat
+            self["run_dir"] = self["task_run_dir"]
             task.env.prepend_paths(**workflow.paths)
 
             # Environment
-            self["env"] = task.env
+            self["task_env"] = self["env"] = task.env  # with backward compat
 
             # Json file
-            self["context_json"] = os.path.join(submission_dir, "context.json")
+            self["task_context_json"] = self["context_json"] = os.path.join(
+                task_submission_dir, "context.json"
+            )  # with backward compat
 
         # Extra params
         if extra_params:
             params.update(extra_params)
 
         # Store params and set env vars
-        self.params2env_vars(params)
         self["params"] = params
+        # Convert self.data (the underlying dict) to env vars, not self (which would cause recursion)
+        env_vars = wutil.dict_to_env_vars(self.data, exclude=["context", "env_vars", "os", "logger"])
         self["context"] = self
+        self["env_vars"] = env_vars
+        if self.task:
+            self.task.env.vars_set.update(self["env_vars"])
 
     def __repr__(self):
         return (
@@ -169,6 +178,20 @@ class Context(UserDict):
         """A :class:`dict` of environment variables as declared in the workflow configuration"""
         return self["env_vars"]
 
+    # def _set_env_vars_(self, dd, prefix):
+    #     self["env_vars"].update(wutil.params2env_vars(dd, prefix=prefix))
+    #     if self.task:
+    #         self.task.env.vars_set.update(self["env_vars"])
+
+    # def set_items(self, items):
+    #     self.update(items)
+    #     self._set_env_vars_(items, "WOOM_")
+
+    # def set_params(self, params):
+    #     """Set the 'params' item"""
+    #     self["params"] = params
+    #     self._set_env_vars_(items, "WOOM_PARAMS_")
+
     @property
     def task(self):
         """The current :class:`~woom.tasks.Tasks` instance or `None`"""
@@ -183,12 +206,6 @@ class Context(UserDict):
     def member(self):
         """The current :class:`~woom.iters.Member` instance or `None`"""
         return self.get("member")
-
-    def params2env_vars(self, params):
-        """Fill the dict and declare environment variables prefixed with WOOM\_"""
-        self["env_vars"].update(wutil.params2env_vars(params))
-        if self.task:
-            self.task.env.vars_set.update(self["env_vars"])
 
     def __enter__(self):
         self._old_workflow_context = self.workflow._context

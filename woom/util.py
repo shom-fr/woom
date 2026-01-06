@@ -118,16 +118,16 @@ class WoomJSONEncoder(json.JSONEncoder):
             return str(obj)
 
 
-def params2env_vars(params=None, select=None, **extra_params):
-    """Convert a dict of parameters to env vars whose name starts with WOOM_PARAMS_
+def dict_to_env_vars(items=None, select=None, exclude=None, prefix="WOOM_", **extra_items):
+    """Convert a dict of parameters to env vars whose name starts with `prefix`
 
     Parameters
     ----------
-    params : dict, optional
+    items : dict, optional
         Parameters dictionary
     select : list, optional
-        Keys to select from params
-    **extra_params
+        Keys to select from items
+    **extra_items
         Additional parameters
 
     Returns
@@ -135,23 +135,34 @@ def params2env_vars(params=None, select=None, **extra_params):
     dict
         Environment variables dictionary
     """
-    if params is None:
-        params = extra_params
+    if items is None:
+        items = extra_items
     else:
-        params = params.copy()
-        params.update(extra_params)
+        items = items.copy()
+        items.update(extra_items)
     env_vars = {}
-    for key, value in params.items():
+    _dict_to_env_vars_(items, env_vars, prefix, select, exclude)
+    return env_vars
+
+
+def _dict_to_env_vars_(dd, env_vars, prefix, select, exclude):
+    for key, value in dd.items():
         if select and key not in select:
+            continue
+        if exclude and key in exclude:
             continue
         if isinstance(value, (pd.Timestamp, pd.Timedelta)):
             value = value.isoformat()
         if value is None:
             value = ""
+        if isinstance(value, list):
+            value = os.pathsep.join([str(v) for v in value])
         if isinstance(value, bool):
             value = str(int(value))
-        env_vars["WOOM_PARAMS_" + key.upper()] = str(value)
-    return env_vars
+        if isinstance(value, dict):
+            _dict_to_env_vars_(value, env_vars, prefix + key.upper() + "_", select, exclude)
+        else:
+            env_vars[prefix + key.upper()] = str(value)
 
 
 def pages2ints(pages, n):

@@ -185,7 +185,7 @@ Example 1: Model Namelist
     /
 
     &output
-        output_dir = "{{ run_dir }}/output"
+        output_dir = "{{ task_run_dir }}/output"
         output_freq = {{ params.output_frequency }}
         {% if member %}
         output_file = "ocean_{{ cycle.token }}_{{ member.label }}.nc"
@@ -202,7 +202,7 @@ Example 1: Model Namelist
         [[fill]]
             [[[namelist]]]
             template = ocean.nml.j2
-            destination = {{ run_dir }}/ocean.nml
+            destination = {{ task_run_dir }}/ocean.nml
 
 Example 2: XML Configuration
 -----------------------------
@@ -271,7 +271,7 @@ Example 3: File List
     {% endfor %}
 
     # Output directory
-    {{ run_dir }}/output
+    {{ task_run_dir }}/output
 
 Example 4: Shell Script
 -----------------------
@@ -288,7 +288,7 @@ Example 4: Shell Script
     set -u
 
     # Directories
-    INPUT_DIR="{{ run_dir }}/output"
+    INPUT_DIR="{{ task_run_dir }}/output"
     OUTPUT_DIR="{{ scratch_dir }}/processed/{{ task_path }}"
     mkdir -p "${OUTPUT_DIR}"
 
@@ -349,7 +349,7 @@ Create base templates:
     {% endblock %}
 
     {% block output %}
-    output_dir = {{ run_dir }}/output
+    output_dir = {{ task_run_dir }}/output
     {% endblock %}
 
 **templates/hindcast.j2:**

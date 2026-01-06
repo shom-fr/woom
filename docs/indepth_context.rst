@@ -26,7 +26,7 @@ Variables are accessed using Jinja2 syntax:
 
     Task: {{ task.name }}
     Cycle: {{ cycle.begin_date }} to {{ cycle.end_date }}
-    Run directory: {{ run_dir }}
+    Run directory: {{ task_run_dir }}
     Parameter value: {{ params.my_param }}
 
 Access in Python
@@ -86,7 +86,7 @@ Workflow Paths
 .. code-block:: jinja
 
     {{ workflow_dir }}      # Directory containing workflow.cfg
-    {{ submission_dir }}    # Where job scripts are created
+    {{ task_submission_dir }}    # Where job scripts are created
     {{ script_path }}       # Path to current job script
 
 **Example:**
@@ -107,7 +107,7 @@ Task Information
     {{ task.name }}       # Task name
     {{ task_name }}       # Also available (shorthand)
     {{ task_path }}       # Full path including app/cycle/task/member
-    {{ run_dir }}         # Where task executes
+    {{ task_run_dir }}         # Where task executes
 
 **Example:**
 
@@ -115,7 +115,7 @@ Task Information
 
     Executing task: {{ task.name }}
     Task path: {{ task_path }}
-    Working directory: {{ run_dir }}
+    Working directory: {{ task_run_dir }}
 
 **task_path Components:**
 
@@ -381,10 +381,10 @@ Standard environment variables:
 
 .. code-block:: jinja
 
-    {{ env.USER }}
-    {{ env.HOME }}
-    {{ env.HOSTNAME }}
-    {{ env.PWD }}
+    {{ task_env.USER }}
+    {{ task_env.HOME }}
+    {{ task_env.HOSTNAME }}
+    {{ task_env.PWD }}
 
 Workflow Variables
 ------------------
@@ -401,8 +401,8 @@ Access:
 
 .. code-block:: jinja
 
-    {{ env.DATA_ROOT }}
-    {{ env.OMP_NUM_THREADS }}
+    {{ task_env.DATA_ROOT }}
+    {{ task_env.OMP_NUM_THREADS }}
 
 Special Woom Variables
 -----------------------
@@ -411,11 +411,11 @@ Automatically set by woom:
 
 .. code-block:: jinja
 
-    {{ env.WOOM_WORKFLOW_DIR }}
-    {{ env.WOOM_TASK_NAME }}
-    {{ env.WOOM_RUN_DIR }}
-    {{ env.WOOM_CYCLE }}
-    {{ env.WOOM_MEMBER }}
+    {{ task_env.WOOM_WORKFLOW_DIR }}
+    {{ task_env.WOOM_TASK_NAME }}
+    {{ task_env.WOOM_RUN_DIR }}
+    {{ task_env.WOOM_CYCLE }}
+    {{ task_env.WOOM_MEMBER }}
 
 Host Variables
 ==============
