@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 import pandas as pd
+from configobj import ConfigObj
 
 
 class WoomDate(pd.Timestamp):
@@ -119,22 +120,71 @@ class WoomJSONEncoder(json.JSONEncoder):
 
 
 def dict_to_env_vars(items=None, select=None, exclude=None, prefix="WOOM_", **extra_items):
-    """Convert a dict of parameters to env vars whose name starts with `prefix`
+    """Convert a dict to env vars whose name starts with `prefix`
+
+    Supports nested dictionaries, lists, timestamps, and various data types.
+    Nested dictionaries are flattened with underscore-separated keys.
+    Lists are joined using the OS path separator (`:` on Unix, `;` on Windows).
 
     Parameters
     ----------
     items : dict, optional
-        Parameters dictionary
+        Dictionary to convert
     select : list, optional
-        Keys to select from items
+        Keys to select from items (only these will be included)
+    exclude : list, optional
+        Keys to exclude from items (applied recursively)
+    prefix : str, optional
+        Prefix for environment variable names (default: "WOOM_")
     **extra_items
-        Additional parameters
+        Additional items to include
 
     Returns
     -------
     dict
-        Environment variables dictionary
+        Environment variables dictionary with string values
+
+    Examples
+    --------
+    Simple conversion:
+
+    >>> dict_to_env_vars({'key': 'value', 'count': 42})
+    {'WOOM_KEY': 'value', 'WOOM_COUNT': '42'}
+
+    Nested dictionaries:
+
+    >>> dict_to_env_vars({'db': {'host': 'localhost', 'port': 5432}})
+    {'WOOM_DB_HOST': 'localhost', 'WOOM_DB_PORT': '5432'}
+
+    Lists are joined with os.pathsep:
+
+    >>> dict_to_env_vars({'paths': ['/usr/bin', '/usr/local/bin']})
+    {'WOOM_PATHS': '/usr/bin:/usr/local/bin'}  # Unix
+
+    Boolean values:
+
+    >>> dict_to_env_vars({'debug': True, 'quiet': False})
+    {'WOOM_DEBUG': '1', 'WOOM_QUIET': '0'}
+
+    Custom prefix:
+
+    >>> dict_to_env_vars({'key': 'val'}, prefix='MY_APP_')
+    {'MY_APP_KEY': 'val'}
+
+    Filtering with select:
+
+    >>> dict_to_env_vars({'a': 1, 'b': 2, 'c': 3}, select=['a', 'b'])
+    {'WOOM_A': '1', 'WOOM_B': '2'}
+
+    Filtering with exclude:
+
+    >>> dict_to_env_vars({'keep': 1, 'skip': 2}, exclude=['skip'])
+    {'WOOM_KEEP': '1'}
     """
+    if not isinstance(prefix, str):
+        raise TypeError(f"prefix must be a string, got {type(prefix).__name__}")
+    if not prefix:
+        raise ValueError("prefix cannot be empty")
     if items is None:
         items = extra_items
     else:
@@ -159,7 +209,7 @@ def _dict_to_env_vars_(dd, env_vars, prefix, select, exclude):
             value = os.pathsep.join([str(v) for v in value])
         if isinstance(value, bool):
             value = str(int(value))
-        if isinstance(value, dict):
+        if isinstance(value, (dict, ConfigObj)):
             _dict_to_env_vars_(value, env_vars, prefix + key.upper() + "_", select, exclude)
         else:
             env_vars[prefix + key.upper()] = str(value)

@@ -247,6 +247,20 @@ class TestDictToEnvVars:
         assert result['CUSTOM_KEY'] == 'value'
         assert 'WOOM_KEY' not in result
 
+    def test_dict_to_env_vars_empty_prefix(self):
+        """Test that empty prefix raises ValueError"""
+        items = {'key': 'value'}
+
+        with pytest.raises(ValueError, match="prefix cannot be empty"):
+            dict_to_env_vars(items, prefix='')
+
+    def test_dict_to_env_vars_invalid_prefix_type(self):
+        """Test that non-string prefix raises TypeError"""
+        items = {'key': 'value'}
+
+        with pytest.raises(TypeError, match="prefix must be a string"):
+            dict_to_env_vars(items, prefix=123)
+
     def test_dict_to_env_vars_nested_with_exclude(self):
         """Test nested conversion with exclude"""
         items = {
@@ -262,6 +276,88 @@ class TestDictToEnvVars:
         assert 'WOOM_NESTED_KEEP' in result
         # Note: exclude applies recursively to nested dicts
         assert 'WOOM_NESTED_EXCLUDE_ME' not in result
+
+    def test_dict_to_env_vars_list(self):
+        """Test conversion of list values"""
+        items = {'paths': ['/usr/bin', '/usr/local/bin', '/opt/bin']}
+
+        result = dict_to_env_vars(items)
+
+        # Lists should be joined with os.pathsep (: on Unix, ; on Windows)
+        assert 'WOOM_PATHS' in result
+        assert '/usr/bin' in result['WOOM_PATHS']
+        assert '/usr/local/bin' in result['WOOM_PATHS']
+        assert os.pathsep in result['WOOM_PATHS']
+
+    def test_dict_to_env_vars_nested_with_list(self):
+        """Test nested dict containing list values"""
+        items = {'config': {'search_paths': ['/path1', '/path2'], 'enabled': True}}
+
+        result = dict_to_env_vars(items)
+
+        assert 'WOOM_CONFIG_SEARCH_PATHS' in result
+        assert '/path1' in result['WOOM_CONFIG_SEARCH_PATHS']
+        assert 'WOOM_CONFIG_ENABLED' in result
+        assert result['WOOM_CONFIG_ENABLED'] == '1'
+
+    def test_dict_to_env_vars_empty_nested(self):
+        """Test empty nested dict"""
+        items = {'top': 'value', 'nested': {}}
+
+        result = dict_to_env_vars(items)
+
+        assert result['WOOM_TOP'] == 'value'
+        # Empty dict should not create any env vars
+        assert not any(k.startswith('WOOM_NESTED_') for k in result)
+
+    def test_dict_to_env_vars_mixed_nesting(self):
+        """Test complex nesting with different types"""
+        items = {
+            'simple': 'value',
+            'database': {'host': 'localhost', 'port': 5432, 'replicas': ['db1', 'db2', 'db3']},
+            'flags': {'debug': True, 'verbose': False},
+        }
+
+        result = dict_to_env_vars(items)
+
+        assert result['WOOM_SIMPLE'] == 'value'
+        assert result['WOOM_DATABASE_HOST'] == 'localhost'
+        assert result['WOOM_DATABASE_PORT'] == '5432'
+        assert 'db1' in result['WOOM_DATABASE_REPLICAS']
+        assert result['WOOM_FLAGS_DEBUG'] == '1'
+        assert result['WOOM_FLAGS_VERBOSE'] == '0'
+
+    def test_dict_to_env_vars_configobj(self):
+        """Test conversion of ConfigObj instances"""
+        from configobj import ConfigObj
+
+        config = ConfigObj()
+        config['app'] = {}
+        config['app']['name'] = 'test'
+        config['app']['version'] = '1.0'
+        config['debug'] = 'true'
+
+        result = dict_to_env_vars(config)
+
+        assert result['WOOM_APP_NAME'] == 'test'
+        assert result['WOOM_APP_VERSION'] == '1.0'
+        assert result['WOOM_DEBUG'] == 'true'
+
+    def test_dict_to_env_vars_nested_configobj(self):
+        """Test conversion with nested ConfigObj in dict"""
+        from configobj import ConfigObj
+
+        nested_config = ConfigObj()
+        nested_config['host'] = 'localhost'
+        nested_config['port'] = '5432'
+
+        items = {'database': nested_config, 'app': 'myapp'}
+
+        result = dict_to_env_vars(items)
+
+        assert result['WOOM_DATABASE_HOST'] == 'localhost'
+        assert result['WOOM_DATABASE_PORT'] == '5432'
+        assert result['WOOM_APP'] == 'myapp'
 
 
 class TestPages2Ints:

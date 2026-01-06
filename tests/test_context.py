@@ -155,3 +155,27 @@ def test_context_copy(mock_workflow):
 
     assert isinstance(context_copy, Context)
     assert context_copy.workflow is mock_workflow
+
+
+def test_context_backward_compatibility(mock_workflow):
+    """Test that old variable names still work for backward compatibility"""
+    mock_task = Mock()
+    mock_task.name = 'task1'
+    mock_task.run_dir = '/tmp/run'
+    mock_task.env = Mock()
+    mock_task.env.prepend_paths = Mock()
+    mock_workflow.get_task.return_value = mock_task
+
+    context = Context(mock_workflow, task_name='task1')
+
+    # New names should exist
+    assert 'task_run_dir' in context
+    assert 'task_submission_dir' in context
+    assert 'task_script_path' in context
+    assert 'task_env' in context
+    assert 'task_context_json' in context
+
+    # Old names should also exist for backward compat
+    assert context['run_dir'] == context['task_run_dir']
+    assert context['submission_dir'] == context['task_submission_dir']
+    assert context['script_path'] == context['task_script_path']

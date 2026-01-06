@@ -717,6 +717,116 @@ Template Not Rendering
 3. Check Jinja2 syntax
 4. Verify context has expected variables
 
+Migration Guide
+===============
+
+This section helps migrate workflows from older Woom versions to the current version.
+
+Parameters Isolation (v2025.10+)
+---------------------------------
+
+**Change**: User-defined workflow parameters are now isolated in the ``params`` sub-dictionary.
+
+**Old Syntax** (before v2025.10):
+
+.. code-block:: jinja
+
+    # Direct access to parameters
+    dt = {{ timestep }}
+    nx = {{ grid_nx }}
+    data = {{ data_dir }}
+
+**New Syntax** (v2025.10+):
+
+.. code-block:: jinja
+
+    # Parameters accessed via params
+    dt = {{ params.timestep }}
+    nx = {{ params.grid_nx }}
+    data = {{ params.data_dir }}
+
+**Why**: This change prevents naming conflicts between user parameters and built-in context variables, making templates more predictable and maintainable.
+
+**Migration Steps**:
+
+1. Add ``params.`` prefix to all user-defined parameters in templates
+2. Environment variables also change: ``WOOM_TIMESTEP`` becomes ``WOOM_PARAMS_TIMESTEP``
+3. Test all templates after migration
+
+Task Variable Prefixes (v2025.10+)
+-----------------------------------
+
+**Change**: Task-specific context variables now use the ``task_`` prefix.
+
+**Old Syntax** (before v2025.10):
+
+.. code-block:: jinja
+
+    Working directory: {{ run_dir }}
+    Submission directory: {{ submission_dir }}
+    Script path: {{ script_path }}
+    Environment: {{ env.USER }}
+    Context JSON: {{ context_json }}
+
+**New Syntax** (v2025.10+):
+
+.. code-block:: jinja
+
+    Working directory: {{ task_run_dir }}
+    Submission directory: {{ task_submission_dir }}
+    Script path: {{ task_script_path }}
+    Environment: {{ task_env.USER }}
+    Context JSON: {{ task_context_json }}
+
+**Why**: The ``task_`` prefix makes it explicit that these variables are task-specific, improving template readability and avoiding ambiguity with workflow-level variables.
+
+**Migration Steps**:
+
+1. Replace ``{{ run_dir }}`` with ``{{ task_run_dir }}``
+2. Replace ``{{ submission_dir }}`` with ``{{ task_submission_dir }}``
+3. Replace ``{{ script_path }}`` with ``{{ task_script_path }}``
+4. Replace ``{{ env.`` with ``{{ task_env.``
+5. Replace ``{{ context_json }}`` with ``{{ task_context_json }}``
+
+**Backward Compatibility**: For a limited time, the old names remain available as aliases to the new names, but they will be removed in a future version. Migrate as soon as possible.
+
+Complete Migration Example
+---------------------------
+
+**Old template** (before v2025.10):
+
+.. code-block:: jinja
+
+    #!/bin/bash
+    # Model configuration
+    cd {{ run_dir }}
+
+    export MODEL_TIMESTEP={{ timestep }}
+    export MODEL_GRIDSIZE={{ grid_nx }}x{{ grid_ny }}
+    export DATA_DIR={{ data_dir }}
+    export USER={{ env.USER }}
+
+    echo "Running in: $(pwd)"
+    echo "Job script: {{ script_path }}"
+    ./model --config config.nml
+
+**New template** (v2025.10+):
+
+.. code-block:: jinja
+
+    #!/bin/bash
+    # Model configuration
+    cd {{ task_run_dir }}
+
+    export MODEL_TIMESTEP={{ params.timestep }}
+    export MODEL_GRIDSIZE={{ params.grid_nx }}x{{ params.grid_ny }}
+    export DATA_DIR={{ params.data_dir }}
+    export USER={{ task_env.USER }}
+
+    echo "Running in: $(pwd)"
+    echo "Job script: {{ task_script_path }}"
+    ./model --config config.nml
+
 See Also
 ========
 

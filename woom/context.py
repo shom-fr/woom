@@ -143,7 +143,9 @@ class Context(UserDict):
         # Store params and set env vars
         self["params"] = params
         # Convert self.data (the underlying dict) to env vars, not self (which would cause recursion)
-        env_vars = wutil.dict_to_env_vars(self.data, exclude=["context", "env_vars", "os", "logger"])
+        env_vars = wutil.dict_to_env_vars(
+            self.data, exclude=["context", "env_vars", "os", "logger", "config"]
+        )
         self["context"] = self
         self["env_vars"] = env_vars
         if self.task:
@@ -177,20 +179,6 @@ class Context(UserDict):
     def env_vars(self):
         """A :class:`dict` of environment variables as declared in the workflow configuration"""
         return self["env_vars"]
-
-    # def _set_env_vars_(self, dd, prefix):
-    #     self["env_vars"].update(wutil.params2env_vars(dd, prefix=prefix))
-    #     if self.task:
-    #         self.task.env.vars_set.update(self["env_vars"])
-
-    # def set_items(self, items):
-    #     self.update(items)
-    #     self._set_env_vars_(items, "WOOM_")
-
-    # def set_params(self, params):
-    #     """Set the 'params' item"""
-    #     self["params"] = params
-    #     self._set_env_vars_(items, "WOOM_PARAMS_")
 
     @property
     def task(self):
