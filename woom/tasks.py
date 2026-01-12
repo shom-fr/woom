@@ -400,8 +400,9 @@ class Task:
             return {}
         artifacts = {}
         for name, path in self.get_artifacts().items():
+            single = isinstance(path, str)
             artifacts[name] = []
-            paths = [path] if isinstance(path, str) else path
+            paths = [path] if single else path
             for path_ in paths:
                 rendered = wrender.render(path_.strip(), self.context)
                 if not os.path.isabs(path_):
@@ -412,7 +413,10 @@ class Task:
                             f"Rendered artifact '{name}' of task '{self.name}' is not absolute "
                             "and task run_dir is not defined. Please fix it!"
                         )
-                artifacts[name].append(rendered)
+                if single:
+                    artifacts[name] = rendered
+                else:
+                    artifacts[name].append(rendered)
         return artifacts
 
     def render_content(self):

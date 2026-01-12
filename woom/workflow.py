@@ -282,8 +282,11 @@ class Workflow:
         getter: callable
                 Callable with this signature ``getter(task_name, cycle=None, member=None, **kwargs)``
         task_name: str
+            A valid task name
         cycle: Cycle, str, None
+            Current cycle or None
         member: Member, None
+            Member number of the ensemble, starting from 1
         flat: bool
             Flatten results and return a list.
             Else, return a dict.
@@ -314,10 +317,13 @@ class Workflow:
         # Loops
         out = {}
         for cycle_ in cycles:
-            ckey = cycle_ if isinstance(cycle_, witers.Cycle) and not cycle else None
+            ckey = cycle_ if isinstance(cycle_, witers.Cycle) and cycle is None else None
             for member_ in members:
+                # Get the value
                 value = getter(task_name=task_name, cycle=cycle_, member=member_, **kwargs)
-                mkey = member_ if isinstance(member_, witers.Member) and not member else None
+
+                # Store
+                mkey = member_ if isinstance(member_, witers.Member) and member is None else None
                 if mkey is None and ckey is None:
                     out = value
                     break
@@ -398,7 +404,7 @@ class Workflow:
 
     @functools.lru_cache
     def get_task_artifacts(self, task_name, cycle=None, member=None, artifact_name=None, flat=False):
-        """Get the paths of all artifacts of a given task
+        """Get the paths of all artifacts of a given task across cycles and members
 
         Parameters
         ----------
@@ -432,7 +438,7 @@ class Workflow:
         )
 
     def get_task_artifact_paths(self, artifact_name, task_name, cycle=None, member=None, flat=False):
-        """Get the paths of an artifact for a given task
+        """Get the paths of an artifact of a given task across cycles and members
 
         This is a special call to :meth:`get_task_artifacts` in which
         the artifact name is mandatory as first argument.
@@ -711,6 +717,9 @@ class Workflow:
                                 if member:
                                     long_task += f"/{member.label}"
                                 self.logger.debug(f"Running task: {long_task}")
+                                self.logger.debug(
+                                    "Task path: " + self.get_task_path(task_name, cycle, member)
+                                )
 
                                 # Check status
                                 status = self.get_task_status(task_name, cycle, member)
@@ -723,7 +732,7 @@ class Workflow:
 
                                 if not force:
                                     if status.name is wjob.JobStatus.SUCCESS:
-                                        self.logger.debug(f"Task already succeeded. Skiping: {long_task}")
+                                        self.logger.debug(f"Task already succeeded. Skipping: {long_task}")
                                         continue
 
                                     elif status is wjob.JobStatus.ERROR:
@@ -735,7 +744,7 @@ class Workflow:
                                 else:
                                     if status.jobid:
                                         self.logger.debug(
-                                            f"Droping from job manager because forcing run: {status.jobid}"
+                                            f"Dropping from job manager because forcing run: {status.jobid}"
                                         )
                                         self.jobmanager.drop(status.jobid)
 

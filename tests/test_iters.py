@@ -65,6 +65,52 @@ class TestCycle:
         env_vars = cycle.get_env_vars()
         assert any(key.startswith("WOOM_CYCLE") for key in env_vars)
 
+    def test_cycle_eq_same_single_date(self):
+        """Test equality of two cycles with the same single date"""
+        cycle1 = witers.Cycle("2020-01-01")
+        cycle2 = witers.Cycle("2020-01-01")
+        assert cycle1 == cycle2
+
+    def test_cycle_eq_different_single_dates(self):
+        """Test inequality of two cycles with different single dates"""
+        cycle1 = witers.Cycle("2020-01-01")
+        cycle2 = witers.Cycle("2020-01-02")
+        assert cycle1 != cycle2
+
+    def test_cycle_eq_same_interval(self):
+        """Test equality of two cycles with the same interval"""
+        cycle1 = witers.Cycle("2020-01-01", "2020-01-10")
+        cycle2 = witers.Cycle("2020-01-01", "2020-01-10")
+        assert cycle1 == cycle2
+
+    def test_cycle_eq_different_intervals(self):
+        """Test inequality of two cycles with different intervals"""
+        cycle1 = witers.Cycle("2020-01-01", "2020-01-10")
+        cycle2 = witers.Cycle("2020-01-01", "2020-01-15")
+        assert cycle1 != cycle2
+
+    def test_cycle_eq_single_vs_interval(self):
+        """Test equality of single date cycle vs interval cycle with same begin_date"""
+        cycle1 = witers.Cycle("2020-01-01")
+        cycle2 = witers.Cycle("2020-01-01", "2020-01-10")
+        assert cycle1 == cycle2
+
+    def test_cycle_eq_single_vs_interval_different_begin(self):
+        """Test inequality when single date and interval have different begin_dates"""
+        cycle1 = witers.Cycle("2020-01-01")
+        cycle2 = witers.Cycle("2020-01-02", "2020-01-10")
+        assert cycle1 != cycle2
+
+    def test_cycle_eq_with_string(self):
+        """Test equality comparison with string representation"""
+        cycle = witers.Cycle("2020-01-01")
+        assert cycle == "2020-01-01T00:00:00+00:00"
+
+    def test_cycle_eq_interval_with_string(self):
+        """Test interval cycle equality comparison with string"""
+        cycle = witers.Cycle("2020-01-01", "2020-01-10")
+        assert cycle == "2020-01-01T00:00:00+00:00-2020-01-10T00:00:00+00:00"
+
 
 class TestGenCycles:
     """Test cycle generation"""

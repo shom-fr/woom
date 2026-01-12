@@ -235,6 +235,80 @@ Result (for first cycle):
     End: 2020-01-02T00:00:00
     ID: 2020-01-01T00:00:00-2020-01-02T00:00:00
 
+Cycle Equality and Comparison
+------------------------------
+
+Cycles can be compared for equality using the ``==`` operator. The comparison behavior is designed to be flexible and intuitive for workflow operations.
+
+**Equality Rules:**
+
+1. **Same type cycles**: Two cycles are equal if they have the same ``begin_date`` and ``end_date``
+2. **Mixed type cycles**: A single date cycle equals an interval cycle if they share the same ``begin_date``
+3. **String comparison**: Cycles can be compared with ISO 8601 formatted strings
+
+**Example 1: Same Type Comparison**
+
+.. code-block:: python
+
+    from woom.iters import Cycle
+
+    # Two single date cycles
+    cycle1 = Cycle("2020-01-01")
+    cycle2 = Cycle("2020-01-01")
+    assert cycle1 == cycle2  # True - same date
+
+    cycle3 = Cycle("2020-01-02")
+    assert cycle1 != cycle3  # True - different dates
+
+    # Two interval cycles
+    interval1 = Cycle("2020-01-01", "2020-01-10")
+    interval2 = Cycle("2020-01-01", "2020-01-10")
+    assert interval1 == interval2  # True - same interval
+
+    interval3 = Cycle("2020-01-01", "2020-01-15")
+    assert interval1 != interval3  # True - different end dates
+
+**Example 2: Mixed Type Comparison**
+
+.. code-block:: python
+
+    # Single date vs interval - compared by begin_date
+    single = Cycle("2020-01-01")
+    interval = Cycle("2020-01-01", "2020-01-10")
+    assert single == interval  # True - same begin_date
+
+    # Different begin dates
+    single2 = Cycle("2020-01-02")
+    assert single2 != interval  # True - different begin_date
+
+**Example 3: String Comparison**
+
+.. code-block:: python
+
+    cycle = Cycle("2020-01-01")
+    assert cycle == "2020-01-01T00:00:00+00:00"  # True
+
+    interval = Cycle("2020-01-01", "2020-01-10")
+    assert interval == "2020-01-01T00:00:00+00:00-2020-01-10T00:00:00+00:00"  # True
+
+**Use Cases:**
+
+This flexible equality behavior is useful for:
+
+- **Task dependencies**: Tasks can depend on cycles specified as dates or intervals interchangeably
+- **Cycle lookups**: Find cycles by date string without knowing if it's stored as interval or point
+- **Workflow logic**: Simplify conditional logic when cycles might be configured differently
+
+.. code-block:: python
+
+    # In workflow code, these all work equivalently
+    task_cycle = workflow.get_task_cycle(task_name, "2020-01-01")
+
+    # Whether the workflow uses:
+    # - Single dates: Cycle("2020-01-01")
+    # - Intervals: Cycle("2020-01-01", "2020-01-02")
+    # Both match the string "2020-01-01"
+
 Ensemble Member Variables
 ==========================
 

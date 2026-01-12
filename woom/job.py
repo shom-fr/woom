@@ -508,7 +508,6 @@ class BackgroundJobManager(object):
         for j in list(self.jobs):
             if j == job:
                 self.jobs.remove(j)
-                print("xxx ok droped", str(job))
                 return
         raise WoomJobError(f"Can't drop job from manager: {job}")
 
