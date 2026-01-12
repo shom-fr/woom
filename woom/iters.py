@@ -83,6 +83,10 @@ class Cycle:
                     return False
         elif isinstance(other, wutil.WoomDate):
             other = [other]
+        else:
+            other_, other = other, [self.begin_date]
+            if other_.end_date is not None:
+                other.append(other_.end_date)
         if other[0] != self.begin_date:
             return False
         if len(other) == 1 or self.end_date is None:

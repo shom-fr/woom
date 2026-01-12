@@ -354,7 +354,7 @@ class Task:
         #     specs["paths"] = [specs["paths"]]
         if specs["callable"]:
             func_name = specs["path"]
-            if isinstance(func_name):
+            if isinstance(func_name, list):
                 func_name = func_name[0]
             if func_name not in ARTIFACTS_GENERATORS:
                 raise TaskError(f"Artifact generator function not found: {func_name}")
