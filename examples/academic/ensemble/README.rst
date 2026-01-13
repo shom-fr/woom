@@ -4,16 +4,24 @@ Running an ensemble
 About
 -----
 
-Run a simple task through an ensemble and cycles.
+This example demonstrates how to run ensemble simulations combined with time cycles, along with advanced extension capabilities.
 
-We extend the capability of woom in two ways:
+The workflow runs a task across multiple ensemble members and cycles, showcasing woom's ability to handle both temporal and ensemble dimensions simultaneously.
 
-#. We add a Jinja filter named ``member2letter`` by adding the
-   :file:`ext/jinja_filters.py` in the workflow directory.
-   This allows to add to convert the member id to a letter with
-   this templating on the task command line ``{{ member|member2letter }}``.
-#. We add a workflow configuration specification file named :file:`workflow.ini`
-   that is merged with the default one to
-   help converting the option named ``ks`` to a list of lognormal random numbers.
-   The conversion function is declared in the :file:`ext/validator_functions.py`.
-   It takes as arguments a mean, a standard deviation and a size.
+The example demonstrates two powerful extension mechanisms:
+
+**1. Custom Jinja2 filter** (:file:`ext/jinja_filters.py`):
+
+- Adds a ``member2letter`` filter that converts member IDs to letters (1→A, 2→B, etc.)
+- Shows how to extend woom's templating system with domain-specific transformations
+- Used in task command lines: ``{{ member|member2letter }}``
+- Illustrates how to add custom formatting for ensemble parameters
+
+**2. Custom validator function** (:file:`ext/validator_functions.py`):
+
+- Extends workflow configuration validation with a custom ``ks`` parameter
+- Generates lognormal random numbers from mean, standard deviation, and size arguments
+- Demonstrates how to add complex parameter types beyond woom's built-in types
+- Defined via a custom :file:`workflow.ini` specification file that merges with woom's defaults
+
+This example is ideal for users running ensemble forecasts, sensitivity studies, or Monte Carlo simulations who need to extend woom's capabilities with custom functionality.
