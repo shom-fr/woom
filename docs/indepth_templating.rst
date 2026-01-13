@@ -122,6 +122,19 @@ The :file:`env.sh` template handles environment setup:
 - Set environment variables
 - Source setup scripts
 
+Sentinel Template
+-----------------
+
+The :file:`sentinel.sh` template monitors workflow jobs when using a scheduler:
+
+**Location**: :file:`woom/templates/sentinel.sh`
+
+**Purpose**:
+
+- Monitor job status on HPC schedulers (SLURM, PBS Pro)
+- Kill all jobs if any blocking job fails
+- Terminate non-blocking jobs when blocking jobs complete
+
 User Templates
 ==============
 
