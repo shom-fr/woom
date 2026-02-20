@@ -57,6 +57,9 @@ test = [
   "pytest-mock",
   "pytest-xdist",
 ]
+monitor = [
+  "flask",
+]
 
 [project.urls]
 Homepage = "https://github.com/woom/woom"
@@ -72,11 +75,12 @@ requires = ["setuptools >= 64", "wheel", "setuptools-scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["woom"]
+packages = ["woom", "woom.monitor"]
 include-package-data = true
 
 [tool.setuptools.package-data]
 woom = ["*.ini", "*.cfg", "templates/*"]
+"woom.monitor" = ["static/*", "templates/*"]
 
 [tool.setuptools_scm]
 write_to = "woom/_version.py"

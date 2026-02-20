@@ -50,6 +50,7 @@ def get_parser():
     add_parser_kill(subparsers)
     add_parser_clean(subparsers)
     add_parser_fill(subparsers)
+    add_parser_monitor(subparsers)
 
     return parser
 
@@ -553,4 +554,45 @@ def main_fill(parser, args):
     except Exception:
         logger.exception("Failed to fill template")
         return 1
+    return 0
+
+
+# %% Monitor
+
+
+def add_parser_monitor(subparsers):
+    # Setup argument parser
+    parser_monitor = subparsers.add_parser(
+        "monitor",
+        help="launch a web monitor for the workflow",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser_monitor.add_argument("--port", type=int, default=5000, help="TCP port to listen on")
+    parser_monitor.add_argument("--bind", default="127.0.0.1", help="IP address to bind to")
+    parser_monitor.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="do not automatically open a browser tab",
+    )
+    wlog.add_logging_parser_arguments(parser_monitor)
+    parser_monitor.set_defaults(func=main_monitor)
+
+    return parser_monitor
+
+
+def main_monitor(parser, args):
+    # Setup the workflow
+    workflow, logger = setup_workflow(parser, args)
+    if not workflow:
+        return 0
+
+    # Launch the web monitor (lazy import so Flask is optional)
+    from . import monitor as wmonitor
+
+    wmonitor.run_monitor(
+        workflow,
+        host=args.bind,
+        port=args.port,
+        open_browser=not args.no_browser,
+    )
     return 0

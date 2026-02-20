@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>woom monitor</title>
+<!-- Apply stored theme before first paint to prevent flash -->
+<script>(function(){var t=localStorage.getItem('woom-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<link rel="stylesheet" href="/static/monitor.css">
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>woom monitor</h1>
+    <div class="subtitle" id="header-subtitle">loading...</div>
+  </div>
+  <span class="scheduler-badge" id="scheduler-badge"></span>
+  <button id="theme-toggle" class="header-btn" onclick="toggleTheme()"></button>
+  <button class="header-btn" onclick="stopServer()" title="Shut down the monitor server">&#9632; Shutdown</button>
+</header>
+
+<nav>
+  <ul>
+    <li><a href="#overview" class="tab-link active" data-tab="overview">Overview</a></li>
+    <li><a href="#jobs"     class="tab-link"        data-tab="jobs">Jobs <span class="count" id="jobs-count">-</span></a></li>
+    <li><a href="#logs"     class="tab-link"        data-tab="logs">Logs</a></li>
+    <li><a href="#artifacts" class="tab-link"       data-tab="artifacts">Artifacts <span class="count" id="artifacts-count">-</span></a></li>
+    <li><a href="#schedule"  class="tab-link"       data-tab="schedule">Schedule</a></li>
+  </ul>
+</nav>
+
+<main>
+
+  <!-- ===== OVERVIEW TAB ===== -->
+  <div id="overview" class="tab-panel active">
+    <div class="card-grid" id="overview-cards"></div>
+    <div class="section-header">Task Tree</div>
+    <div class="task-tree-visual" id="task-tree-content">Loading...</div>
+    <div class="section-header">Cycles</div>
+    <div class="cycle-tags" id="cycle-tags"></div>
+    <div class="section-header">Job Status Summary</div>
+    <div class="card-grid" id="status-summary-cards"></div>
+
+    <div class="section-header">Configuration</div>
+    <details class="cfg-details" id="wf-cfg-details">
+      <summary class="cfg-summary">Workflow</summary>
+      <div id="wf-cfg-body" class="cfg-body"><span class="cfg-loading">Loading…</span></div>
+    </details>
+    <details class="cfg-details" id="tasks-cfg-details">
+      <summary class="cfg-summary">Tasks</summary>
+      <div id="tasks-cfg-body" class="cfg-body"><span class="cfg-loading">Loading…</span></div>
+    </details>
+  </div>
+
+  <!-- ===== JOBS TAB ===== -->
+  <div id="jobs" class="tab-panel">
+    <div id="scheduler-warning" class="warning-banner" style="display:none">
+      &#9888; This workflow uses a <strong>scheduler host</strong> (Slurm / PBS).
+      Run and Kill actions are <strong>disabled</strong> &mdash; use your scheduler commands directly.
+    </div>
+    <div class="action-bar">
+      <button class="btn btn-primary"   id="btn-run"       onclick="doRun(false,false)">&#9654; Run</button>
+      <button class="btn btn-secondary" id="btn-dry-run"   onclick="doRun(true,false)">&#9655; Dry run</button>
+      <button class="btn btn-secondary" id="btn-force-run" onclick="doRun(false,true)">&#8635; Force run</button>
+      <button class="btn btn-danger"    id="btn-kill-all"  onclick="doKillAll()">&#9632; Kill all</button>
+      <div class="run-status-bar" id="run-status-bar" style="display:none">
+        <div class="spinner" id="run-spinner"></div>
+        <span id="run-status-text"></span>
+      </div>
+      <span class="refresh-indicator" id="jobs-refresh-indicator" style="margin-left:auto"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Status</th><th>Job ID</th><th>Task</th><th>Cycle</th>
+            <th>Member</th><th>Submission Dir</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="jobs-tbody">
+          <tr><td colspan="7" style="text-align:center;color:#888">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== LOGS TAB ===== -->
+  <div id="logs" class="tab-panel">
+    <div class="logs-grid">
+      <div class="log-viewer">
+        <div class="log-viewer-header">
+          <span>Live woom log output</span>
+          <label class="checkbox-label" style="color:#8b949e">
+            <input type="checkbox" id="autoscroll-cb" checked> Auto-scroll
+          </label>
+        </div>
+        <div class="log-lines" id="log-lines"></div>
+      </div>
+      <div class="job-log-panel">
+        <div>
+          <label for="job-task-select">Task / Cycle</label>
+          <select id="job-task-select" onchange="loadJobLog()">
+            <option value="">&mdash; select a task &mdash;</option>
+          </select>
+        </div>
+        <div>
+          <label>File type</label>
+          <div style="display:flex;gap:8px">
+            <label class="checkbox-label"><input type="radio" name="job-file-type" value="out" checked onchange="loadJobLog()"> stdout</label>
+            <label class="checkbox-label"><input type="radio" name="job-file-type" value="err" onchange="loadJobLog()"> stderr</label>
+            <label class="checkbox-label"><input type="radio" name="job-file-type" value="sh"  onchange="loadJobLog()"> script</label>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column">
+          <label>Content</label>
+          <div class="job-log-content" id="job-log-content">Select a task above to view its job log.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ARTIFACTS TAB ===== -->
+  <div id="artifacts" class="tab-panel">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Task</th><th>Artifact</th><th>Path</th><th>Exists?</th></tr></thead>
+        <tbody id="artifacts-tbody">
+          <tr><td colspan="4" style="text-align:center;color:#888">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== SCHEDULE TAB ===== -->
+  <div id="schedule" class="tab-panel">
+
+    <div class="section-header">Current schedule</div>
+    <div id="cron-current-wrap">
+      <p style="color:var(--color-fg-muted);font-size:13px">Loading...</p>
+    </div>
+
+    <div class="section-header" style="margin-top:24px">Add / update schedule</div>
+    <div class="cron-builder">
+      <div class="cron-builder-grid">
+        <div>
+          <label class="field-label">Period</label>
+          <select id="cron-period-sel" class="cron-select" onchange="cronBuilderUpdate()">
+            <option value="5m">Every 5 min</option>
+            <option value="15m">Every 15 min</option>
+            <option value="30m">Every 30 min</option>
+            <option value="1h">Every 1 h</option>
+            <option value="2h">Every 2 h</option>
+            <option value="3h">Every 3 h</option>
+            <option value="4h">Every 4 h</option>
+            <option value="6h" selected>Every 6 h</option>
+            <option value="8h">Every 8 h</option>
+            <option value="12h">Every 12 h</option>
+            <option value="24h">Daily</option>
+          </select>
+        </div>
+        <div id="cron-minute-wrap">
+          <label class="field-label">Minute offset <span style="font-weight:400;color:var(--color-fg-muted)">(0–59)</span></label>
+          <input type="number" id="cron-minute-offset" class="cron-number" min="0" max="59" value="0"
+                 oninput="cronBuilderUpdate()" onchange="cronBuilderUpdate()">
+        </div>
+        <div id="cron-hour-wrap" style="display:none">
+          <label class="field-label">At hour <span style="font-weight:400;color:var(--color-fg-muted)">(0–23)</span></label>
+          <input type="number" id="cron-hour-val" class="cron-number" min="0" max="23" value="0"
+                 oninput="cronBuilderUpdate()" onchange="cronBuilderUpdate()">
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <label class="field-label" for="cron-expr-input">Crontab expression <span style="font-weight:400;color:var(--color-fg-muted)">(min hour dom month dow)</span></label>
+        <input id="cron-expr-input" type="text" placeholder="e.g. 23 */6 * * *"
+               oninput="updateCronPreview()" style="width:260px;padding:6px 8px;border:1px solid var(--color-border-default);border-radius:6px;background:var(--color-canvas-default);color:var(--color-fg-default);font-family:var(--font-mono);font-size:13px">
+      </div>
+      <div style="margin-top:12px">
+        <label class="field-label">Generated crontab line</label>
+        <div class="cron-preview" id="cron-preview">&mdash;</div>
+      </div>
+      <div class="action-bar" style="margin-top:14px">
+        <button class="btn btn-primary" onclick="applyCron()">&#10003; Apply (write to crontab)</button>
+        <button class="btn btn-danger"  onclick="removeCron()">&#215; Remove schedule</button>
+        <span id="cron-status" style="font-size:13px;margin-left:8px"></span>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<script src="/static/monitor.js"></script>
+</body>
+</html>
