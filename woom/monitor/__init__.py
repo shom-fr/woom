@@ -23,6 +23,13 @@ import threading
 import time
 from collections import deque
 
+from flask import Flask, Response, abort, jsonify, render_template, request, send_file
+
+try:
+    from .. import __version__ as _woom_version
+except Exception:
+    _woom_version = "unknown"
+
 # %% SSE log handler
 
 
@@ -85,9 +92,15 @@ def _serialize_task_tree(task_tree):
 
     The task_tree from ``workflow.task_tree`` may contain ConfigObj objects;
     this converts them to plain Python lists/dicts.
+
+    Stage order is always forced to prolog → cycles → epilog so that
+    ConfigObj's internal reordering does not affect the pipeline view.
     """
+    _STAGE_ORDER = ["prolog", "cycles", "epilog"]
+    stages = [s for s in _STAGE_ORDER if s in task_tree] + [s for s in task_tree if s not in _STAGE_ORDER]
     result = {}
-    for stage, sequences in task_tree.items():
+    for stage in stages:
+        sequences = task_tree[stage]
         if not sequences:
             result[stage] = {}
             continue
@@ -100,7 +113,7 @@ def _serialize_task_tree(task_tree):
 # %% Flask application factory
 
 
-def create_monitor_app(workflow, sse_handler):
+def create_monitor_app(workflow, sse_handler, restart_flag=None):
     """Create and return the Flask application.
 
     Templates are loaded from ``woom/monitor/templates/``;
@@ -117,17 +130,16 @@ def create_monitor_app(workflow, sse_handler):
     -------
     flask.Flask
     """
-    try:
-        from flask import Flask, Response, abort, jsonify, render_template, request, send_file
-    except ImportError as exc:
-        raise ImportError(
-            "Flask is required for the monitor subcommand. "
-            "Install it with: pip install flask  (or: pip install woom[monitor])"
-        ) from exc
-
     # Flask resolves template_folder / static_folder relative to __file__
     # (__file__ == woom/monitor/__init__.py → package root is woom/monitor/)
     app = Flask(__name__)
+
+    # Preserve JSON key order — Flask ≤ 2.1 sorts keys alphabetically by
+    # default, which would scramble prolog/cycles/epilog ordering in task_tree.
+    try:
+        app.json.sort_keys = False  # Flask ≥ 2.2
+    except AttributeError:
+        app.config["JSON_SORT_KEYS"] = False  # Flask < 2.2
 
     # Mutable run-state dict protected by a lock
     _run_lock = threading.Lock()
@@ -156,6 +168,7 @@ def create_monitor_app(workflow, sse_handler):
             "cycles": [str(c) for c in workflow.cycles],
             "task_tree": _serialize_task_tree(workflow.task_tree),
             "nmembers": workflow.nmembers,
+            "woom_version": _woom_version,
         }
         return jsonify(info)
 
@@ -321,17 +334,55 @@ def create_monitor_app(workflow, sse_handler):
             return jsonify({"error": str(exc)}), 500
         return jsonify({"killed": True})
 
+    # %% Clean
+
+    @app.route("/api/clean", methods=["POST"])
+    def api_clean():
+        data = request.get_json(silent=True) or {}
+        submission_dirs = bool(data.get("submission_dirs", True))
+        log_files = bool(data.get("log_files", True))
+        run_dirs = bool(data.get("run_dirs", False))
+        artifacts = bool(data.get("artifacts", False))
+        extra_files = data.get("extra_files") or None
+        dry = bool(data.get("dry", False))
+
+        try:
+            workflow.clean(
+                submission_dirs=submission_dirs,
+                log_files=log_files,
+                run_dirs=run_dirs,
+                artifacts=artifacts,
+                extra_files=extra_files,
+                dry=dry,
+            )
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+        return jsonify({"cleaned": True})
+
     # %% Serve artifact files
 
     @app.route("/api/files")
     def api_files():
         path = request.args.get("path", "")
         try:
-            safe_root = os.path.realpath(workflow.workflow_dir) + os.sep
             real_path = os.path.realpath(path)
-            if not real_path.startswith(safe_root):
-                abort(403, description="Access denied")
         except Exception:
+            abort(403, description="Access denied")
+
+        # Allow files inside the workflow directory …
+        safe_root = os.path.realpath(workflow.workflow_dir) + os.sep
+        allowed = real_path.startswith(safe_root)
+
+        # … or files that are declared artifacts of this workflow
+        if not allowed:
+            try:
+                df = workflow.get_artifacts()
+                artifact_paths = {os.path.realpath(p) for p in df["PATH"].dropna().tolist() if p}
+                allowed = real_path in artifact_paths
+            except Exception:
+                pass
+
+        if not allowed:
             abort(403, description="Access denied")
 
         if not os.path.isfile(real_path):
@@ -407,7 +458,7 @@ def create_monitor_app(workflow, sse_handler):
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
 
-    # %% Stop server
+    # %% Stop / restart server
 
     @app.route("/api/stop", methods=["POST"])
     def api_stop():
@@ -419,6 +470,24 @@ def create_monitor_app(workflow, sse_handler):
 
         threading.Thread(target=_send_sigint, daemon=True).start()
         return jsonify({"stopping": True})
+
+    @app.route("/api/restart", methods=["POST"])
+    def api_restart():
+        """Restart the monitor by re-executing the current process.
+
+        Sets the restart flag then sends SIGINT — exactly like /api/stop but
+        with the flag set so that ``run_monitor`` knows to re-exec after the
+        port has been released.
+        """
+        if restart_flag is not None:
+            restart_flag.set()
+
+        def _send_sigint():
+            time.sleep(0.4)
+            os.kill(os.getpid(), signal.SIGINT)
+
+        threading.Thread(target=_send_sigint, daemon=True).start()
+        return jsonify({"restarting": True})
 
     return app
 
@@ -452,7 +521,8 @@ def run_monitor(workflow, host="127.0.0.1", port=5000, open_browser=True):
     # Quieten Flask's noisy access log
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    app = create_monitor_app(workflow, sse_handler)
+    restart_flag = threading.Event()
+    app = create_monitor_app(workflow, sse_handler, restart_flag)
 
     if open_browser:
         url = f"http://{host}:{port}"
@@ -475,4 +545,12 @@ def run_monitor(workflow, host="127.0.0.1", port=5000, open_browser=True):
         pass
     finally:
         woom_logger.removeHandler(sse_handler)
+
+    # The port is now released.  If the restart flag was set, re-exec.
+    if restart_flag.is_set():
+        import sys
+
+        woom_logger.info("woom monitor restarting…")
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    else:
         woom_logger.info("woom monitor stopped")

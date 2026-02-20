@@ -29,6 +29,7 @@ requires-python = ">=3.9"
 dependencies = [
   "colorlog",
   "configobj",
+  "flask",
   "jinja2",
   "pandas",
   "platformdirs",
@@ -56,9 +57,6 @@ test = [
   "pytest",
   "pytest-mock",
   "pytest-xdist",
-]
-monitor = [
-  "flask",
 ]
 
 [project.urls]

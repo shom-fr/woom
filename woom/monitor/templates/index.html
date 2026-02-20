@@ -11,14 +11,49 @@
 <body>
 
 <header>
-  <div>
-    <h1>woom monitor</h1>
-    <div class="subtitle" id="header-subtitle">loading...</div>
+  <div class="header-brand">
+    <div class="header-app-name" id="header-app-name">woom</div>
+    <div class="header-wf-path" id="header-wf-path">loading…</div>
   </div>
   <span class="scheduler-badge" id="scheduler-badge"></span>
   <button id="theme-toggle" class="header-btn" onclick="toggleTheme()"></button>
-  <button class="header-btn" onclick="stopServer()" title="Shut down the monitor server">&#9632; Shutdown</button>
+  <div class="about-wrap">
+    <button class="header-btn" id="about-btn" onclick="toggleAbout(event)" title="About woom">&#63; About</button>
+    <div class="about-panel" id="about-panel" style="display:none">
+      <div class="about-header">
+        <span class="about-logo">woom</span>
+        <span class="about-version" id="about-version">…</span>
+      </div>
+      <p class="about-tagline">Workflow and Operations Orchestration Manager</p>
+      <div class="about-links">
+        <a href="https://woom.readthedocs.io/" target="_blank" rel="noopener">&#128214; Documentation</a>
+        <a href="https://github.com/shom-fr/woom" target="_blank" rel="noopener">&#128187; Source code</a>
+        <a href="https://github.com/shom-fr/woom/issues" target="_blank" rel="noopener">&#128030; Report an issue</a>
+        <a href="https://github.com/shom-fr/woom/releases" target="_blank" rel="noopener">&#128230; Releases</a>
+        <a href="https://pypi.org/project/woom/" target="_blank" rel="noopener">&#128230; PyPI</a>
+      </div>
+    </div>
+  </div>
+  <button class="header-btn" onclick="restartServer()" title="Restart the monitor server">&#8635; Restart</button>
+  <button class="header-btn header-btn-danger" onclick="stopServer()" title="Shut down the monitor server">&#9632; Shutdown</button>
 </header>
+
+<div class="global-action-bar">
+  <div class="gab-inner">
+    <div id="scheduler-warning-inline" class="gab-sched-warn" style="display:none">
+      &#9888; Scheduler host &mdash; run/kill disabled
+    </div>
+    <button class="btn btn-primary"   id="btn-run"       onclick="doRun(false,false)">&#9654; Run</button>
+    <button class="btn btn-secondary" id="btn-dry-run"   onclick="doRun(true,false)">&#9655; Dry run</button>
+    <button class="btn btn-secondary" id="btn-force-run" onclick="doRun(false,true)">&#8635; Force run</button>
+    <button class="btn btn-danger"    id="btn-kill-all"  onclick="doKillAll()">&#9632; Kill all</button>
+    <div class="run-status-bar" id="run-status-bar" style="display:none">
+      <div class="spinner" id="run-spinner"></div>
+      <span id="run-status-text"></span>
+    </div>
+    <span class="refresh-indicator" id="jobs-refresh-indicator" style="margin-left:auto"></span>
+  </div>
+</div>
 
 <nav>
   <ul>
@@ -37,10 +72,65 @@
     <div class="card-grid" id="overview-cards"></div>
     <div class="section-header">Task Tree</div>
     <div class="task-tree-visual" id="task-tree-content">Loading...</div>
+    <div id="task-detail-panel" class="task-detail-panel" style="display:none">
+      <div class="task-detail-header">
+        <span class="task-detail-name" id="task-detail-name"></span>
+        <button class="task-detail-close" onclick="closeTaskDetail()" title="Close">&#x2715;</button>
+      </div>
+      <div class="task-detail-body" id="task-detail-body"></div>
+    </div>
     <div class="section-header">Cycles</div>
     <div class="cycle-tags" id="cycle-tags"></div>
     <div class="section-header">Job Status Summary</div>
     <div class="card-grid" id="status-summary-cards"></div>
+
+    <div class="section-header">Pipeline</div>
+    <div id="pipeline-content" class="pipeline-wrap"></div>
+
+    <div class="section-header">Maintenance</div>
+    <details class="maint-details">
+      <summary class="maint-summary">
+        <span>&#9881; Clean workflow files</span>
+        <span class="maint-badge">&#9888; destructive</span>
+      </summary>
+      <div class="maint-body">
+        <p class="maint-hint">Select what to remove, then click <strong>Clean</strong>.
+          Enable <em>Dry run</em> first to preview without deleting anything.</p>
+        <div class="maint-opts">
+          <label class="checkbox-label">
+            <input type="checkbox" id="clean-submission-dirs" checked>
+            Submission directories
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="clean-log-files" checked>
+            Log files
+          </label>
+          <label class="checkbox-label maint-danger-opt">
+            <input type="checkbox" id="clean-run-dirs">
+            &#9888; Run directories
+          </label>
+          <label class="checkbox-label maint-danger-opt">
+            <input type="checkbox" id="clean-artifacts">
+            &#9888; Artifacts
+          </label>
+        </div>
+        <div style="margin-top:10px">
+          <label class="field-label" for="clean-extra">Extra patterns
+            <span style="font-weight:400;color:var(--color-fg-muted)">(space or comma separated, relative to workflow dir)</span>
+          </label>
+          <input type="text" id="clean-extra" placeholder="e.g. tmp/*.nc output/"
+            style="width:100%;max-width:480px;padding:6px 8px;border:1px solid var(--color-border-default);
+                   border-radius:6px;background:var(--color-canvas-default);color:var(--color-fg-default);font-family:var(--font-mono);font-size:13px">
+        </div>
+        <div class="action-bar" style="margin-top:12px;align-items:center">
+          <label class="checkbox-label">
+            <input type="checkbox" id="clean-dry" checked> Dry run
+          </label>
+          <button class="btn btn-danger" onclick="doClean()">&#9881; Clean</button>
+          <span id="clean-status" style="font-size:13px"></span>
+        </div>
+      </div>
+    </details>
 
     <div class="section-header">Configuration</div>
     <details class="cfg-details" id="wf-cfg-details">
@@ -58,17 +148,6 @@
     <div id="scheduler-warning" class="warning-banner" style="display:none">
       &#9888; This workflow uses a <strong>scheduler host</strong> (Slurm / PBS).
       Run and Kill actions are <strong>disabled</strong> &mdash; use your scheduler commands directly.
-    </div>
-    <div class="action-bar">
-      <button class="btn btn-primary"   id="btn-run"       onclick="doRun(false,false)">&#9654; Run</button>
-      <button class="btn btn-secondary" id="btn-dry-run"   onclick="doRun(true,false)">&#9655; Dry run</button>
-      <button class="btn btn-secondary" id="btn-force-run" onclick="doRun(false,true)">&#8635; Force run</button>
-      <button class="btn btn-danger"    id="btn-kill-all"  onclick="doKillAll()">&#9632; Kill all</button>
-      <div class="run-status-bar" id="run-status-bar" style="display:none">
-        <div class="spinner" id="run-spinner"></div>
-        <span id="run-status-text"></span>
-      </div>
-      <span class="refresh-indicator" id="jobs-refresh-indicator" style="margin-left:auto"></span>
     </div>
     <div class="table-wrap">
       <table class="data-table">
@@ -124,9 +203,9 @@
   <div id="artifacts" class="tab-panel">
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Task</th><th>Artifact</th><th>Path</th><th>Exists?</th></tr></thead>
+        <thead><tr><th>Task</th><th>Artifact</th><th>Path</th><th>Exists?</th><th></th></tr></thead>
         <tbody id="artifacts-tbody">
-          <tr><td colspan="4" style="text-align:center;color:#888">Loading...</td></tr>
+          <tr><td colspan="5" style="text-align:center;color:#888">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -157,16 +236,37 @@
             <option value="8h">Every 8 h</option>
             <option value="12h">Every 12 h</option>
             <option value="24h">Daily</option>
+            <option value="2d">Every 2 days</option>
+            <option value="3d">Every 3 days</option>
+            <option value="1w">Weekly</option>
+            <option value="2w">Every 2 weeks</option>
           </select>
         </div>
         <div id="cron-minute-wrap">
-          <label class="field-label">Minute offset <span style="font-weight:400;color:var(--color-fg-muted)">(0–59)</span></label>
+          <label class="field-label">Minute <span style="font-weight:400;color:var(--color-fg-muted)">(0–59)</span></label>
           <input type="number" id="cron-minute-offset" class="cron-number" min="0" max="59" value="0"
                  oninput="cronBuilderUpdate()" onchange="cronBuilderUpdate()">
         </div>
         <div id="cron-hour-wrap" style="display:none">
-          <label class="field-label">At hour <span style="font-weight:400;color:var(--color-fg-muted)">(0–23)</span></label>
+          <label class="field-label">Hour <span style="font-weight:400;color:var(--color-fg-muted)">(0–23)</span></label>
           <input type="number" id="cron-hour-val" class="cron-number" min="0" max="23" value="0"
+                 oninput="cronBuilderUpdate()" onchange="cronBuilderUpdate()">
+        </div>
+        <div id="cron-dow-wrap" style="display:none">
+          <label class="field-label">Day of week</label>
+          <select id="cron-dow-sel" class="cron-select" onchange="cronBuilderUpdate()">
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+            <option value="0">Sunday</option>
+          </select>
+        </div>
+        <div id="cron-day-wrap" style="display:none">
+          <label class="field-label">Start day <span style="font-weight:400;color:var(--color-fg-muted)">(1–28)</span></label>
+          <input type="number" id="cron-day-val" class="cron-number" min="1" max="28" value="1"
                  oninput="cronBuilderUpdate()" onchange="cronBuilderUpdate()">
         </div>
       </div>
