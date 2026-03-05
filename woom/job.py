@@ -730,7 +730,7 @@ class _Scheduler_(BackgroundJobManager):
         """Submit the script and instantiate a :class:`Job` object"""
 
         # stdout and stderr
-        rootname = os.path.splitext(script)[0]
+        rootname = os.path.splitext(os.path.basename(script))[0]
         if stdout is None:
             stdout = f"{rootname}.out"
         if stderr is None:
