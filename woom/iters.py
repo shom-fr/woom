@@ -5,6 +5,7 @@ Iteration utilities for date cycles and ensembles
 """
 
 import math
+import re
 
 import pandas as pd
 
@@ -15,7 +16,50 @@ from . import util as wutil
 
 
 class Cycle:
-    """Container for a time cycle"""
+    """Container for a time cycle
+
+    A Cycle represents either a point in time (single date) or a time interval
+    (begin and end dates). Cycles are used to organize workflow execution over
+    different time periods.
+
+    Parameters
+    ----------
+    begin_date : date-like
+        The start date of the cycle
+    end_date : date-like, optional
+        The end date of the cycle. If None, the cycle represents a single point in time.
+
+    Notes
+    -----
+    Cycles support equality comparison with flexible semantics:
+
+    - Two cycles are equal if they have the same begin_date and end_date
+    - A single date cycle equals an interval cycle if they share the same begin_date
+    - Cycles can be compared with ISO 8601 formatted strings
+
+    Examples
+    --------
+    >>> from woom.iters import Cycle
+    >>> # Single date cycles
+    >>> c1 = Cycle("2020-01-01")
+    >>> c2 = Cycle("2020-01-01")
+    >>> c1 == c2
+    True
+
+    >>> # Interval cycles
+    >>> i1 = Cycle("2020-01-01", "2020-01-10")
+    >>> i2 = Cycle("2020-01-01", "2020-01-10")
+    >>> i1 == i2
+    True
+
+    >>> # Mixed comparison - compared by begin_date
+    >>> c1 == i1
+    True
+
+    >>> # String comparison
+    >>> c1 == "2020-01-01T00:00:00+00:00"
+    True
+    """
 
     def __init__(self, begin_date, end_date=None):
         #: Begin date (:class:`~woom.util.WoomDate`)
@@ -65,6 +109,38 @@ class Cycle:
             ss += " {}: {}\n".format(attr, getattr(self, attr))
         return ss
 
+    def __eq__(self, other):
+        if str(self) == str(other):
+            return True
+        if isinstance(other, str):
+            m = re.match(r"^(\d+-\d+-\d+.*)-(\d+-\d+-\d+.*)$", other)
+            if m:
+                try:
+                    other = [wutil.WoomDate(o) for o in m.groups()]
+                except Exception:
+                    return False
+            else:
+                try:
+                    other = [wutil.WoomDate(other)]
+                except Exception:
+                    return False
+        elif isinstance(other, wutil.WoomDate):
+            other = [other]
+        else:
+            other_ = other
+            other = [other_.begin_date]
+            if other_.end_date is not None:
+                other.append(other_.end_date)
+        if other[0] != self.begin_date:
+            return False
+        # If either is a single date, they're equal (begin_date matches)
+        if len(other) == 1 or self.end_date is None:
+            return True
+        # Both are intervals, check end dates
+        if other[1] != self.end_date:
+            return False
+        return True
+
     def describe(self):
         return self.__repr__()
 
@@ -102,7 +178,7 @@ class Cycle:
     def get_env_vars(self, suffix=None):
         """Export a dict of WOOM environment variables about this cycle"""
         params = self.get_params(suffix=suffix)
-        return wutil.params2env_vars(params)
+        return wutil.dict_to_env_vars(params)
 
 
 def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, as_intervals=True):
@@ -252,7 +328,7 @@ class Member:
     @property
     def env_vars(self):
         """Conversion of :attr:`params` to a dict of environment variables  (:class:`dict`)"""
-        return wutil.params2env_vars(self.params)
+        return wutil.dict_to_env_vars(self.params)
 
 
 def gen_ensemble(nmembers, skip=None, **iters):

@@ -8,6 +8,7 @@
 
    install
    start
+   indepth
    cli
    examples/index
    ext

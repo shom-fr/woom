@@ -26,3 +26,14 @@ This template is used by :meth:`woom.env.EnvConfig.render` to format the environ
 .. literalinclude:: ../woom/templates/env.sh
     :language: jinja
     :caption: Default :file:`env.sh` jinja template
+
+.. _templates.sentinel.sh:
+
+The :file:`sentinel.sh` template
+---------------------------------
+
+This template is used to create the sentinel job script that monitors all workflow jobs when using a scheduler (SLURM, PBS Pro). The sentinel automatically kills jobs on failure and terminates non-blocking jobs when all blocking jobs complete.
+
+.. literalinclude:: ../woom/templates/sentinel.sh
+    :language: jinja
+    :caption: Default :file:`sentinel.sh` jinja template

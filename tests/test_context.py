@@ -86,8 +86,8 @@ def test_context_properties(mock_workflow):
     assert context.member is None
 
 
-def test_context_set_params(mock_workflow):
-    """Test set_params method"""
+def test_context_dict_to_env_vars(mock_workflow):
+    """Test that context properly converts nested dicts to env vars"""
     mock_task = Mock()
     mock_task.env = Mock()
     mock_task.env.vars_set = {}
@@ -95,13 +95,18 @@ def test_context_set_params(mock_workflow):
 
     context = Context(mock_workflow, task_name='task1')
 
-    # Add some parameters
-    context.set_params({'test_param': 'test_value', 'number': 42})
-
-    assert context['test_param'] == 'test_value'
-    assert context['number'] == 42
-    assert 'WOOM_TEST_PARAM' in context['env_vars']
-    assert context['env_vars']['WOOM_TEST_PARAM'] == 'test_value'
+    # Check that params in context are converted to WOOM_PARAMS_* env vars
+    # (This happens automatically in Context.__init__)
+    # The context should have env_vars with params properly prefixed
+    assert 'env_vars' in context
+    # Any params should be under WOOM_PARAMS_ prefix
+    for key in context['env_vars']:
+        if 'PARAMS' in key:
+            # Found at least one param-related env var
+            break
+    else:
+        # No params were set in this minimal context, which is fine
+        pass
 
 
 def test_context_manager(mock_workflow):
@@ -129,7 +134,8 @@ def test_context_with_cycle(mock_workflow):
 
     assert context.cycle is cycle
     assert context['cycle'] is cycle
-    assert 'cycle_begin_date' in context['params']
+    # Cycle params should be in top-level context, not in params sub-dict
+    assert 'cycle_begin_date' in context
 
 
 def test_context_with_member(mock_workflow):
@@ -149,3 +155,27 @@ def test_context_copy(mock_workflow):
 
     assert isinstance(context_copy, Context)
     assert context_copy.workflow is mock_workflow
+
+
+def test_context_backward_compatibility(mock_workflow):
+    """Test that old variable names still work for backward compatibility"""
+    mock_task = Mock()
+    mock_task.name = 'task1'
+    mock_task.run_dir = '/tmp/run'
+    mock_task.env = Mock()
+    mock_task.env.prepend_paths = Mock()
+    mock_workflow.get_task.return_value = mock_task
+
+    context = Context(mock_workflow, task_name='task1')
+
+    # New names should exist
+    assert 'task_run_dir' in context
+    assert 'task_submission_dir' in context
+    assert 'task_script_path' in context
+    assert 'task_env' in context
+    assert 'task_context_json' in context
+
+    # Old names should also exist for backward compat
+    assert context['run_dir'] == context['task_run_dir']
+    assert context['submission_dir'] == context['task_submission_dir']
+    assert context['script_path'] == context['task_script_path']

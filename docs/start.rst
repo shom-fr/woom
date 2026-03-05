@@ -87,7 +87,7 @@ This file helps you configure hosts:
 * A few commands.
 * A list of environments with their name and specifications that describe environment modules and variables, or a conda environment to load.
 
-See the :mod:`configobj` :ref:`specifications <cfgspecs.host>` for this configuration.
+See the :mod:`configobj` :ref:`specifications <cfgspecs.hosts>` for this configuration.
 
 This example file declares the resources available on the datarmor host, in particular its scheduler, the scratch dir taken from the :envvar:`SCRATCH` environment variable and the name of the ``seq`` queue.
 An environment called ``prepost`` is declared using environment modules and environment variables.
@@ -184,6 +184,25 @@ The user can extend these templates by providing its own :file:`job.sh` and :fil
 
 Jinja perform substitutions thanks to a :class:`~woom.context.Context` instance that is a dictionary containing the useful objects for a given task, a given cycle and a given member, as explained in the :ref:`inputs_context` section.
 
+Template Filling
+================
+
+Woom can automatically fill Jinja2 templates to generate configuration files, namelists, or scripts before task execution.
+
+Configure in the ``[[fill]]`` section of your task:
+
+.. code-block:: ini
+
+    [run_model]
+        [[fill]]
+            [[[namelist]]]
+            template = ocean.nml.j2
+            destination = {{ task_run_dir }}/ocean.nml
+
+Templates use the same context variables as job scripts (``{{ cycle.begin_date }}``, ``{{ params.timestep }}``, etc.) and are stored in the :file:`templates/` directory.
+
+.. seealso:: :ref:`indepth.templating` for complete guide and :ref:`cli.woom.fill` for manual filling
+
 Artifacts
 =========
 
@@ -209,9 +228,9 @@ Artifacts are declared in the :file:`tasks.cfg` as subsections of the ``[[artifa
 
         [[artifacts]]
             [[[clim_file]]]
-                paths={{ run_dir }}/clim.c
+                paths={{ task_run_dir }}/clim.c
 
-.. warning:: All artifacts must ultimately be able to be converted to an absolute path. So you must either declare an artifact with an absolute path, prepend it with a directory mapping like ``{{ run_dir }}`` or provide a relative path and fill the ``run_dir`` option of a task.
+.. warning:: All artifacts must ultimately be able to be converted to an absolute path. So you must either declare an artifact with an absolute path, prepend it with a directory mapping like ``{{ task_run_dir }}`` or provide a relative path and fill the ``run_dir`` option of a task.
 
 To make reference to an artifact in a task, there are two cases:
 

@@ -18,8 +18,8 @@ on_sigkill() {
 # - handler for exit (always called)
 on_exit() {
     status=$?
-    if [ ! -f "{{ submission_dir }}/job.terminating" ]; then
-        echo $status > "{{ submission_dir }}/job.status"
+    if [ ! -f "{{ task_submission_dir }}/job.terminating" ]; then
+        echo $status > "{{ task_submission_dir }}/job.status"
     fi
     exit $status
 }
@@ -33,9 +33,9 @@ trap on_exit EXIT
 {% endblock %}
 
 {% block pre_run -%}
-{% if run_dir %}
+{% if task_run_dir %}
 # Go to run dir
-{ mkdir -p {{ run_dir }}; cd {{ run_dir }}; } || exit 1
+{ mkdir -p {{ task_run_dir }}; cd {{ task_run_dir }}; } || exit 1
 {% endif %}
 {% endblock %}
 
@@ -47,10 +47,14 @@ trap on_exit EXIT
 {% block post_run -%}
 {% if task.artifacts %}
 # Check artifacts
-{% for name, paths in task.artifacts.items() -%}
-  {% for path in paths -%}
+{% for name, path in task.artifacts.items() -%}
+  {% if path is string %}
 test -f "{{ path }}" || { echo artifact not created: {{ name }}={{ path }}; exit 1; }
-  {% endfor %}
+  {% else %}
+    {% for path_ in path -%}
+test -f "{{ path_ }}" || { echo artifact not created: {{ name }}={{ path_ }}; exit 1; }
+    {% endfor %}
+  {% endif %}
 {% endfor %}
 {% endif %}
 {% endblock %}

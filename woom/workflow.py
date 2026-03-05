@@ -113,8 +113,12 @@ class Workflow:
             if self._config["app"][key]:
                 self._app_path.append(self._config["app"][key])
 
+    def to_json_entry(self):
+        return self._cfgfile
+
     def __str__(self):
-        return f'<Workflow[cfgfile: "{self._cfgfile}">\n'
+        return self._cfgfile
+        # return f'<Workflow[cfgfile: "{self._cfgfile}">\n'
 
     @property
     def config(self):
@@ -210,7 +214,7 @@ class Workflow:
         if cycle is None:
             return
         for cycle_ in self.cycles:
-            if str(cycle_) == str(cycle):
+            if cycle_ == cycle:
                 return cycle_
         raise WoomError(f"Invalid cycle: {cycle}")
 
@@ -278,8 +282,11 @@ class Workflow:
         getter: callable
                 Callable with this signature ``getter(task_name, cycle=None, member=None, **kwargs)``
         task_name: str
+            A valid task name
         cycle: Cycle, str, None
+            Current cycle or None
         member: Member, None
+            Member number of the ensemble, starting from 1
         flat: bool
             Flatten results and return a list.
             Else, return a dict.
@@ -310,10 +317,13 @@ class Workflow:
         # Loops
         out = {}
         for cycle_ in cycles:
-            ckey = cycle_ if isinstance(cycle_, witers.Cycle) and not cycle else None
+            ckey = cycle_ if isinstance(cycle_, witers.Cycle) and cycle is None else None
             for member_ in members:
+                # Get the value
                 value = getter(task_name=task_name, cycle=cycle_, member=member_, **kwargs)
-                mkey = member_ if isinstance(member_, witers.Member) and not member else None
+
+                # Store
+                mkey = member_ if isinstance(member_, witers.Member) and member is None else None
                 if mkey is None and ckey is None:
                     out = value
                     break
@@ -394,7 +404,7 @@ class Workflow:
 
     @functools.lru_cache
     def get_task_artifacts(self, task_name, cycle=None, member=None, artifact_name=None, flat=False):
-        """Get the paths of all artifacts of a given task
+        """Get the paths of all artifacts of a given task across cycles and members
 
         Parameters
         ----------
@@ -428,7 +438,7 @@ class Workflow:
         )
 
     def get_task_artifact_paths(self, artifact_name, task_name, cycle=None, member=None, flat=False):
-        """Get the paths of an artifact for a given task
+        """Get the paths of an artifact of a given task across cycles and members
 
         This is a special call to :meth:`get_task_artifacts` in which
         the artifact name is mandatory as first argument.
@@ -466,6 +476,10 @@ class Workflow:
         opts = task_specs["scheduler_options"].copy()
         opts["name"] = task.name
 
+        # Export context to json
+        if not self._dry:
+            self.context.to_json()
+
         return {
             "script": script_path,
             "content": task_specs["script_content"],
@@ -498,6 +512,9 @@ class Workflow:
         self.logger.info(f"Created batch script: {batch_script}")
         del submission_args["content"]  # no longer needed since on disk
 
+        # Fill task templates
+        self.context.task.fill_templates(dry=False)
+
         # Submit it
         job = self.jobmanager.submit(blocking=blocking, **submission_args)
 
@@ -521,6 +538,9 @@ class Workflow:
 
         jobid = str(secrets.randbelow(1000000))
 
+        # Fill task templates
+        self.context.task.fill_templates(dry=True)
+
         # Commandline
         content = "Fake submission:\n"
         content += " submission command ".center(50, "-") + "\n"
@@ -534,6 +554,8 @@ class Workflow:
         if artifacts:
             content += " artifacts ".center(50, "-") + "\n"
             for name, path in artifacts.items():
+                if isinstance(path, list):
+                    path = ", ".join(path)
                 content += f"{name}: {path}\n"
 
         content += "-" * 50
@@ -551,6 +573,9 @@ class Workflow:
         woom.job.JobStatus
             Job status
         """
+        if self._dry:
+            return wjob.JobStatus["NOTSUBMITTED"]
+
         submission_dir = self.get_task_submission_dir(task_name, cycle, member, create=False)
 
         # Not submitted
@@ -692,6 +717,9 @@ class Workflow:
                                 if member:
                                     long_task += f"/{member.label}"
                                 self.logger.debug(f"Running task: {long_task}")
+                                self.logger.debug(
+                                    "Task path: " + self.get_task_path(task_name, cycle, member)
+                                )
 
                                 # Check status
                                 status = self.get_task_status(task_name, cycle, member)
@@ -704,7 +732,7 @@ class Workflow:
 
                                 if not force:
                                     if status.name is wjob.JobStatus.SUCCESS:
-                                        self.logger.debug(f"Task already succeeded. Skiping: {long_task}")
+                                        self.logger.debug(f"Task already succeeded. Skipping: {long_task}")
                                         continue
 
                                     elif status is wjob.JobStatus.ERROR:
@@ -716,7 +744,7 @@ class Workflow:
                                 else:
                                     if status.jobid:
                                         self.logger.debug(
-                                            f"Droping from job manager because forcing run: {status.jobid}"
+                                            f"Dropping from job manager because forcing run: {status.jobid}"
                                         )
                                         self.jobmanager.drop(status.jobid)
 
@@ -746,7 +774,6 @@ class Workflow:
                                     # The next task of this group depend on this job member
                                     if blocking:
                                         task_jobs.append(job)
-                                    print("xyz jobs", self.jobmanager.jobs)
 
                             # Dependencies for the next task in the group
                             task_depend = task_jobs
@@ -1016,6 +1043,33 @@ class Workflow:
         else:
             self.logger.info("No job to kill")
 
+    def get_submission_dirs(self):
+        """Get the submission directories as :class:`pandas.DataFrame`
+
+        Return
+        ------
+        pandas.DataFrame
+        """
+        data = []
+        # index = []
+        for task_name, cycle, member in self:
+            run_dir = self.get_task_submission_dir(task_name, cycle, member)
+            row = [task_name, cycle, run_dir]
+            if self.nmembers:
+                if member is None:
+                    row.insert(-1, "")
+                else:
+                    row.insert(-1, f"{member}/{self.nmembers}")
+            data.append(row)
+        columns = ["TASK", "CYCLE", "RUN DIR"]
+        if self.nmembers:
+            columns.insert(-1, "MEMBER")
+        return pd.DataFrame(data, columns=columns)
+
+    def show_submission_dirs(self, tablefmt="rounded_outline"):
+        """Show the submission directory of all the tasks of the wokflow"""
+        print(self.get_run_dirs().to_markdown(index=False, tablefmt=tablefmt))
+
     def get_run_dirs(self):
         """Get the run directories as :class:`pandas.DataFrame`
 
@@ -1040,7 +1094,7 @@ class Workflow:
         return pd.DataFrame(data, columns=columns)
 
     def show_run_dirs(self, tablefmt="rounded_outline"):
-        """Show the status of all the tasks of the wokflow"""
+        """Show the run directory of all the tasks of the wokflow"""
         print(self.get_run_dirs().to_markdown(index=False, tablefmt=tablefmt))
 
     def clean(
@@ -1091,13 +1145,14 @@ class Workflow:
                     self.logger.info(f"Removed submission directory: {run_dir}")
 
             if artifacts:
-                for name, paths in self.get_task_artifacts(task_name, cycle, member).items():
-                    for path in paths:
-                        self.logger.debug(f"Removing '{name}' artifact: {path}")
+                for name, path in self.get_task_artifacts(task_name, cycle, member).items():
+                    paths = [path] if isinstance(path, str) else path
+                    for path_ in paths:
+                        self.logger.debug(f"Removing '{name}' artifact: {path_}")
                         if not dry:
                             os.remove(path)
                         nitems += 1
-                        self.logger.info(f"Removed '{name}' artifact: {path}")
+                        self.logger.info(f"Removed '{name}' artifact: {path_}")
 
         # Log files
         if log_files:
@@ -1135,3 +1190,9 @@ class Workflow:
             self.logger.debug(f"  Removed {nitems} individual file or directories")
         else:
             self.logger.debug("  Nothing to remove")
+
+    def fill_templates(self):
+        """Fill template file of a task in a context"""
+        if self.context["task_name"] is None:
+            raise WorkFlowError("The context must be defined for a task to fill its templates")
+        self.context.task.fill_templates(dry=self._dry)

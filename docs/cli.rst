@@ -19,5 +19,6 @@ Available commands:
     cli.woom
     cli.woom.show
     cli.woom.run
+    cli.woom.fill
     cli.woom.kill
     cli.woom.clean

@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 import pandas as pd
+from configobj import ConfigObj
 
 
 class WoomDate(pd.Timestamp):
@@ -100,50 +101,118 @@ class WoomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder for woom objects"""
 
     def default(self, obj):
+        # Dict
         if isinstance(obj, collections.UserDict):
             return dict(obj)
+
+        # Process
         if hasattr(obj, "pid") or isinstance(obj, subprocess.Popen):
             return obj.pid
+
+        # Workflow and managers
+        if hasattr(obj, "to_json_entry"):
+            return obj.to_json_entry()
+
         try:
             return super().default(obj)
         except TypeError:
             return str(obj)
 
 
-def params2env_vars(params=None, select=None, **extra_params):
-    """Convert a dict of parameters to env vars whose name starts with WOOM_
+def dict_to_env_vars(items=None, select=None, exclude=None, prefix="WOOM_", **extra_items):
+    """Convert a dict to env vars whose name starts with `prefix`
+
+    Supports nested dictionaries, lists, timestamps, and various data types.
+    Nested dictionaries are flattened with underscore-separated keys.
+    Lists are joined using the OS path separator (`:` on Unix, `;` on Windows).
 
     Parameters
     ----------
-    params : dict, optional
-        Parameters dictionary
+    items : dict, optional
+        Dictionary to convert
     select : list, optional
-        Keys to select from params
-    **extra_params
-        Additional parameters
+        Keys to select from items (only these will be included)
+    exclude : list, optional
+        Keys to exclude from items (applied recursively)
+    prefix : str, optional
+        Prefix for environment variable names (default: "WOOM_")
+    **extra_items
+        Additional items to include
 
     Returns
     -------
     dict
-        Environment variables dictionary
+        Environment variables dictionary with string values
+
+    Examples
+    --------
+    Simple conversion:
+
+    >>> dict_to_env_vars({'key': 'value', 'count': 42})
+    {'WOOM_KEY': 'value', 'WOOM_COUNT': '42'}
+
+    Nested dictionaries:
+
+    >>> dict_to_env_vars({'db': {'host': 'localhost', 'port': 5432}})
+    {'WOOM_DB_HOST': 'localhost', 'WOOM_DB_PORT': '5432'}
+
+    Lists are joined with os.pathsep:
+
+    >>> dict_to_env_vars({'paths': ['/usr/bin', '/usr/local/bin']})
+    {'WOOM_PATHS': '/usr/bin:/usr/local/bin'}  # Unix
+
+    Boolean values:
+
+    >>> dict_to_env_vars({'debug': True, 'quiet': False})
+    {'WOOM_DEBUG': '1', 'WOOM_QUIET': '0'}
+
+    Custom prefix:
+
+    >>> dict_to_env_vars({'key': 'val'}, prefix='MY_APP_')
+    {'MY_APP_KEY': 'val'}
+
+    Filtering with select:
+
+    >>> dict_to_env_vars({'a': 1, 'b': 2, 'c': 3}, select=['a', 'b'])
+    {'WOOM_A': '1', 'WOOM_B': '2'}
+
+    Filtering with exclude:
+
+    >>> dict_to_env_vars({'keep': 1, 'skip': 2}, exclude=['skip'])
+    {'WOOM_KEEP': '1'}
     """
-    if params is None:
-        params = extra_params
+    if not isinstance(prefix, str):
+        raise TypeError(f"prefix must be a string, got {type(prefix).__name__}")
+    if not prefix:
+        raise ValueError("prefix cannot be empty")
+    if items is None:
+        items = extra_items
     else:
-        params = params.copy()
-        params.update(extra_params)
+        items = items.copy()
+        items.update(extra_items)
     env_vars = {}
-    for key, value in params.items():
+    _dict_to_env_vars_(items, env_vars, prefix, select, exclude)
+    return env_vars
+
+
+def _dict_to_env_vars_(dd, env_vars, prefix, select, exclude):
+    for key, value in dd.items():
         if select and key not in select:
+            continue
+        if exclude and key in exclude:
             continue
         if isinstance(value, (pd.Timestamp, pd.Timedelta)):
             value = value.isoformat()
         if value is None:
             value = ""
+        if isinstance(value, list):
+            value = os.pathsep.join([str(v) for v in value])
         if isinstance(value, bool):
             value = str(int(value))
-        env_vars["WOOM_" + key.upper()] = str(value)
-    return env_vars
+        if isinstance(value, (dict, ConfigObj)):
+            _dict_to_env_vars_(value, env_vars, prefix + key.upper() + "_", select, exclude)
+        else:
+            env_vars[prefix + key.upper()] = str(value)
 
 
 def pages2ints(pages, n):

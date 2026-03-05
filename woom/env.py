@@ -33,6 +33,8 @@ class EnvConfig:
         Conda environment to activate
     uv_venv : str, optional
         UV virtual environment path
+    name : str, optional
+        Environment name
     """
 
     def __init__(
@@ -48,6 +50,7 @@ class EnvConfig:
         conda_setup=None,
         conda_activate=None,
         uv_venv=None,
+        name=None,
     ):
         self.raw_text = raw_text
         self.vars_forward = [] if vars_forward is None else list(vars_forward)
@@ -64,6 +67,10 @@ class EnvConfig:
         self.conda_setup = conda_setup
         self.conda_activate = conda_activate
         self.uv_venv = uv_venv
+        self.name = name
+
+    def __str__(self):
+        return self.name if self.name else ""
 
     @staticmethod
     def _as_string_(value):
@@ -117,4 +124,5 @@ class EnvConfig:
             conda_setup=self.conda_setup,
             conda_activate=self.conda_activate,
             uv_venv=self.uv_venv,
+            name=self.name,
         )
