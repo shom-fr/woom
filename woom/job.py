@@ -718,6 +718,8 @@ class ScheduledJob(Job):
                 f.write(exit_code)
             self.set_status("TERMINATED" if graceful else "KILLED")
 
+    cancel = kill
+
 
 class _Scheduler_(BackgroundJobManager):
     job_class = ScheduledJob
