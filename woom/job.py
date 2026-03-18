@@ -652,15 +652,16 @@ class ScheduledJob(Job):
         """
         args = self.manager._extra_status_args_(self.manager.get_command_args("status", jobid=self.jobid))
         logger.debug("Get status: " + " ".join(args))
-        res = subprocess.run(args, capture_output=True, check=True)
+        # check=False: squeue exits with code 1 when the job is no longer in the active
+        # queue (completed/failed). We must not raise — fall through to sacct instead.
+        res = subprocess.run(args, capture_output=True, check=False)
         logger.debug("Got status")
-        if res.returncode:
-            return JobStatus.UNKNOWN
 
-        # Parse active jobs
-        status_list = self.manager._parse_status_res_(res)
-        if status_list:
-            return status_list[0]["status"]
+        # Parse active jobs (only if the scheduler command succeeded)
+        if not res.returncode:
+            status_list = self.manager._parse_status_res_(res)
+            if status_list:
+                return status_list[0]["status"]
 
         # Fallback to history if job not in active queue
         if hasattr(self.manager, '_query_history_status_'):
