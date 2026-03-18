@@ -974,7 +974,7 @@ class SlurmJobManager(_Scheduler_):
 
     def _parse_status_res_(self, res):
         """JOBID PARTITION NAME USER ST TIME NODES NODELIST(REASON)"""
-        res = super()._parse_status_res_(self, res)
+        res = super()._parse_status_res_(res)
         out = []
         lines = res.splitlines()
         if lines:
