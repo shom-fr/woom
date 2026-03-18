@@ -960,6 +960,22 @@ class SlurmJobManager(_Scheduler_):
         "DEADLINE": JobStatus.FAILED,
     }
 
+    # sacct returns full-word state names (different from squeue short codes).
+    history_status_names = {
+        "COMPLETED": JobStatus.SUCCESS,
+        "FAILED": JobStatus.FAILED,
+        "CANCELLED": JobStatus.KILLED,
+        "TIMEOUT": JobStatus.FAILED,
+        "OUT_OF_MEMORY": JobStatus.FAILED,
+        "NODE_FAIL": JobStatus.FAILED,
+        "BOOT_FAIL": JobStatus.FAILED,
+        "DEADLINE": JobStatus.FAILED,
+        "PREEMPTED": JobStatus.FAILED,
+        "RUNNING": JobStatus.RUNNING,
+        "PENDING": JobStatus.PENDING,
+        "SUSPENDED": JobStatus.PENDING,
+    }
+
     jobid_sep = ","
 
     def _extra_status_args_(self, args):
