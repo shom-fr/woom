@@ -733,13 +733,13 @@ class _Scheduler_(BackgroundJobManager):
         """Submit the script and instantiate a :class:`Job` object"""
 
         # stdout and stderr
+        # Only set log paths if not already provided by the caller.
+        # Using setdefault() preserves absolute paths passed via opts; unconditionally
+        # overwriting them caused sbatch to resolve relative names against an unexpected
+        # CWD and create spurious log directories.
         rootname = os.path.splitext(os.path.basename(script))[0]
-        if stdout is None:
-            stdout = f"{rootname}.out"
-        if stderr is None:
-            stderr = f"{rootname}.err"
-        opts["log_out"] = stdout
-        opts["log_err"] = stderr
+        opts.setdefault("log_out", stdout or f"{rootname}.out")
+        opts.setdefault("log_err", stderr or f"{rootname}.err")
 
         # Submision
         job = super().submit(
