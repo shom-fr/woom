@@ -765,6 +765,8 @@ class _Scheduler_(BackgroundJobManager):
         if job.subproc.returncode:
             raise WoomJobError(f"Submission failed with error message: {stderr}")
         self._parse_submit_job_(job, stdout)  # update jobid
+        # Expose log file paths on the job object so callers can read them back.
+        job.files = {"out": opts.get("log_out", ""), "err": opts.get("log_err", "")}
         job.dump()
         return job
 
