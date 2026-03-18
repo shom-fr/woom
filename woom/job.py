@@ -217,6 +217,9 @@ class Job:
     def __eq__(self, job):
         return str(self) == str(job)
 
+    def __hash__(self):
+        return hash(str(self))
+
     @property
     def files(self):
         """:class:`dict` of job files like script, status, out, err and json"""
