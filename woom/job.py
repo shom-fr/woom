@@ -800,7 +800,7 @@ class PbsproJobManager(_Scheduler_):
                 "log_err": "-e {}",
                 "depend": ("-W depend=afterok:{}"),
                 "mail": "-M {}",
-                "extra": "-keod",
+                "extra": "{}",
             },
         },
         "status": {
@@ -836,6 +836,42 @@ class PbsproJobManager(_Scheduler_):
         # job.jobid = job.subproc.stdout.read().decode("utf-8", errors="ignore").split(".")[0]
         job.jobid = stdout.split(".")[0]
         job.status.jobid = job.jobid
+
+    # Keys in the submit opts dict that are not qsub flags
+    _non_scheduler_keys = frozenset({"blocking"})
+
+    def get_submission_command(self, script, opts, depend=None):
+        """Build the qsub command, with two PBS Pro-specific behaviours:
+
+        1. If both ``nnodes`` and ``ncpus`` are provided they are merged into a
+           single ``-l select=N:ncpus=X:mpiprocs=X`` directive (PBS Pro forbids
+           ``-l ncpus=X`` alongside ``-l select=...``).
+        2. Any key in *opts* that is not in the known options dict (i.e. keys
+           added via ``__many__`` in ``tasks.ini``) is treated as a raw qsub
+           flag string and inserted verbatim before the script path.
+        """
+        # 1. Merge nnodes + ncpus into a single select directive
+        nnodes = opts.get("nnodes")
+        ncpus = opts.pop("ncpus", None)
+        if nnodes is not None and ncpus is not None:
+            opts["nnodes"] = f"{nnodes}:ncpus={ncpus}:mpiprocs={ncpus}"
+
+        # 2. Extract __many__ keys: unknown to the scheduler, not internal
+        known = set(self.commands["submit"]["options"]) | self._non_scheduler_keys
+        extra_raw = []
+        for key in list(opts.keys()):
+            if key not in known:
+                val = opts.pop(key)
+                if val is not None:
+                    extra_raw += shlex.split(str(val))
+
+        # Build the base command (script path will be last)
+        cmd = super().get_submission_command(script, opts, depend=depend)
+
+        # Insert extra raw args just before the script path
+        if extra_raw:
+            cmd = cmd[:-1] + extra_raw + [cmd[-1]]
+        return cmd
 
     def _extra_status_args_(self, args):
         "useful?"
