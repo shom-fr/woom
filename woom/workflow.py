@@ -561,7 +561,8 @@ class Workflow:
 
         content += "-" * 50
 
-        self.logger.info(content)
+        self.logger.info(f"Fake submission: {self.context['task_path']} → {cmdline}")
+        self.logger.debug(content)
 
         # Create fake job
         return self.jobmanager.create_job(script=self.context["script_path"], jobid=jobid, blocking=blocking)
