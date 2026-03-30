@@ -40,7 +40,7 @@ class TestWoomDate:
 
     def test_init_with_round(self):
         """Test WoomDate with rounding"""
-        date = WoomDate('2020-01-01 12:34:56', round='H')
+        date = WoomDate('2020-01-01 12:34:56', round='h')
 
         assert date.hour == 13
         assert date.minute == 0
