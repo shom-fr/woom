@@ -561,7 +561,7 @@ class Workflow:
 
         content += "-" * 50
 
-        self.logger.debug(content)
+        self.logger.info(content)
 
         # Create fake job
         return self.jobmanager.create_job(script=self.context["script_path"], jobid=jobid, blocking=blocking)
