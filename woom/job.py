@@ -843,25 +843,32 @@ class PbsproJobManager(_Scheduler_):
     def get_submission_command(self, script, opts, depend=None):
         """Build the qsub command, with two PBS Pro-specific behaviours:
 
-        1. If both ``nnodes`` and ``ncpus`` are provided they are merged into a
-           single ``-l select=N:ncpus=X:mpiprocs=X`` directive (PBS Pro forbids
-           ``-l ncpus=X`` alongside ``-l select=...``).
+        1. If ``nnodes`` is provided, ``ncpus``, ``memory`` and ``pmem`` are
+           merged into the ``-l select=`` directive (PBS Pro forbids these as
+           standalone ``-l`` directives alongside ``select``).
         2. Any key in *opts* that is not in the known options dict (i.e. keys
            added via ``__many__`` in ``tasks.ini``) is treated as a raw qsub
            flag string and inserted verbatim before the script path.
         """
-        # 1. Merge nnodes + ncpus into a single select directive
-        # Values may arrive as strings when Jinja2 templates are used in tasks.cfg
+        # 1. Merge nnodes + ncpus + memory + pmem into a single select directive.
+        # Values may arrive as strings when Jinja2 templates are used in tasks.cfg.
         nnodes = opts.get("nnodes")
         ncpus = opts.pop("ncpus", None)
+        memory = opts.pop("memory", None)
+        pmem = opts.pop("pmem", None)
         if nnodes is not None:
             nnodes = int(nnodes)
         if ncpus is not None:
             ncpus = int(ncpus)
-        if nnodes is not None and ncpus is not None:
-            opts["nnodes"] = f"{nnodes}:ncpus={ncpus}:mpiprocs={ncpus}"
-        elif nnodes is not None:
-            opts["nnodes"] = nnodes
+        if nnodes is not None:
+            select = str(nnodes)
+            if ncpus is not None:
+                select += f":ncpus={ncpus}:mpiprocs={ncpus}"
+            if memory is not None:
+                select += f":mem={memory}"
+            if pmem is not None:
+                select += f":pmem={pmem}"
+            opts["nnodes"] = select
 
         # 2. Extract __many__ keys: unknown to the scheduler, not internal
         known = set(self.commands["submit"]["options"]) | self._non_scheduler_keys
