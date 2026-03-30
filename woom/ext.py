@@ -3,6 +3,7 @@
 """
 Woom extensions management
 """
+
 import importlib
 import os
 import sys

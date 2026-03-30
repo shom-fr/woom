@@ -3,6 +3,7 @@
 """
 Pytest configuration and shared fixtures for woom tests
 """
+
 import sys
 from pathlib import Path
 from unittest.mock import Mock

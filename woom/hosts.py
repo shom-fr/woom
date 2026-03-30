@@ -3,6 +3,7 @@
 """
 Host specific configuration
 """
+
 import fnmatch
 import functools
 import os

@@ -5,6 +5,7 @@ Unit tests for woom.cli module
 
 Run: pytest test_cli.py -v
 """
+
 import argparse
 import os
 from unittest.mock import MagicMock, Mock, mock_open, patch

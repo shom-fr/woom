@@ -3,6 +3,7 @@
 """
 Tests for job.py module
 """
+
 import json
 from unittest.mock import MagicMock, Mock, patch
 

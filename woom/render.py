@@ -3,6 +3,7 @@
 """
 Jinja text rendering
 """
+
 import os
 import shlex
 

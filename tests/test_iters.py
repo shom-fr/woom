@@ -3,6 +3,7 @@
 """
 Tests for iters.py module
 """
+
 import pytest
 
 from woom import WoomError

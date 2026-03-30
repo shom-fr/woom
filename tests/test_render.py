@@ -3,6 +3,7 @@
 """
 Tests for render.py module
 """
+
 import os
 
 import pytest
