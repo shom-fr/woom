@@ -465,6 +465,9 @@ class Task:
         if not self.host.config["scheduler"]:
             return {}
         opts = wconf.strip_out_sections(self.config["submit"]).dict()
+        # Render Jinja2 templates in submit options (e.g. nnodes = {{ params.nnodes }})
+        if self._context is not None:
+            opts = {k: wrender.render(v, self.context) if isinstance(v, str) else v for k, v in opts.items()}
         if self.config["submit"]["queue"]:
             opts["queue"] = self.host.config["queues"][self.config["submit"]["queue"]]
         return opts

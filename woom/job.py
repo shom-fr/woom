@@ -851,10 +851,17 @@ class PbsproJobManager(_Scheduler_):
            flag string and inserted verbatim before the script path.
         """
         # 1. Merge nnodes + ncpus into a single select directive
+        # Values may arrive as strings when Jinja2 templates are used in tasks.cfg
         nnodes = opts.get("nnodes")
         ncpus = opts.pop("ncpus", None)
+        if nnodes is not None:
+            nnodes = int(nnodes)
+        if ncpus is not None:
+            ncpus = int(ncpus)
         if nnodes is not None and ncpus is not None:
             opts["nnodes"] = f"{nnodes}:ncpus={ncpus}:mpiprocs={ncpus}"
+        elif nnodes is not None:
+            opts["nnodes"] = nnodes
 
         # 2. Extract __many__ keys: unknown to the scheduler, not internal
         known = set(self.commands["submit"]["options"]) | self._non_scheduler_keys
