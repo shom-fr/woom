@@ -3,6 +3,7 @@
 """
 Context for job script generation
 """
+
 import json
 import os
 from collections import UserDict

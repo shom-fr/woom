@@ -6,6 +6,7 @@ Unit tests for woom.ext module
 Place this file at the root of your project (same level as woom/ directory)
 Run: pytest test_ext.py -v
 """
+
 import os
 import sys
 from unittest.mock import MagicMock, Mock, mock_open, patch

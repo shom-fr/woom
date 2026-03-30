@@ -3,6 +3,7 @@
 """
 Tests for hosts.py module
 """
+
 from unittest.mock import patch
 
 import configobj
@@ -29,13 +30,11 @@ class TestHostManager:
         manager = whosts.HostManager()
 
         cfg_file = tmp_path / "custom_hosts.cfg"
-        cfg_file.write_text(
-            """
+        cfg_file.write_text("""
 [myhost]
 patterns = myhost*
 scheduler = slurm
-"""
-        )
+""")
 
         manager.load_config(str(cfg_file))
         assert "myhost" in manager.config

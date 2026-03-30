@@ -3,6 +3,7 @@
 """
 Host specific configuration
 """
+
 import fnmatch
 import functools
 import os
@@ -141,13 +142,18 @@ class Host:
     def get_queue(self, name):
         """Get a queue real name from its generic name
 
+        Accesses ``self._config`` directly instead of going through
+        ``self.config`` (which calls ``Section.dict()``).  After a
+        ``ConfigObj.merge()``, ``dict()`` may return spec defaults instead
+        of the user's values.
+
         See also
         --------
         queues
         """
-        if name in self.queues:
-            return self.queues[name]
-        return name
+        queues = self._config.get("queues", {})
+        val = queues.get(name) if hasattr(queues, "get") else None
+        return val if val else name
 
     def get_params(self):
         """Get a context dict for formatting task commandlines with jinja

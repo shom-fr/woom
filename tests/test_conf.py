@@ -3,6 +3,7 @@
 """
 Tests for conf.py module
 """
+
 import pathlib
 
 import configobj

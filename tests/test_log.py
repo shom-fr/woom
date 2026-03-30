@@ -3,6 +3,7 @@
 """
 Tests for log.py module
 """
+
 import argparse
 import logging
 

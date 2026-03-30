@@ -6,6 +6,7 @@ Unit tests for woom.context module
 Place this file at the root of your project (same level as woom/ directory)
 Run: pytest test_context.py -v
 """
+
 import os
 from unittest.mock import MagicMock, Mock
 

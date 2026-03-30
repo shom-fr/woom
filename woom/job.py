@@ -3,6 +3,7 @@
 """
 Job management utilities
 """
+
 import datetime
 import json
 import logging
@@ -216,6 +217,9 @@ class Job:
 
     def __eq__(self, job):
         return str(self) == str(job)
+
+    def __hash__(self):
+        return hash(str(self))
 
     @property
     def files(self):
@@ -652,15 +656,16 @@ class ScheduledJob(Job):
         """
         args = self.manager._extra_status_args_(self.manager.get_command_args("status", jobid=self.jobid))
         logger.debug("Get status: " + " ".join(args))
-        res = subprocess.run(args, capture_output=True, check=True)
+        # check=False: squeue exits with code 1 when the job is no longer in the active
+        # queue (completed/failed). We must not raise — fall through to sacct instead.
+        res = subprocess.run(args, capture_output=True, check=False)
         logger.debug("Got status")
-        if res.returncode:
-            return JobStatus.UNKNOWN
 
-        # Parse active jobs
-        status_list = self.manager._parse_status_res_(res)
-        if status_list:
-            return status_list[0]["status"]
+        # Parse active jobs (only if the scheduler command succeeded)
+        if not res.returncode:
+            status_list = self.manager._parse_status_res_(res)
+            if status_list:
+                return status_list[0]["status"]
 
         # Fallback to history if job not in active queue
         if hasattr(self.manager, '_query_history_status_'):
@@ -717,6 +722,8 @@ class ScheduledJob(Job):
                 f.write(exit_code)
             self.set_status("TERMINATED" if graceful else "KILLED")
 
+    cancel = kill
+
 
 class _Scheduler_(BackgroundJobManager):
     job_class = ScheduledJob
@@ -733,13 +740,13 @@ class _Scheduler_(BackgroundJobManager):
         """Submit the script and instantiate a :class:`Job` object"""
 
         # stdout and stderr
+        # Only set log paths if not already provided by the caller.
+        # Using setdefault() preserves absolute paths passed via opts; unconditionally
+        # overwriting them caused sbatch to resolve relative names against an unexpected
+        # CWD and create spurious log directories.
         rootname = os.path.splitext(os.path.basename(script))[0]
-        if stdout is None:
-            stdout = f"{rootname}.out"
-        if stderr is None:
-            stderr = f"{rootname}.err"
-        opts["log_out"] = stdout
-        opts["log_err"] = stderr
+        opts.setdefault("log_out", stdout or f"{rootname}.out")
+        opts.setdefault("log_err", stderr or f"{rootname}.err")
 
         # Submision
         job = super().submit(
@@ -959,6 +966,22 @@ class SlurmJobManager(_Scheduler_):
         "DEADLINE": JobStatus.FAILED,
     }
 
+    # sacct returns full-word state names (different from squeue short codes).
+    history_status_names = {
+        "COMPLETED": JobStatus.SUCCESS,
+        "FAILED": JobStatus.FAILED,
+        "CANCELLED": JobStatus.KILLED,
+        "TIMEOUT": JobStatus.FAILED,
+        "OUT_OF_MEMORY": JobStatus.FAILED,
+        "NODE_FAIL": JobStatus.FAILED,
+        "BOOT_FAIL": JobStatus.FAILED,
+        "DEADLINE": JobStatus.FAILED,
+        "PREEMPTED": JobStatus.FAILED,
+        "RUNNING": JobStatus.RUNNING,
+        "PENDING": JobStatus.PENDING,
+        "SUSPENDED": JobStatus.PENDING,
+    }
+
     jobid_sep = ","
 
     def _extra_status_args_(self, args):
@@ -973,7 +996,7 @@ class SlurmJobManager(_Scheduler_):
 
     def _parse_status_res_(self, res):
         """JOBID PARTITION NAME USER ST TIME NODES NODELIST(REASON)"""
-        res = super()._parse_status_res_(self, res)
+        res = super()._parse_status_res_(res)
         out = []
         lines = res.splitlines()
         if lines:

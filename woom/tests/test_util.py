@@ -3,6 +3,7 @@
 """
 Test the :mod:`woom.util` module
 """
+
 import woom.util as wutil
 
 

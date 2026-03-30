@@ -6,6 +6,7 @@ Unit tests for woom.util module
 Place this file at the root of your project (same level as woom/ directory)
 Run: pytest test_util.py -v
 """
+
 import json
 import os
 from unittest.mock import Mock, patch
@@ -40,7 +41,7 @@ class TestWoomDate:
 
     def test_init_with_round(self):
         """Test WoomDate with rounding"""
-        date = WoomDate('2020-01-01 12:34:56', round='H')
+        date = WoomDate('2020-01-01 12:34:56', round='h')
 
         assert date.hour == 13
         assert date.minute == 0
