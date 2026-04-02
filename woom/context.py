@@ -114,7 +114,9 @@ class Context(UserDict):
 
                 # if workflow.host.name in workflow.config["params"]["tasks"][task_name]:
                 #     params.update(
-                #         wconf.strip_out_sections(workflow.config["params"]["tasks"][task_name][workflow.host.name].dict())
+                #         wconf.strip_out_sections(
+                #             workflow.config["params"]["tasks"][task_name][workflow.host.name].dict()
+                #         )
                 #     )
 
             # Paths
@@ -173,7 +175,8 @@ class Context(UserDict):
 
     @property
     def params(self):
-        """A :class:`dict` of user parameters as declared in the 'params' section of the workflow configuration"""
+        """A :class:`dict` of user parameters as declared in the 'params' section of the workflow
+        configuration"""
         return self["params"]
 
     @property

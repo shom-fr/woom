@@ -648,8 +648,6 @@ class TestWorkflowFillTemplates:
 
         # Patch submit_task to capture the fill_templates call
         # We'll verify that the code path that calls fill_templates is executed
-        original_get_submission_args = workflow._get_submission_args_
-
         def mock_get_submission_args(depend):
             # This simulates the submission process triggering fill_templates
             workflow.context.task.fill_templates(dry=False)

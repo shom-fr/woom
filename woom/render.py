@@ -9,7 +9,6 @@ import shlex
 
 from jinja2 import (
     BaseLoader,
-    ChoiceLoader,
     Environment,
     FileSystemLoader,
     PackageLoader,

@@ -7,8 +7,7 @@ Place this file at the root of your project (same level as woom/ directory)
 Run: pytest test_context.py -v
 """
 
-import os
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 from configobj import ConfigObj
