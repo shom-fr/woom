@@ -10,8 +10,6 @@ import argparse
 import os
 from unittest.mock import MagicMock, Mock, mock_open, patch
 
-import pytest
-
 from woom.cli import add_parser_fill, get_parser, main_fill
 
 

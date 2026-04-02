@@ -9,8 +9,6 @@ Run: pytest test_env.py -v
 
 import os
 
-import pytest
-
 from woom.env import EnvConfig
 
 

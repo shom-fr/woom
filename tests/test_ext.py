@@ -7,11 +7,8 @@ Place this file at the root of your project (same level as woom/ directory)
 Run: pytest test_ext.py -v
 """
 
-import os
 import sys
-from unittest.mock import MagicMock, Mock, mock_open, patch
-
-import pytest
+from unittest.mock import Mock, patch
 
 from woom.ext import (
     import_from_path,
@@ -88,7 +85,10 @@ class TestLoadJinjaFilters:
     @patch('woom.ext.import_from_path')
     def test_load_jinja_filters_updates_env(self, mock_import):
         """Test that filters are added to JINJA_ENV"""
-        test_filter = lambda x: x * 2
+
+        def test_filter(x):
+            return x * 2
+
         mock_module = Mock()
         mock_module.JINJA_FILTERS = {'double': test_filter}
         mock_import.return_value = mock_module
@@ -110,7 +110,7 @@ class TestLoadValidatorFunctions:
         mock_module.VALIDATOR_FUNCTIONS = {'custom_validator': lambda x: x}
         mock_import.return_value = mock_module
 
-        with patch('woom.conf.VALIDATOR_FUNCTIONS', {}) as mock_validators:
+        with patch('woom.conf.VALIDATOR_FUNCTIONS', {}):
             result = load_validator_functions('/path/to/validator_functions.py')
 
         assert result == 'validator_functions'
@@ -130,14 +130,13 @@ class TestLoadValidatorFunctions:
     @patch('woom.conf.VALIDATOR_FUNCTIONS', {})
     def test_load_validator_functions_updates_dict(self, mock_import):
         """Test that functions are added to VALIDATOR_FUNCTIONS"""
-        test_validator = lambda x: bool(x)
+
+        def test_validator(x):
+            return bool(x)
+
         mock_module = Mock()
         mock_module.VALIDATOR_FUNCTIONS = {'is_valid': test_validator}
         mock_import.return_value = mock_module
-
-        from woom.conf import VALIDATOR_FUNCTIONS
-
-        original_len = len(VALIDATOR_FUNCTIONS)
 
         load_validator_functions('/path/to/validator_functions.py')
 
@@ -155,7 +154,7 @@ class TestLoadArtifactsGenerators:
         mock_module.ARTIFACTS_GENERATORS = {'custom_generator': lambda: []}
         mock_import.return_value = mock_module
 
-        with patch('woom.tasks.ARTIFACTS_GENERATORS', {}) as mock_generators:
+        with patch('woom.tasks.ARTIFACTS_GENERATORS', {}):
             result = load_artifacts_generators('/path/to/artifacts_generators.py')
 
         assert result == 'artifacts_generators'
@@ -340,7 +339,7 @@ class TestExtensionsIntegration:
             mock_validators.return_value = 'validator_functions'
             mock_artifacts.return_value = 'artifacts_generators'
 
-            result = load_extensions(str(workflow_dir))
+            load_extensions(str(workflow_dir))
 
             # All should be called
             mock_jinja.assert_called_once()
