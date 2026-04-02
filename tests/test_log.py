@@ -164,3 +164,7 @@ class TestLoggingLevels:
         with caplog.at_level(logging.WARNING):
             logger.warning("Warning message")
             assert "Warning message" in caplog.text
+
+        for handler in logging.getLogger("woom").handlers[:]:
+            handler.close()
+            logging.getLogger("woom").removeHandler(handler)

@@ -4,6 +4,7 @@
 Logging utilities
 """
 
+import copy
 import logging.config
 
 DEFAULT_LOGGING_CONFIG = {
@@ -54,12 +55,14 @@ DEFAULT_LOGGING_CONFIG = {
 def setup_logging(console_level=None, to_file=True, no_color=False, show_init_msg=True, **kwargs):
     """Setup the logging"""
 
-    #    for handler in logging.root.handlers:
-    #        logging.root.handlers.remove(handler)
-    #    del logging.root.handlers[:]
+    # Close existing handlers before reconfiguring to avoid resource leaks
+    # (logging.config.dictConfig removes handlers but does not close them)
+    woom_logger = logging.getLogger("woom")
+    for handler in woom_logger.handlers[:]:
+        handler.close()
 
-    # Alter the config
-    logging_config = DEFAULT_LOGGING_CONFIG.copy()
+    # Alter the config (deep copy to avoid mutating DEFAULT_LOGGING_CONFIG)
+    logging_config = copy.deepcopy(DEFAULT_LOGGING_CONFIG)
     if console_level is not None:
         logging_config["handlers"]["console"]["level"] = console_level.upper()
     if to_file is False and "file" in logging_config["loggers"]["woom"]["handlers"]:

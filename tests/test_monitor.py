@@ -390,7 +390,9 @@ class TestMonitorRoutes:
 
     @pytest.mark.unit
     def test_api_stop_returns_stopping(self, client):
-        resp = client.post("/api/stop")
+        # Patch threading.Thread to prevent the delayed SIGINT from firing in-process
+        with patch("woom.monitor.threading.Thread"):
+            resp = client.post("/api/stop")
         assert resp.status_code == 200
         assert resp.get_json()["stopping"] is True
 
@@ -400,7 +402,9 @@ class TestMonitorRoutes:
         flask_app = create_monitor_app(workflow, SSELogHandler(), restart_flag=restart_flag)
         flask_app.config["TESTING"] = True
         c = flask_app.test_client()
-        resp = c.post("/api/restart")
+        # Patch threading.Thread to prevent the delayed SIGINT from firing in-process
+        with patch("woom.monitor.threading.Thread"):
+            resp = c.post("/api/restart")
         assert resp.status_code == 200
         assert resp.get_json()["restarting"] is True
         assert restart_flag.is_set()
@@ -465,6 +469,7 @@ class TestApiFiles:
         f.write_text("data")
         resp = client.get(f"/api/files?path={f}")
         assert resp.status_code == 200
+        resp.close()
 
     @pytest.mark.unit
     def test_file_outside_workflow_dir_without_artifact_is_denied(self, client, tmp_path, workflow):
@@ -498,6 +503,7 @@ class TestApiFiles:
         c = flask_app.test_client()
         resp = c.get(f"/api/files?path={artifact_file}")
         assert resp.status_code == 200
+        resp.close()
 
     @pytest.mark.unit
     def test_nonexistent_file_returns_404(self, client, tmp_path):
