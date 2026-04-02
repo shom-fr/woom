@@ -9,7 +9,7 @@ Run: pytest test_util.py -v
 
 import json
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest

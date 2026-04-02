@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from configobj import ConfigObj
 
-from woom.tasks import ARTIFACTS_GENERATORS, Task, TaskError, TaskManager, TaskTree
+from woom.tasks import Task, TaskError, TaskManager, TaskTree
 
 
 @pytest.fixture

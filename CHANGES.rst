@@ -30,6 +30,7 @@ New features
   time using the task context.
 * ``woom run --dry-run`` now logs a one-line summary per task at ``INFO`` level
   (``Fake submission: <task_path> → <qsub command>``); full detail remains available at ``DEBUG``.
+* Switch CI and pre-commit to ruff [:pull:`34`]
 
 Breaking changes
 ----------------

@@ -420,9 +420,9 @@ class BackgroundJobManager(object):
     @staticmethod
     def from_scheduler(scheduler):
         scheduler = scheduler.lower()
-        assert (
-            scheduler in ALLOWED_SCHEDULERS
-        ), f"Invalid scheduler: {scheduler}. Valid:  {ALLOWED_SCHEDULERS}"
+        assert scheduler in ALLOWED_SCHEDULERS, (
+            f"Invalid scheduler: {scheduler}. Valid:  {ALLOWED_SCHEDULERS}"
+        )
         cls_name = scheduler.title() + "JobManager"
         from . import job
 

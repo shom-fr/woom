@@ -41,10 +41,7 @@ dev = [
   "pytest",
   "pytest-mock",
   "pytest-xdist",
-  "black",
-  "flake8",
-  "isort",
-  "pylint",
+  "ruff",
   "pre-commit",
 ]
 docs = [
@@ -84,66 +81,78 @@ woom = ["*.ini", "*.cfg", "templates/*"]
 [tool.setuptools_scm]
 write_to = "woom/_version.py"
 
-[tool.black]
+[tool.ruff]
 line-length = 110
-target-version = ['py39', 'py310', 'py311', 'py312']
-skip-string-normalization = true
+target-version = "py39"
 
-[tool.isort]
-profile = "black"
-line_length = 110
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-skip_glob = ["*/migrations/*", "*/__pycache__/*"]
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E203",  # whitespace before ':'
+]
+
+[tool.ruff.format]
+quote-style = "preserve"
 
 [tool.pytest.ini_options]
-minversion = "7.0"
+minversion = "6.0"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "-v",
     "-ra",
+    "--showlocals",
     "--strict-markers",
     "--strict-config",
+    "-W default",
 ]
 markers = [
-    "unit: Unit tests",
-    "integration: Integration tests",
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests (may require external resources)",
     "slow: Slow running tests",
-    "requires_scheduler: Tests requiring real scheduler",
+    "requires_scheduler: Tests that require a real job scheduler",
+    "smoke: Smoke tests (quick validation)",
+    "regression: Regression tests",
+    "wip: Work in progress tests (skip by default)",
 ]
 log_cli = false
 log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+log_file = "tests/pytest.log"
+log_file_level = "DEBUG"
+log_file_format = "%(asctime)s [%(levelname)8s] [%(filename)s:%(lineno)d] %(message)s"
+log_file_date_format = "%Y-%m-%d %H:%M:%S"
 
-[tool.pylint.main]
-jobs = 0
-py-version = "3.9"
-suggestion-mode = true
-fail-under = 8.0
-ignore = ["migrations", "tests"]
-
-[tool.pylint.messages_control]
-disable = [
-    "C0111",  # missing-docstring
-    "C0103",  # invalid-name
-    "R0903",  # too-few-public-methods
-    "R0913",  # too-many-arguments
-    "W0212",  # protected-access
-    "E203", # whitespace before ':' << due to black
+[tool.coverage.run]
+source = ["woom"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/virtualenv/*",
 ]
 
-[tool.pylint.format]
-max-line-length = 110
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
 
-[tool.pylint.design]
-max-args = 10
-max-attributes = 15
-max-locals = 20
+[tool.coverage.html]
+directory = "htmlcov"
 
 # Bandit configuration
 [tool.bandit]
