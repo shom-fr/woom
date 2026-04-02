@@ -25,22 +25,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 black isort pylint
+          pip install ruff
 
-      - name: Check code formatting with black
-        run: black --check woom tests
+      - name: Check code formatting with ruff
+        run: ruff format --check woom tests
 
-      - name: Check import sorting with isort
-        run: isort --check-only woom tests
-
-      - name: Lint with flake8
-        run: |
-          flake8 woom tests --ignore=C0111,C0103,R0903,R0913,W0212,E203 --max-line-length=110 --exclude=__pycache__
-        continue-on-error: true
-
-      - name: Lint with pylint
-        run: pylint woom --fail-under=8.0
-        continue-on-error: true
+      - name: Lint with ruff
+        run: ruff check woom tests
 
 
   # Security checks
