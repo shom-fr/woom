@@ -19,6 +19,7 @@ New features
 * Add a sentinel job that monitor jobs when using a scheduler [:pull:`18`].
 * Add the capability to fill templates with a decated section in tasks and with the ``woom fill`` command [:pull:`22`].
 * User paramaters specified in the workflow configuration can now contain sub-sections [:pull:`22`].
+* Switch CI and pre-commit to ruff [:pull:`34`]
 
 Breaking changes
 ----------------
