@@ -800,7 +800,7 @@ class PbsproJobManager(_Scheduler_):
                 "log_err": "-e {}",
                 "depend": ("-W depend=afterok:{}"),
                 "mail": "-M {}",
-                "extra": "-keod",
+                "extra": "{}",
             },
         },
         "status": {
@@ -836,6 +836,56 @@ class PbsproJobManager(_Scheduler_):
         # job.jobid = job.subproc.stdout.read().decode("utf-8", errors="ignore").split(".")[0]
         job.jobid = stdout.split(".")[0]
         job.status.jobid = job.jobid
+
+    # Keys in the submit opts dict that are not qsub flags
+    _non_scheduler_keys = frozenset({"blocking"})
+
+    def get_submission_command(self, script, opts, depend=None):
+        """Build the qsub command, with two PBS Pro-specific behaviours:
+
+        1. If ``nnodes`` is provided, ``ncpus``, ``memory`` and ``pmem`` are
+           merged into the ``-l select=`` directive (PBS Pro forbids these as
+           standalone ``-l`` directives alongside ``select``).
+        2. Any key in *opts* that is not in the known options dict (i.e. keys
+           added via ``__many__`` in ``tasks.ini``) is treated as a raw qsub
+           flag string and inserted verbatim before the script path.
+        """
+        # 1. Merge nnodes + ncpus + memory + pmem into a single select directive.
+        # Values may arrive as strings when Jinja2 templates are used in tasks.cfg.
+        nnodes = opts.get("nnodes")
+        ncpus = opts.pop("ncpus", None)
+        memory = opts.pop("memory", None)
+        pmem = opts.pop("pmem", None)
+        if nnodes is not None:
+            nnodes = int(nnodes)
+        if ncpus is not None:
+            ncpus = int(ncpus)
+        if nnodes is not None:
+            select = str(nnodes)
+            if ncpus is not None:
+                select += f":ncpus={ncpus}:mpiprocs={ncpus}"
+            if memory is not None:
+                select += f":mem={memory}"
+            if pmem is not None:
+                select += f":pmem={pmem}"
+            opts["nnodes"] = select
+
+        # 2. Extract __many__ keys: unknown to the scheduler, not internal
+        known = set(self.commands["submit"]["options"]) | self._non_scheduler_keys
+        extra_raw = []
+        for key in list(opts.keys()):
+            if key not in known:
+                val = opts.pop(key)
+                if val is not None:
+                    extra_raw += shlex.split(str(val))
+
+        # Build the base command (script path will be last)
+        cmd = super().get_submission_command(script, opts, depend=depend)
+
+        # Insert extra raw args just before the script path
+        if extra_raw:
+            cmd = cmd[:-1] + extra_raw + [cmd[-1]]
+        return cmd
 
     def _extra_status_args_(self, args):
         "useful?"

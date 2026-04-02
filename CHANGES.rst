@@ -19,6 +19,17 @@ New features
 * Add a sentinel job that monitor jobs when using a scheduler [:pull:`18`].
 * Add the capability to fill templates with a decated section in tasks and with the ``woom fill`` command [:pull:`22`].
 * User paramaters specified in the workflow configuration can now contain sub-sections [:pull:`22`].
+* PBS Pro: ``nnodes``, ``ncpus``, ``memory`` and ``pmem`` are now merged into a single
+  ``-l select=N:ncpus=X:mpiprocs=X:mem=Y`` directive, fixing conflicts where PBS Pro rejects
+  standalone ``-l ncpus=X``, ``-l mem=Y`` or ``-l pmem=Z`` alongside ``-l select=...``.
+* PBS Pro: the ``extra`` submission option in ``[[submit]]`` now accepts a user-provided value
+  (default: ``-koed``). Arbitrary keys added via ``__many__`` are also passed verbatim as raw
+  qsub flags before the script path.
+* Submission options ``nnodes``, ``ncpus`` and ``ngpus`` in ``[[submit]]`` now accept Jinja2
+  template expressions (e.g. ``nnodes = {{ params.nnodes }}``); they are rendered at submission
+  time using the task context.
+* ``woom run --dry-run`` now logs a one-line summary per task at ``INFO`` level
+  (``Fake submission: <task_path> → <qsub command>``); full detail remains available at ``DEBUG``.
 * Switch CI and pre-commit to ruff [:pull:`34`]
 
 Breaking changes
@@ -28,6 +39,9 @@ Breaking changes
 * ``Workflow.get_run_dir`` is renamed ``Workflow.get_task_run_dir``.
 * ``--update `` run option is renamed ``--force`` [:pull:`18`].
 * User paramaters used in jinja rendering are now only accessible in the ``params`` variable [:pull:`22`].
+* PBS Pro: the ``extra`` submission option format string changed from the hardcoded ``-keod`` to
+  ``{}``; users who relied on the implicit ``-keod`` flag must now set ``extra = -koed`` explicitly
+  (or keep the new default declared in ``tasks.ini``).
 
 Deprecations
 ------------
