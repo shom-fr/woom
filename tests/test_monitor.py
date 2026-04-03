@@ -13,7 +13,6 @@ Tests cover:
 
 import json
 import logging
-import os
 import queue
 import threading
 import time
@@ -543,7 +542,7 @@ class TestApiCrontab:
     def test_crontab_post_add(self, client, workflow):
         mock_list = Mock(returncode=0, stdout="", stderr="")
         mock_write = Mock(returncode=0, stdout="", stderr="")
-        with patch("subprocess.run", side_effect=[mock_list, mock_write]) as mock_run:
+        with patch("subprocess.run", side_effect=[mock_list, mock_write]):
             resp = client.post("/api/crontab", json={"action": "add", "cron_expr": "0 2 * * *"})
         assert resp.status_code == 200
         data = resp.get_json()
@@ -560,7 +559,7 @@ class TestApiCrontab:
             resp = client.post("/api/crontab", json={"action": "remove"})
         assert resp.status_code == 200
         # The written crontab should not contain the marker
-        write_call_input = mock_write.call_args  # not directly available here; check success
+        mock_write.call_args  # not directly available here; check success
         assert resp.get_json()["success"] is True
 
     @pytest.mark.unit
