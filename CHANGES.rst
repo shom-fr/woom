@@ -7,6 +7,13 @@ Develop
 
 New features
 ------------
+* Add the ``woom monitor`` command: a lightweight Flask-based web UI for launching,
+  monitoring, and stopping workflows from a browser.  Features include a live log
+  stream (SSE), artifact browser with download links, an interactive crontab scheduler
+  helper, and a dark/light theme toggle.
+* The monitor Overview tab now displays an interactive visual task tree (clickable
+  task nodes, cross-highlighted in the Jobs table) and collapsible workflow/tasks
+  configuration panels.
 * Add colors to ``woom show status``.
 * App name is now inferred from ``workflow_dir`` when undefined.
 * Add the ``nnodes``, ``ncpus``, ``nnodes`` and ``pmem`` submission options to tasks.
@@ -48,6 +55,8 @@ Deprecations
 
 Bug fixes
 ---------
+* Fix ``Workflow.get_artifacts`` iterating over characters of a path string for
+  single-path artifacts instead of treating the string as one path.
 * Fix ``Host.get_env`` that was ignoring ``raw_text`` and ``uv_venv`` configuration options.
 * ``run_dir``, ``submission_dir``, ``script_path``, ``env`` must now be prefixed with ``task_`` in a jinja rendering.
 

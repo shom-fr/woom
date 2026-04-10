@@ -602,6 +602,8 @@ class BackgroundJobManager(object):
 
         # stdout and stderr
         rootname = os.path.splitext(script)[0]
+        _owned_stdout = stdout is None
+        _owned_stderr = stderr is None
         if stdout is None:
             stdout = open(f"{rootname}.out", "w")
         if stderr is None:
@@ -610,6 +612,10 @@ class BackgroundJobManager(object):
         # Submit
         logger.debug("Submit: " + " ".join(jobargs))
         subproc = subprocess.Popen(jobargs, stdout=stdout, stderr=stderr, cwd=submdir)
+        if _owned_stdout:
+            stdout.close()
+        if _owned_stderr:
+            stderr.close()
         logger.debug("Submitted")
 
         # Init Job instance

@@ -22,3 +22,4 @@ Available commands:
     cli.woom.fill
     cli.woom.kill
     cli.woom.clean
+    cli.woom.monitor

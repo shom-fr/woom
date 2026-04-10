@@ -989,7 +989,7 @@ class Workflow:
                 self.get_task_artifacts(task_name_, cycle_, member_).items()
             ):
                 tn = task_name_ if not i else ""
-                for j, path in enumerate(paths):
+                for j, path in enumerate(paths if isinstance(paths, list) else [paths]):
                     an = art_name if not j else ""
                     data.append([tn, an, path, os.path.exists(path)])
 
