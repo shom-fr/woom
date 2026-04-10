@@ -137,6 +137,7 @@ def mock_task():
     """Create a mock Task object"""
     task = Mock()
     task.name = "test_task"
+    task.is_skipped = False
     task.config = {
         "content": {"commandline": "echo test", "run_dir": "/run/dir", "env": None},
         "artifacts": {},

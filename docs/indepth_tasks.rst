@@ -634,6 +634,69 @@ Example 5: Conditional Execution
         ncpus = 1
         time = 00:10:00
 
+Skipping Tasks
+==============
+
+A task can be excluded from submission while remaining in the task tree.
+This is useful when a task has already produced its artifacts in a previous
+run and you want downstream tasks to reference those artifacts without
+re-running the task itself.
+
+A skipped task:
+
+- is **never submitted** to the scheduler
+- is **never cleaned** (its submission directory and artifacts are preserved)
+- contributes **no scheduler dependencies** to downstream tasks (they run immediately)
+- still appears in ``woom show status`` with status ``SKIPPED``
+- still appears in ``woom show artifacts`` with its artifact paths
+
+Static Skip (in :file:`tasks.cfg`)
+------------------------------------
+
+Set ``skip = True`` directly on a task to permanently exclude it from submission
+within a given configuration:
+
+.. code-block:: ini
+
+    [preprocess]
+    skip = True
+        [[content]]
+        commandline = python preprocess.py
+        [[artifacts]]
+            [[[output]]]
+            path = {{ task_run_dir }}/preprocessed.nc
+            check = True
+
+    [run_model]
+        [[content]]
+        commandline = ./model preprocessed.nc
+        # can still read preprocess artifacts even though it was skipped
+
+Combined with :ref:`task inheritance <indepth.tasks>`, this lets you activate
+or deactivate tasks without restructuring the workflow:
+
+.. code-block:: ini
+
+    [base_preprocess]
+        [[content]]
+        commandline = python preprocess.py
+        [[artifacts]]
+            [[[output]]]
+            path = {{ task_run_dir }}/preprocessed.nc
+
+    [preprocess]
+    inherit = base_preprocess
+    skip = True   # disable for this experiment
+
+.. warning::
+   When a task is skipped its artifacts must already exist on disk.  If they
+   do not, downstream tasks that depend on those files will fail at runtime.
+
+See Also
+--------
+
+- :ref:`indepth.workflow` — skip tasks at runtime without editing :file:`tasks.cfg`
+
 Task Organization Strategies
 =============================
 

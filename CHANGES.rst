@@ -7,6 +7,12 @@ Develop
 
 New features
 ------------
+* Add the ability to skip tasks: a task can be excluded from submission while
+  remaining in the task tree, so downstream tasks can still reference its
+  artifacts.  Skip a task permanently with ``skip = True`` in :file:`tasks.cfg`,
+  or at runtime with ``skip = task1 task2`` in ``[stages]`` of
+  :file:`workflow.cfg`, or via ``woom run --skip task1 task2`` on the CLI.
+  Skipped tasks appear as ``SKIPPED`` (bold cyan) in ``woom show status`` [:pull:`35`].
 * Add the ``woom monitor`` command: a lightweight Flask-based web UI for launching,
   monitoring, and stopping workflows from a browser.  Features include a live log
   stream (SSE), artifact browser with download links, an interactive crontab scheduler

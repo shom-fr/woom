@@ -33,6 +33,7 @@ STATUS2COLOR = {
     "(EXITING|COMPLETING|UNKNOWN)": "bold_yellow",
     "SUCCESS": "bold_green",
     "(PENDING|INQUEUE)": "bold",
+    "SKIPPED": "bold_cyan",
 }
 
 
@@ -94,6 +95,9 @@ class Workflow:
             **self.config["ensemble"]["iters"],
         )
         self._nmembers = len(self._members)
+
+        # Tasks to skip (from workflow.cfg [stages] skip)
+        self._skip_tasks = list(self._config["stages"].get("skip") or [])
 
         # Other paths
         self._paths = {
@@ -274,6 +278,18 @@ class Workflow:
         If not, it cannot be added as a dependency
         """
         return self.get_task(task_name).is_blocking
+
+    def is_task_skipped(self, task_name):
+        """Is this task skipped?
+
+        A task is skipped when its ``skip`` flag is set to ``True`` in
+        :file:`tasks.cfg`, or when its name appears in the runtime skip list
+        (``[stages] skip`` in :file:`workflow.cfg` or ``--skip`` on the CLI).
+
+        Skipped tasks are never submitted but remain in the task tree so that
+        their artifact paths are still accessible to downstream tasks.
+        """
+        return self.get_task(task_name).is_skipped or task_name in self._skip_tasks
 
     def get_task_items(self, getter, task_name, cycle=None, member=None, flat=False, **kwargs):
         """Loop on cycles and members to retreive task items
@@ -575,6 +591,9 @@ class Workflow:
         woom.job.JobStatus
             Job status
         """
+        if self.is_task_skipped(task_name):
+            return wjob.JobStatus["SKIPPED"]
+
         if self._dry:
             return wjob.JobStatus["NOTSUBMITTED"]
 
@@ -641,10 +660,12 @@ class Workflow:
                     os.remove(fname)
                 self.logger.debug(f"Removed: {fname}")
 
-    def run(self, dry=False, force=False):
+    def run(self, dry=False, force=False, skip=None):
         """Run the workflow by submiting all tasks"""
         self._dry = dry
         self._force = force
+        if skip:
+            self._skip_tasks = list(set(self._skip_tasks) | set(skip))
         if dry:
             self.logger.debug("Running the workflow in fake mode")
         if force:
@@ -722,6 +743,11 @@ class Workflow:
                                 self.logger.debug(
                                     "Task path: " + self.get_task_path(task_name, cycle, member)
                                 )
+
+                                # Skip: keep in tree but do not submit
+                                if self.is_task_skipped(task_name):
+                                    self.logger.info(f"Task skipped (not submitted): {long_task}")
+                                    continue
 
                                 # Check status
                                 status = self.get_task_status(task_name, cycle, member)

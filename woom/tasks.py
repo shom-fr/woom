@@ -126,7 +126,12 @@ class TaskManager:
             Host instance
         """
         self._configs = []
-        self._config = wconf.load_cfg(CFG_DEFAULT_FILE, CFGSPECS_FILE, interpolation=False, list_values=True)
+        self._config = wconf.load_cfg(
+            CFG_DEFAULT_FILE,
+            CFGSPECS_FILE,
+            interpolation=False,
+            list_values=True,
+        )
         self._config_files = [CFG_DEFAULT_FILE]
         self._host = host
         self.logger = logging.getLogger(__name__)
@@ -180,7 +185,11 @@ class TaskManager:
                 for artifact_name in content["artifacts"].scalars:
                     path = content["artifacts"][artifact_name]
                     del content["artifacts"][artifact_name]
-                    content["artifacts"][artifact_name] = {"path": path, "check": True, "callable": False}
+                    content["artifacts"][artifact_name] = {
+                        "path": path,
+                        "check": True,
+                        "callable": False,
+                    }
 
     def __str__(self):
         return os.pathsep.join(self._config_files)
@@ -264,6 +273,11 @@ class Task:
     def is_blocking(self):
         """It is blocking?"""
         return self.config["submit"]["blocking"]
+
+    @property
+    def is_skipped(self):
+        """Is this task statically skipped (set via ``skip = True`` in :file:`tasks.cfg`)?"""
+        return self.config.get("skip", False)
 
     def set_context(self, context):
         """Set the context to be used for jinja rendering

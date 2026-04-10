@@ -556,3 +556,48 @@ class TestTaskFillTemplates:
 
         # Verify file was NOT opened/written
         mock_open.assert_not_called()
+
+
+class TestTaskSkip:
+    """Test Task.is_skipped property"""
+
+    def test_is_skipped_default_false(self, mock_host):
+        """Task is not skipped by default"""
+        config = ConfigObj(
+            {
+                'content': {'commandline': 'echo test', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {},
+                'submit': {'blocking': True},
+            }
+        )
+        task = Task(config, mock_host)
+
+        assert task.is_skipped is False
+
+    def test_is_skipped_explicit_false(self, mock_host):
+        """Task with skip=False is not skipped"""
+        config = ConfigObj(
+            {
+                'skip': False,
+                'content': {'commandline': 'echo test', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {},
+                'submit': {'blocking': True},
+            }
+        )
+        task = Task(config, mock_host)
+
+        assert task.is_skipped is False
+
+    def test_is_skipped_true(self, mock_host):
+        """Task with skip=True is skipped"""
+        config = ConfigObj(
+            {
+                'skip': True,
+                'content': {'commandline': 'echo test', 'run_dir': '/tmp', 'env': None},
+                'artifacts': {},
+                'submit': {'blocking': True},
+            }
+        )
+        task = Task(config, mock_host)
+
+        assert task.is_skipped is True

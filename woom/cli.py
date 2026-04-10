@@ -29,7 +29,11 @@ def get_parser():
     parser.add_argument("--app-name", help="application name")
     parser.add_argument("--app-conf", help="application configuration")
     parser.add_argument("--app-exp", help="application experiment")
-    parser.add_argument("--workflow-cfg", default="workflow.cfg", help="workflow configuration file")
+    parser.add_argument(
+        "--workflow-cfg",
+        default="workflow.cfg",
+        help="workflow configuration file",
+    )
     parser.add_argument(
         "--workflow-ini",
         default="workflow.ini",
@@ -37,7 +41,10 @@ def get_parser():
     )
     parser.add_argument("--tasks-cfg", default="tasks.cfg", help="tasks configuration file")
     parser.add_argument("--hosts-cfg", help="hosts configuration file", default="hosts.cfg")
-    parser.add_argument("--host", help="target host as described in the hosts configuration file")
+    parser.add_argument(
+        "--host",
+        help="target host as described in the hosts configuration file",
+    )
     parser.add_argument("--begin-date", help="begin date", type=wconf.is_datetime)
     parser.add_argument("--end-date", help="end date", type=wconf.is_datetime)
     parser.add_argument("--freq", help="interval between cycles")
@@ -240,7 +247,9 @@ def add_parser_show_status(subparsers):
     )
     parser_show_status.add_argument("-r", "--running", help="show only running jobs", action="store_true")
     parser_show_status.add_argument(
-        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
+        "--tablefmt",
+        help="table format (see the tabulate package)",
+        default="rounded_outline",
     )
     parser_show_status.add_argument("--no-color", help="don't colorize the status", action="store_true")
     wlog.add_logging_parser_arguments(parser_show_status, default_level="warning")
@@ -257,7 +266,11 @@ def main_show_status(parser, args):
 
     # Show the status
     try:
-        workflow.show_status(tablefmt=args.tablefmt, running=args.running, colorize=not args.no_color)
+        workflow.show_status(
+            tablefmt=args.tablefmt,
+            running=args.running,
+            colorize=not args.no_color,
+        )
     except Exception:
         logger.exception("Failed querying the status")
         return 1
@@ -272,7 +285,9 @@ def add_parser_show_submission_dirs(subparsers):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_show_submission_dirs.add_argument(
-        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
+        "--tablefmt",
+        help="table format (see the tabulate package)",
+        default="rounded_outline",
     )
     wlog.add_logging_parser_arguments(parser_show_submission_dirs, default_level="warning")
     parser_show_submission_dirs.set_defaults(func=main_show_submission_dirs)
@@ -303,7 +318,9 @@ def add_parser_show_run_dirs(subparsers):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_show_run_dirs.add_argument(
-        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
+        "--tablefmt",
+        help="table format (see the tabulate package)",
+        default="rounded_outline",
     )
     wlog.add_logging_parser_arguments(parser_show_run_dirs, default_level="warning")
     parser_show_run_dirs.set_defaults(func=main_show_run_dirs)
@@ -334,7 +351,9 @@ def add_parser_show_artifacts(subparsers):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_show_artifacts.add_argument(
-        "--tablefmt", help="table format (see the tabulate package)", default="rounded_outline"
+        "--tablefmt",
+        help="table format (see the tabulate package)",
+        default="rounded_outline",
     )
     wlog.add_logging_parser_arguments(parser_show_artifacts, default_level="warning")
     parser_show_artifacts.set_defaults(func=main_show_artifacts)
@@ -379,6 +398,15 @@ def add_parser_run(subparsers):
         help="do not run if it has already been run",
         action="store_true",
     )
+    parser_run.add_argument(
+        "--skip",
+        help=(
+            "task names to skip: not submitted but kept in the task treeso their artifacts remain accessible"
+        ),
+        nargs="+",
+        metavar="TASK",
+        default=[],
+    )
     wlog.add_logging_parser_arguments(parser_run)
     parser_run.set_defaults(func=main_run)
 
@@ -394,7 +422,7 @@ def main_run(parser, args):
     # Run the workflow
     logger.debug("Run the workflow")
     try:
-        workflow.run(dry=args.dry_run, force=args.force)
+        workflow.run(dry=args.dry_run, force=args.force, skip=args.skip)
     except Exception as e:
         logger.exception(f"Workflow failed: {e.args[0]}")
         return 1
@@ -512,7 +540,11 @@ def add_parser_fill(subparsers):
     )
     parser_fill.add_argument("template", help="template file")
     parser_fill.add_argument("destination", help="output file")
-    parser_fill.add_argument("--task-name", help="target task name", default=os.environ.get("WOOM_TASK_NAME"))
+    parser_fill.add_argument(
+        "--task-name",
+        help="target task name",
+        default=os.environ.get("WOOM_TASK_NAME"),
+    )
     parser_fill.add_argument("--cycle", help="target cycle", default=os.environ.get("WOOM_CYCLE"))
     parser_fill.add_argument("--member", help="target member", default=os.environ.get("WOOM_MEMBER"))
     parser_fill.add_argument(
