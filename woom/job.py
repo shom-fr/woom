@@ -30,6 +30,7 @@ class WoomJobError(WoomError):
 
 
 class JobStatus(Enum):
+    SKIPPED = -8
     TERMINATED = -7
     FAILED = -6
     ERROR = -5

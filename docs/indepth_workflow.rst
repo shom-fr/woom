@@ -370,6 +370,53 @@ Use in stages:
     [[cycles]]
     run = core_model, postprocessing
 
+Skipping Tasks at Runtime
+--------------------------
+
+You can prevent specific tasks from being submitted without editing
+:file:`tasks.cfg`, keeping them in the task tree so their artifact paths
+remain accessible to downstream tasks.
+
+**In :file:`workflow.cfg`** (persisted skip list for a given experiment):
+
+.. code-block:: ini
+
+    [stages]
+        skip = preprocess, download_forcings
+
+        [[prolog]]
+        setup = preprocess, download_forcings, compile_model
+
+        [[cycles]]
+        run = run_model
+
+Both ``preprocess`` and ``download_forcings`` will be silently bypassed on every
+``woom run``, but ``run_model`` can still reference their artifact paths.
+
+**On the command line** (one-off override):
+
+.. code-block:: bash
+
+    woom run --skip preprocess download_forcings
+
+Multiple task names are space-separated.  CLI names are merged with any names
+already listed in ``[stages] skip``, so you can combine both mechanisms.
+
+**Behaviour summary:**
+
+- Skipped tasks are **not submitted** and their submission directory is untouched
+- They appear as ``SKIPPED`` (bold cyan) in ``woom show status``
+- Their artifact paths are still displayed by ``woom show artifacts``
+- Downstream tasks receive **no scheduler dependency** through a skipped slot
+  (they can start immediately, assuming the artifacts already exist)
+- ``--force`` does **not** override the skip; remove the task from the skip list
+  to re-enable it
+
+.. note::
+   For a skip that is part of the task definition rather than a runtime choice,
+   use the ``skip = True`` option directly in :file:`tasks.cfg`
+   (see :ref:`indepth.tasks`).
+
 Custom Parameters
 =================
 

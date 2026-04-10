@@ -61,6 +61,7 @@ def mock_taskmanager():
     tm.host.name = 'local'
     tm.host.get_jobmanager = Mock()
     tm.host.get_params = Mock(return_value={})
+    tm.get_task.return_value.is_skipped = False
     return tm
 
 
@@ -668,3 +669,110 @@ class TestWorkflowFillTemplates:
 
         # Verify fill_templates was called
         mock_task.fill_templates.assert_called_with(dry=False)
+
+
+class TestWorkflowSkip:
+    """Test task-skip feature"""
+
+    def test_is_task_skipped_via_task_flag(self, minimal_config, mock_taskmanager, tmp_path):
+        """is_task_skipped returns True when Task.is_skipped is True"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        mock_task = Mock()
+        mock_task.is_skipped = True
+        mock_taskmanager.get_task.return_value = mock_task
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        assert workflow.is_task_skipped('task1') is True
+
+    def test_is_task_skipped_via_runtime_list(self, minimal_config, mock_taskmanager, tmp_path):
+        """is_task_skipped returns True when task name is in the runtime skip list"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        mock_task = Mock()
+        mock_task.is_skipped = False
+        mock_taskmanager.get_task.return_value = mock_task
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow._skip_tasks = ['task1']
+
+        assert workflow.is_task_skipped('task1') is True
+
+    def test_is_task_skipped_false(self, minimal_config, mock_taskmanager, tmp_path):
+        """is_task_skipped returns False for a normal task"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        mock_task = Mock()
+        mock_task.is_skipped = False
+        mock_taskmanager.get_task.return_value = mock_task
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        assert workflow.is_task_skipped('task1') is False
+
+    def test_skip_list_loaded_from_config(self, minimal_config, mock_taskmanager, tmp_path):
+        """_skip_tasks is populated from workflow config [stages] skip"""
+        minimal_config['stages']['skip'] = ['task_a', 'task_b']
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        assert 'task_a' in workflow._skip_tasks
+        assert 'task_b' in workflow._skip_tasks
+
+    def test_skip_list_empty_by_default(self, minimal_config, mock_taskmanager, tmp_path):
+        """_skip_tasks defaults to empty list when not in config"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        assert workflow._skip_tasks == []
+
+    def test_run_merges_cli_skip_list(self, minimal_config, mock_taskmanager, tmp_path):
+        """workflow.run(skip=[...]) merges CLI skip list with existing _skip_tasks"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow._skip_tasks = ['task_a']
+
+        # Empty task tree + no scheduler → run() completes without submission
+        mock_taskmanager.host.get_jobmanager.return_value.with_scheduler = None
+        mock_taskmanager.host.get_jobmanager.return_value.jobs = []
+        workflow.run(skip=['task_b'])
+
+        assert 'task_a' in workflow._skip_tasks
+        assert 'task_b' in workflow._skip_tasks
+
+    def test_run_skip_merges_without_duplicate(self, minimal_config, mock_taskmanager, tmp_path):
+        """Passing the same task twice in skip does not create duplicates"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow._skip_tasks = ['task_a']
+
+        # Empty task tree + no scheduler → run() completes without submission
+        mock_taskmanager.host.get_jobmanager.return_value.with_scheduler = None
+        mock_taskmanager.host.get_jobmanager.return_value.jobs = []
+        workflow.run(skip=['task_a'])
+
+        assert workflow._skip_tasks.count('task_a') == 1
+
+    def test_get_task_status_returns_skipped(self, minimal_config, mock_taskmanager, tmp_path):
+        """get_task_status returns SKIPPED for a skipped task"""
+        from woom.job import JobStatus
+
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        mock_task = Mock()
+        mock_task.is_skipped = True
+        mock_taskmanager.get_task.return_value = mock_task
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        status = workflow.get_task_status('task1')
+
+        assert status == JobStatus.SKIPPED
+
+    def test_get_task_status_skipped_before_dry(self, minimal_config, mock_taskmanager, tmp_path):
+        """SKIPPED status takes precedence over dry-run NOTSUBMITTED"""
+        from woom.job import JobStatus
+
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        mock_task = Mock()
+        mock_task.is_skipped = True
+        mock_taskmanager.get_task.return_value = mock_task
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow._dry = True
+
+        status = workflow.get_task_status('task1')
+
+        assert status == JobStatus.SKIPPED
