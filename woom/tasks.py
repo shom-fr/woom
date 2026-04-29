@@ -420,8 +420,9 @@ class Task:
             for path_ in paths:
                 rendered = wrender.render(path_.strip(), self.context)
                 if not os.path.isabs(path_):
-                    if self.run_dir:
-                        rendered = os.path.join(self.run_dir, rendered)
+                    run_dir = wrender.render(self.run_dir, self.context)
+                    if run_dir:
+                        rendered = os.path.join(run_dir, rendered)
                     else:
                         raise TaskError(
                             f"Rendered artifact '{name}' of task '{self.name}' is not absolute "
