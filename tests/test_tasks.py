@@ -284,6 +284,38 @@ class TestTask:
         assert 'output' in artifacts
         assert artifacts['output'] == ['/tmp/output.txt']
 
+    def test_render_artifacts_relative_with_jinja_run_dir(self, mock_host):
+        """Relative artifact path must be resolved against the task's own run_dir,
+        even when run_dir is itself a Jinja template."""
+        config = ConfigObj(
+            {
+                'content': {
+                    'commandline': '',
+                    'run_dir': '{{ scratch_dir }}/woom/{{ task_path }}',
+                    'env': None,
+                },
+                'artifacts': {
+                    'extract_exe': {
+                        'path': 'extract_exe',
+                        'check': True,
+                        'callable': False,
+                        'kwargs': {},
+                    }
+                },
+                'submit': {},
+            }
+        )
+        task = Task(config, mock_host)
+        task.set_context({
+            'task': task,
+            'scratch_dir': '/scratch/user',
+            'task_path': 'prolog/compile_ibc',
+        })
+
+        artifacts = task.render_artifacts()
+
+        assert artifacts['extract_exe'] == '/scratch/user/woom/prolog/compile_ibc/extract_exe'
+
     def test_context_setter(self, mock_host):
         """Test context setter"""
         config = ConfigObj(
