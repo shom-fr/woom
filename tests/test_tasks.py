@@ -306,11 +306,13 @@ class TestTask:
             }
         )
         task = Task(config, mock_host)
-        task.set_context({
-            'task': task,
-            'scratch_dir': '/scratch/user',
-            'task_path': 'prolog/compile_ibc',
-        })
+        task.set_context(
+            {
+                'task': task,
+                'scratch_dir': '/scratch/user',
+                'task_path': 'prolog/compile_ibc',
+            }
+        )
 
         artifacts = task.render_artifacts()
 
