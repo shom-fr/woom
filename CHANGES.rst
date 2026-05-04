@@ -61,6 +61,9 @@ Deprecations
 
 Bug fixes
 ---------
+* Fix relative artifact paths being joined with an un-rendered ``run_dir`` Jinja
+  template, causing the path to be resolved in the calling task's context instead
+  of the artifact's own task context.
 * Fix ``Workflow.get_artifacts`` iterating over characters of a path string for
   single-path artifacts instead of treating the string as one path.
 * Fix ``Host.get_env`` that was ignoring ``raw_text`` and ``uv_venv`` configuration options.
