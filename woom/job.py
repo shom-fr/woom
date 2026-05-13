@@ -965,7 +965,7 @@ class SlurmJobManager(_Scheduler_):
         "submit": {
             "command": "sbatch",
             "options": {
-                "name": "--exclusive -J {}",
+                "name": "-J {}",
                 "queue": "-p {}",
                 "nnodes": "-N {}",
                 "ncpus": "-c {}",
