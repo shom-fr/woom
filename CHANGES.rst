@@ -61,6 +61,9 @@ Deprecations
 
 Bug fixes
 ---------
+* SLURM: remove the hardcoded ``--exclusive`` flag from ``sbatch`` submissions;
+  this option depends on the partition and should be set by the user in the
+  ``[[submit]]`` section of their task when needed.
 * Fix relative artifact paths being joined with an un-rendered ``run_dir`` Jinja
   template, causing the path to be resolved in the calling task's context instead
   of the artifact's own task context.
