@@ -203,68 +203,7 @@ changing the directory structure, which remains anchored to ``begin_date`` only.
 ``horizon`` accepts any pandas timedelta string (``5D``, ``12h``, ``1W``, …).
 It is ignored when ``as_intervals = True`` (those cycles already have explicit end dates).
 
-**Academic example: daily ocean weather forecasts**
-
-A common NWP use-case: run the model once per day, each time producing a 5-day forecast.
-Every cycle starts from a different initialization date but covers the same forecast length.
-
-.. code-block:: ini
-
-    [app]
-    name = nemo
-    conf = north_atlantic
-    exp  = forecast_2020
-
-    [cycles]
-    begin_date   = 2020-01-01
-    end_date     = 2020-01-07
-    freq         = 1D
-    as_intervals = False   # one cycle per initialization date
-    horizon      = 5D      # each run produces a 5-day forecast
-    indep        = True    # forecasts are independent — run in parallel
-
-    [stages]
-        [[cycles]]
-        forecast = run_ocean_model, compute_diagnostics
-
-This generates 7 cycles (one per day). Their attributes are:
-
-+------------+------------------+------------------+-----------+
-| begin_date | end_date         | duration         | is_interval |
-+============+==================+==================+=============+
-| 2020-01-01 | 2020-01-06       | 5 days           | False     |
-+------------+------------------+------------------+-----------+
-| 2020-01-02 | 2020-01-07       | 5 days           | False     |
-+------------+------------------+------------------+-----------+
-| …          | …                | …                | …         |
-+------------+------------------+------------------+-----------+
-| 2020-01-07 | 2020-01-12       | 5 days           | False     |
-+------------+------------------+------------------+-----------+
-
-In the task template you can write:
-
-.. code-block:: jinja
-
-    # Initialization date (cycle directory anchor)
-    init_date = {{ cycle_begin_date }}
-
-    # Forecast end date  (= init_date + 5 days)
-    end_date  = {{ cycle_end_date }}
-
-    # Forecast length (pandas Timedelta, e.g. "5 days 00:00:00")
-    duration  = {{ cycle_duration }}
-
-Submission directories are still named after ``cycle_begin_date`` only, so the
-jobs tree is the same as it would be without ``horizon``:
-
-.. code-block:: text
-
-    jobs/nemo/north_atlantic/forecast_2020/
-    ├── 2020-01-01T00:00:00+00:00/
-    │   ├── run_ocean_model/
-    │   └── compute_diagnostics/
-    ├── 2020-01-02T00:00:00+00:00/
-    └── …
+See :ref:`examples.academic.horizon` for a worked example.
 
 Ensemble Configuration
 ======================
