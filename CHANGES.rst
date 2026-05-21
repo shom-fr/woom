@@ -20,6 +20,7 @@ New features
 * Add the capability to fill templates with a decated section in tasks and with the ``woom fill`` command [:pull:`22`].
 * User paramaters specified in the workflow configuration can now contain sub-sections [:pull:`22`].
 * Switch CI and pre-commit to ruff [:pull:`34`]
+* Add a ``horizon`` option to the ``[cycles]`` section: when ``as_intervals=False``, sets ``end_date = begin_date + horizon`` on each :class:`~woom.iters.Cycle`, making ``cycle_end_date`` and ``cycle_duration`` available in templates [:pull:`38`].
 
 Breaking changes
 ----------------
