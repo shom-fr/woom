@@ -44,6 +44,7 @@ New features
 * ``woom run --dry-run`` now logs a one-line summary per task at ``INFO`` level
   (``Fake submission: <task_path> → <qsub command>``); full detail remains available at ``DEBUG``.
 * Switch CI and pre-commit to ruff [:pull:`34`]
+* Add a ``horizon`` option to the ``[cycles]`` section: when ``as_intervals=False``, sets ``end_date = begin_date + horizon`` on each :class:`~woom.iters.Cycle`, making ``cycle_end_date`` and ``cycle_duration`` available in templates [:pull:`38`].
 
 Breaking changes
 ----------------

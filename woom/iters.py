@@ -28,6 +28,10 @@ class Cycle:
         The start date of the cycle
     end_date : date-like, optional
         The end date of the cycle. If None, the cycle represents a single point in time.
+    horizon : timedelta-like, optional
+        Forecast horizon. When set on a single-date cycle (``end_date=None``), sets
+        ``end_date = begin_date + horizon`` so that ``cycle_end_date`` and
+        ``cycle_duration`` are available in templates without making ``is_interval`` True.
 
     Notes
     -----
@@ -61,7 +65,7 @@ class Cycle:
     True
     """
 
-    def __init__(self, begin_date, end_date=None):
+    def __init__(self, begin_date, end_date=None, horizon=None):
         #: Begin date (:class:`~woom.util.WoomDate`)
         self.begin_date = wutil.WoomDate(begin_date)
         #: Same as :attr:`begin_date`
@@ -72,11 +76,18 @@ class Cycle:
         self.is_first = False
         #: Whether it is the last cycle  (:class:`bool`)
         self.is_last = False
+        #: Forecast horizon (:class:`~pandas.Timedelta` or None)
+        self.horizon = pd.to_timedelta(horizon) if horizon is not None else None
         if not self.is_interval:
-            self.end_date = self.duration = None
+            if self.horizon is not None:
+                #: End date (:class:`~woom.util.WoomDate` or None)
+                self.end_date = wutil.WoomDate(self.begin_date + self.horizon)
+                #: Interval duration (:class:`~pandas.Timedelta` or None)
+                self.duration = self.horizon
+            else:
+                self.end_date = self.duration = None
         else:
             #: End date (:class:`~woom.util.WoomDate` or None)
-            #: defaults to None
             self.end_date = wutil.WoomDate(end_date)
             #: Interval duration (:class:`~pandas.Timedelta` or None)
             self.duration = self.end_date - self.begin_date
@@ -84,11 +95,14 @@ class Cycle:
         # Label
         if self.is_interval:
             self.label = f"{self.begin_date.isoformat()} -> {self.end_date.isoformat()} ({self.duration})"
+        elif self.horizon is not None:
+            #: String used for for printing and based on the ISO 8601 format (:class:`str`)
+            self.label = f"{self.begin_date.isoformat()} +{self.duration}"
         else:
             #: String used for for printing and based on the ISO 8601 format (:class:`str`)
             self.label = self.begin_date.isoformat()
 
-        # Token
+        # Token — always anchored to begin_date only (drives directory names)
         if self.is_interval:
             self.token = f"{self.begin_date.isoformat()}-{self.end_date.isoformat()}"
         else:
@@ -160,15 +174,15 @@ class Cycle:
             "cycle_label" + suffix: self.label,
             "cycle_token" + suffix: self.token,
         }
-        if self.is_interval:
+        if not self.is_interval:
+            params["cycle_date" + suffix] = params["cycle_begin_date" + suffix]
+        if self.end_date is not None:
             params.update(
                 {
                     "cycle_end_date" + suffix: self.end_date,
                     "cycle_duration" + suffix: self.duration,
                 }
             )
-        else:
-            params["cycle_date" + suffix] = params["cycle_begin_date" + suffix]
         params["cycle_is_first" + suffix] = self.is_first
         params["cycle_is_last" + suffix] = self.is_last
         params["cycle_next" + suffix] = self.next
@@ -181,7 +195,9 @@ class Cycle:
         return wutil.dict_to_env_vars(params)
 
 
-def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, as_intervals=True):
+def gen_cycles(
+    begin_date, end_date=None, freq=None, ncycles=None, round=None, as_intervals=True, horizon=None
+):
     """Get a list of :class:`Cycle` instances given time specifications
 
     The first cycle has the :attr:`Cycle.is_first` attribute set to True.
@@ -207,6 +223,12 @@ def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, a
         ``[Cycle(date0, date1), Cycle(date1, date2)]``,
         else
         ``[Cycle(date0), Cycle(date1), Cycle(date2)]``.
+    horizon: timedelta-like, None
+        Forecast horizon applied when ``as_intervals=False``.
+        Each cycle's :attr:`~Cycle.end_date` is set to ``begin_date + horizon``
+        and :attr:`~Cycle.duration` to ``horizon``, making ``cycle_end_date``
+        and ``cycle_duration`` available in templates.
+        Ignored when ``as_intervals=True``.
     """
     if begin_date is None:
         raise WoomError("begin_date must be None to generate cycles")
@@ -242,7 +264,7 @@ def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, a
 
     # Single date
     if len(rundates) == 1:
-        return [Cycle(rundates[0])]
+        return [Cycle(rundates[0], horizon=horizon)]
 
     # A list of time intervals
     if as_intervals:
@@ -251,7 +273,7 @@ def gen_cycles(begin_date, end_date=None, freq=None, ncycles=None, round=None, a
             date1 = rundates[i + 1]
             cycles.append(Cycle(date0, date1))
     else:
-        cycles = [Cycle(date) for date in rundates]
+        cycles = [Cycle(date, horizon=horizon) for date in rundates]
 
     if not cycles:
         raise WoomError(

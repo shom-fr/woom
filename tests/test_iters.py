@@ -112,6 +112,44 @@ class TestCycle:
         cycle = witers.Cycle("2020-01-01", "2020-01-10")
         assert cycle == "2020-01-01T00:00:00+00:00-2020-01-10T00:00:00+00:00"
 
+    def test_cycle_with_horizon(self):
+        """Horizon sets end_date and duration without making is_interval True"""
+        cycle = witers.Cycle("2020-01-01", horizon="5D")
+        assert not cycle.is_interval
+        assert cycle.horizon is not None
+        assert cycle.end_date is not None
+        assert cycle.end_date.day == 6  # 2020-01-01 + 5 days
+        assert cycle.duration.days == 5
+
+    def test_cycle_with_horizon_params(self):
+        """Horizon cycle exports cycle_date, cycle_end_date and cycle_duration"""
+        cycle = witers.Cycle("2020-01-01", horizon="5D")
+        params = cycle.get_params()
+        assert "cycle_date" in params
+        assert "cycle_end_date" in params
+        assert "cycle_duration" in params
+        assert params["cycle_duration"].days == 5
+
+    def test_cycle_with_horizon_token_unchanged(self):
+        """Token stays anchored to begin_date only for directory naming"""
+        cycle = witers.Cycle("2020-01-01", horizon="5D")
+        assert "2020-01-01" in cycle.token
+        assert "2020-01-06" not in cycle.token
+
+    def test_cycle_with_horizon_label(self):
+        """Label shows the begin date and horizon offset"""
+        cycle = witers.Cycle("2020-01-01", horizon="5D")
+        assert "2020-01-01" in cycle.label
+        assert "5" in cycle.label  # duration shown
+
+    def test_cycle_no_horizon_no_end_date(self):
+        """Without horizon, single-date cycle has no end_date params"""
+        cycle = witers.Cycle("2020-01-01")
+        params = cycle.get_params()
+        assert "cycle_date" in params
+        assert "cycle_end_date" not in params
+        assert "cycle_duration" not in params
+
 
 class TestGenCycles:
     """Test cycle generation"""
@@ -164,6 +202,31 @@ class TestGenCycles:
     def test_gen_cycles_no_begin_date(self):
         with pytest.raises(WoomError):
             witers.gen_cycles(None)
+
+    def test_gen_cycles_with_horizon(self):
+        """Horizon propagates to each date-based cycle"""
+        import pandas as pd
+
+        cycles = witers.gen_cycles("2020-01-01", "2020-01-03", freq="1D", as_intervals=False, horizon="5D")
+        assert len(cycles) == 3
+        assert all(not c.is_interval for c in cycles)
+        assert all(c.horizon == pd.Timedelta("5D") for c in cycles)
+        assert all(c.end_date is not None for c in cycles)
+        for cycle in cycles:
+            assert cycle.end_date == cycle.begin_date + pd.Timedelta("5D")
+
+    def test_gen_cycles_horizon_ignored_for_intervals(self):
+        """Horizon is ignored when as_intervals=True"""
+        cycles = witers.gen_cycles("2020-01-01", "2020-01-05", freq="1D", as_intervals=True, horizon="5D")
+        assert all(c.is_interval for c in cycles)
+        assert all(c.horizon is None for c in cycles)
+
+    def test_gen_cycles_single_date_with_horizon(self):
+        """Single date gen_cycles also gets the horizon"""
+        cycles = witers.gen_cycles("2020-01-01", horizon="3D")
+        assert len(cycles) == 1
+        assert cycles[0].end_date is not None
+        assert cycles[0].duration.days == 3
 
 
 class TestMember:

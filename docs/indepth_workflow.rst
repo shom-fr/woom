@@ -191,6 +191,20 @@ No Cycles
 
 Creates a single "cycle" with fixed date. Tasks in the cycles stage run once.
 
+Forecast Cycles (``horizon``)
+-----------------------------
+
+The ``horizon`` option adds a forecast window to date-based cycles (``as_intervals = False``).
+Without it, each cycle has only a ``begin_date`` and ``end_date`` is ``None``.
+With ``horizon``, each cycle's ``end_date`` is set to ``begin_date + horizon``, making
+``{{ cycle_end_date }}`` and ``{{ cycle_duration }}`` available in templates — without
+changing the directory structure, which remains anchored to ``begin_date`` only.
+
+``horizon`` accepts any pandas timedelta string (``5D``, ``12h``, ``1W``, …).
+It is ignored when ``as_intervals = True`` (those cycles already have explicit end dates).
+
+See :ref:`examples.academic.horizon` for a worked example.
+
 Ensemble Configuration
 ======================
 
