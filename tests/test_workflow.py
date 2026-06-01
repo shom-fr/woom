@@ -911,9 +911,7 @@ class TestWorkflowSkip:
 class TestWorkflowForce:
     """Test force/no-force behaviour on second run"""
 
-    def test_successful_task_not_resubmitted_without_force(
-        self, minimal_config, mock_taskmanager, tmp_path
-    ):
+    def test_successful_task_not_resubmitted_without_force(self, minimal_config, mock_taskmanager, tmp_path):
         """A task with SUCCESS status must not be re-submitted when force=False (default)"""
         from unittest.mock import MagicMock
 
@@ -951,9 +949,7 @@ class TestWorkflowForce:
 
         assert submit_calls == [], "Task already in SUCCESS must not be re-submitted when force=False"
 
-    def test_successful_task_resubmitted_with_force(
-        self, minimal_config, mock_taskmanager, tmp_path
-    ):
+    def test_successful_task_resubmitted_with_force(self, minimal_config, mock_taskmanager, tmp_path):
         """A task with SUCCESS status must be re-submitted when force=True"""
         from unittest.mock import MagicMock
 
