@@ -759,7 +759,7 @@ class Workflow:
                                     )
 
                                 if not force:
-                                    if status.name is wjob.JobStatus.SUCCESS:
+                                    if status is wjob.JobStatus.SUCCESS:
                                         self.logger.debug(f"Task already succeeded. Skipping: {long_task}")
                                         continue
 

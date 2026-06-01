@@ -906,3 +906,90 @@ class TestWorkflowSkip:
         assert 'taskB' in submitted_depends
         assert submitted_depends['taskPre'] == [], "taskPre has no prior dependency"
         assert len(submitted_depends['taskB']) == 1, "taskB must depend on taskPre's job (not empty)"
+
+
+class TestWorkflowForce:
+    """Test force/no-force behaviour on second run"""
+
+    def test_successful_task_not_resubmitted_without_force(
+        self, minimal_config, mock_taskmanager, tmp_path
+    ):
+        """A task with SUCCESS status must not be re-submitted when force=False (default)"""
+        from unittest.mock import MagicMock
+
+        from woom.job import JobStatus
+
+        minimal_config['stages']['prolog'] = {'seq': ['taskA']}
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        mock_task = Mock()
+        mock_task.is_skipped = False
+        mock_task.is_blocking = True
+        mock_task.name = 'taskA'
+        mock_taskmanager.get_task.return_value = mock_task
+        mock_taskmanager.host.get_jobmanager.return_value.with_scheduler = None
+
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        submit_calls = []
+
+        def fake_submit(depend, blocking):
+            job = Mock()
+            job.__str__ = Mock(return_value='1')
+            submit_calls.append('taskA')
+            return job
+
+        with (
+            patch.object(workflow, 'is_task_skipped', return_value=False),
+            patch.object(workflow, 'get_task_status', return_value=JobStatus.SUCCESS),
+            patch.object(workflow, 'clean_task'),
+            patch.object(workflow, 'submit_task_fake', side_effect=fake_submit),
+            patch.object(workflow, 'set_context', return_value=MagicMock()),
+            patch.object(workflow, 'terminate_blocking_jobs'),
+        ):
+            workflow.run(dry=True, force=False)
+
+        assert submit_calls == [], "Task already in SUCCESS must not be re-submitted when force=False"
+
+    def test_successful_task_resubmitted_with_force(
+        self, minimal_config, mock_taskmanager, tmp_path
+    ):
+        """A task with SUCCESS status must be re-submitted when force=True"""
+        from unittest.mock import MagicMock
+
+        from woom.job import JobStatus
+
+        minimal_config['stages']['prolog'] = {'seq': ['taskA']}
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        mock_task = Mock()
+        mock_task.is_skipped = False
+        mock_task.is_blocking = True
+        mock_task.name = 'taskA'
+        mock_taskmanager.get_task.return_value = mock_task
+        mock_taskmanager.host.get_jobmanager.return_value.with_scheduler = None
+
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        submit_calls = []
+
+        def fake_submit(depend, blocking):
+            job = Mock()
+            job.__str__ = Mock(return_value='1')
+            submit_calls.append('taskA')
+            return job
+
+        success_status = JobStatus.SUCCESS
+        success_status.jobid = ''
+
+        with (
+            patch.object(workflow, 'is_task_skipped', return_value=False),
+            patch.object(workflow, 'get_task_status', return_value=success_status),
+            patch.object(workflow, 'clean_task'),
+            patch.object(workflow, 'submit_task_fake', side_effect=fake_submit),
+            patch.object(workflow, 'set_context', return_value=MagicMock()),
+            patch.object(workflow, 'terminate_blocking_jobs'),
+        ):
+            workflow.run(dry=True, force=True)
+
+        assert submit_calls == ['taskA'], "Task must be re-submitted when force=True"
