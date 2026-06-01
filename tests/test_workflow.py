@@ -776,3 +776,125 @@ class TestWorkflowSkip:
         status = workflow.get_task_status('task1')
 
         assert status == JobStatus.SKIPPED
+
+    def test_skip_preserves_inter_cycle_dependencies(self, minimal_config, mock_taskmanager, tmp_path):
+        """When a cycle's tasks are all skipped, subsequent cycles depend on the last non-skipped cycle's jobs"""
+        from unittest.mock import MagicMock
+        from woom.job import JobStatus
+
+        minimal_config['cycles']['end_date'] = '2020-01-04'
+        minimal_config['cycles']['freq'] = '1D'
+        minimal_config['stages']['cycles'] = {'seq': ['taskA']}
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        mock_task = Mock()
+        mock_task.is_skipped = False
+        mock_task.is_blocking = True
+        mock_task.name = 'taskA'
+        mock_taskmanager.get_task.return_value = mock_task
+        mock_taskmanager.host.get_jobmanager.return_value.with_scheduler = None
+
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        assert len(workflow.cycles) == 3
+
+        submitted_depends = []
+        job_counter = [0]
+
+        def fake_submit(depend, blocking):
+            job_counter[0] += 1
+            job = Mock()
+            job.__str__ = Mock(return_value=str(job_counter[0]))
+            submitted_depends.append(list(depend))
+            return job
+
+        # Cycle 0: run, cycle 1: skip, cycle 2: run
+        call_index = [0]
+
+        def is_skipped(task_name):
+            idx = call_index[0]
+            call_index[0] += 1
+            return idx == 1
+
+        with patch.object(workflow, 'is_task_skipped', side_effect=is_skipped), \
+             patch.object(workflow, 'get_task_status', return_value=JobStatus['NOTSUBMITTED']), \
+             patch.object(workflow, 'clean_task'), \
+             patch.object(workflow, 'submit_task_fake', side_effect=fake_submit), \
+             patch.object(workflow, 'set_context', return_value=MagicMock()), \
+             patch.object(workflow, 'terminate_blocking_jobs'):
+            workflow.run(dry=True)
+
+        assert len(submitted_depends) == 2, "Cycles 1 and 3 should each submit one job"
+        assert submitted_depends[0] == [], "Cycle 1 has no prior dependency"
+        assert len(submitted_depends[1]) == 1, "Cycle 3 must depend on cycle 1's job (not empty)"
+
+    def test_skip_preserves_intragroup_task_depend(self, minimal_config, mock_taskmanager, tmp_path):
+        """When task A is skipped inside a group [A, B], task B still depends on the previous sequence"""
+        from unittest.mock import MagicMock
+        from woom.job import JobStatus
+
+        # seq1 runs taskPre, seq2 runs group [taskA (skipped), taskB]
+        minimal_config['cycles']['end_date'] = '2020-01-02'
+        minimal_config['stages']['cycles'] = {
+            'seq1': ['taskPre'],
+            'seq2': ['mygroup'],
+        }
+        minimal_config['groups'] = {'mygroup': ['taskA', 'taskB']}
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+
+        mock_task = Mock()
+        mock_task.is_skipped = False
+        mock_task.is_blocking = True
+        mock_task.name = 'task'
+        mock_taskmanager.get_task.return_value = mock_task
+        mock_taskmanager.host.get_jobmanager.return_value.with_scheduler = None
+
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        assert len(workflow.cycles) == 1
+
+        submitted_depends = {}
+        job_counter = [0]
+
+        def fake_submit(depend, blocking):
+            job_counter[0] += 1
+            job = Mock()
+            job.__str__ = Mock(return_value=str(job_counter[0]))
+            return job
+
+        def fake_submit_tracking(task_name):
+            def _submit(depend, blocking):
+                job_counter[0] += 1
+                job = Mock()
+                job.__str__ = Mock(return_value=str(job_counter[0]))
+                submitted_depends[task_name] = list(depend)
+                return job
+            return _submit
+
+        # is_task_skipped: True only for taskA
+        def is_skipped(task_name):
+            return task_name == 'taskA'
+
+        # submit_task_fake called in order: taskPre, taskB (taskA is skipped)
+        call_order = ['taskPre', 'taskB']
+        submit_index = [0]
+
+        def fake_submit_ordered(depend, blocking):
+            name = call_order[submit_index[0]]
+            submit_index[0] += 1
+            job_counter[0] += 1
+            job = Mock()
+            job.__str__ = Mock(return_value=str(job_counter[0]))
+            submitted_depends[name] = list(depend)
+            return job
+
+        with patch.object(workflow, 'is_task_skipped', side_effect=is_skipped), \
+             patch.object(workflow, 'get_task_status', return_value=JobStatus['NOTSUBMITTED']), \
+             patch.object(workflow, 'clean_task'), \
+             patch.object(workflow, 'submit_task_fake', side_effect=fake_submit_ordered), \
+             patch.object(workflow, 'set_context', return_value=MagicMock()), \
+             patch.object(workflow, 'terminate_blocking_jobs'):
+            workflow.run(dry=True)
+
+        assert 'taskPre' in submitted_depends
+        assert 'taskB' in submitted_depends
+        assert submitted_depends['taskPre'] == [], "taskPre has no prior dependency"
+        assert len(submitted_depends['taskB']) == 1, "taskB must depend on taskPre's job (not empty)"
