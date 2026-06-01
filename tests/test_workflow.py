@@ -815,12 +815,14 @@ class TestWorkflowSkip:
             call_index[0] += 1
             return idx == 1
 
-        with patch.object(workflow, 'is_task_skipped', side_effect=is_skipped), \
-             patch.object(workflow, 'get_task_status', return_value=JobStatus['NOTSUBMITTED']), \
-             patch.object(workflow, 'clean_task'), \
-             patch.object(workflow, 'submit_task_fake', side_effect=fake_submit), \
-             patch.object(workflow, 'set_context', return_value=MagicMock()), \
-             patch.object(workflow, 'terminate_blocking_jobs'):
+        with (
+            patch.object(workflow, 'is_task_skipped', side_effect=is_skipped),
+            patch.object(workflow, 'get_task_status', return_value=JobStatus['NOTSUBMITTED']),
+            patch.object(workflow, 'clean_task'),
+            patch.object(workflow, 'submit_task_fake', side_effect=fake_submit),
+            patch.object(workflow, 'set_context', return_value=MagicMock()),
+            patch.object(workflow, 'terminate_blocking_jobs'),
+        ):
             workflow.run(dry=True)
 
         assert len(submitted_depends) == 2, "Cycles 1 and 3 should each submit one job"
@@ -867,6 +869,7 @@ class TestWorkflowSkip:
                 job.__str__ = Mock(return_value=str(job_counter[0]))
                 submitted_depends[task_name] = list(depend)
                 return job
+
             return _submit
 
         # is_task_skipped: True only for taskA
@@ -886,12 +889,14 @@ class TestWorkflowSkip:
             submitted_depends[name] = list(depend)
             return job
 
-        with patch.object(workflow, 'is_task_skipped', side_effect=is_skipped), \
-             patch.object(workflow, 'get_task_status', return_value=JobStatus['NOTSUBMITTED']), \
-             patch.object(workflow, 'clean_task'), \
-             patch.object(workflow, 'submit_task_fake', side_effect=fake_submit_ordered), \
-             patch.object(workflow, 'set_context', return_value=MagicMock()), \
-             patch.object(workflow, 'terminate_blocking_jobs'):
+        with (
+            patch.object(workflow, 'is_task_skipped', side_effect=is_skipped),
+            patch.object(workflow, 'get_task_status', return_value=JobStatus['NOTSUBMITTED']),
+            patch.object(workflow, 'clean_task'),
+            patch.object(workflow, 'submit_task_fake', side_effect=fake_submit_ordered),
+            patch.object(workflow, 'set_context', return_value=MagicMock()),
+            patch.object(workflow, 'terminate_blocking_jobs'),
+        ):
             workflow.run(dry=True)
 
         assert 'taskPre' in submitted_depends
