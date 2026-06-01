@@ -778,8 +778,10 @@ class TestWorkflowSkip:
         assert status == JobStatus.SKIPPED
 
     def test_skip_preserves_inter_cycle_dependencies(self, minimal_config, mock_taskmanager, tmp_path):
-        """When a cycle's tasks are all skipped, subsequent cycles depend on the last non-skipped cycle's jobs"""
+        """When a cycle's tasks are all skipped, subsequent cycles depend on
+        the last non-skipped cycle's jobs"""
         from unittest.mock import MagicMock
+
         from woom.job import JobStatus
 
         minimal_config['cycles']['end_date'] = '2020-01-04'
@@ -832,6 +834,7 @@ class TestWorkflowSkip:
     def test_skip_preserves_intragroup_task_depend(self, minimal_config, mock_taskmanager, tmp_path):
         """When task A is skipped inside a group [A, B], task B still depends on the previous sequence"""
         from unittest.mock import MagicMock
+
         from woom.job import JobStatus
 
         # seq1 runs taskPre, seq2 runs group [taskA (skipped), taskB]
