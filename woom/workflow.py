@@ -759,7 +759,7 @@ class Workflow:
                                     )
 
                                 if not force:
-                                    if status.name is wjob.JobStatus.SUCCESS:
+                                    if status is wjob.JobStatus.SUCCESS:
                                         self.logger.debug(f"Task already succeeded. Skipping: {long_task}")
                                         continue
 
@@ -804,19 +804,21 @@ class Workflow:
                                         task_jobs.append(job)
 
                             # Dependencies for the next task in the group
-                            task_depend = task_jobs
+                            if task_jobs:
+                                task_depend = task_jobs
 
                         # The last jobs of this group are added to sequence jobs
                         sequence_jobs.extend(task_jobs)
 
                     # Dependencies for the next sequence
-                    sequence_depend = sequence_jobs
+                    if sequence_jobs:
+                        sequence_depend = sequence_jobs
 
                 # Stage jobs
                 if stage == "cycles" and self._cycles_indep:  # parallel independant cycles
                     stage_jobs.extend(sequence_jobs)
                 else:
-                    stage_jobs = sequence_jobs
+                    stage_jobs = sequence_depend
 
                 if stage == "cycles":
                     self.logger.info("Successfully submitted cycle: " + cycle.label)

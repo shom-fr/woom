@@ -62,6 +62,10 @@ Deprecations
 
 Bug fixes
 ---------
+* Fix job dependencies being lost between cycles when tasks are skipped via
+  ``--skip`` or ``[stages] skip``: ``task_depend`` and ``sequence_depend`` are
+  now preserved across skipped tasks instead of being reset to an empty list
+  [:pull:`39`].
 * SLURM: remove the hardcoded ``--exclusive`` flag from ``sbatch`` submissions;
   this option depends on the partition and should be set by the user in the
   ``[[submit]]`` section of their task when needed.
