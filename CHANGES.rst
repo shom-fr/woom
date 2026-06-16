@@ -46,6 +46,10 @@ New features
 * Switch CI and pre-commit to ruff [:pull:`34`]
 * Add a ``horizon`` option to the ``[cycles]`` section: when ``as_intervals=False``, sets ``end_date = begin_date + horizon`` on each :class:`~woom.iters.Cycle`, making ``cycle_end_date`` and ``cycle_duration`` available in templates [:pull:`38`].
 
+Bug fixes
+---------
+* Fix ``KeyError: 'cyan'`` in ``colorize()`` when displaying ``SKIPPED`` status on a TTY [:pull:`42`].
+
 Breaking changes
 ----------------
 * Artifacts are now configured with one section per artifact [:pull:`16`].
