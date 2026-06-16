@@ -49,6 +49,17 @@ New features
 Bug fixes
 ---------
 * Fix ``KeyError: 'cyan'`` in ``colorize()`` when displaying ``SKIPPED`` status on a TTY [:pull:`42`].
+* Fix tasks with ``SUCCESS`` status being re-submitted on a subsequent
+  ``woom run`` when all tasks had previously succeeded.  The condition
+  ``status.name is JobStatus.SUCCESS`` compared a ``str`` to an ``Enum``
+  member via ``is``, which is always ``False``; corrected to
+  ``status is JobStatus.SUCCESS`` [:issue:`28`].
+* Fix the sentinel PBS job being submitted unnecessarily on a second
+  ``woom run`` when all tasks already succeeded.  ``get_task_status()``
+  appended previously-submitted jobs to the job manager during status
+  checks, making ``submit_sentinel()`` believe new jobs were pending.
+  The sentinel is now only dispatched when at least one task was
+  actually submitted in the current run [:issue:`28`].
 
 Breaking changes
 ----------------

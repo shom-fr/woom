@@ -672,6 +672,7 @@ class Workflow:
             self.logger.debug("Running the workflow in force mode")
         sequence_depend = []
         stage_depend = []
+        n_submitted = 0
         for stage in self.task_tree:
             self.logger.debug(f"Entering stage: {stage}")
 
@@ -791,9 +792,9 @@ class Workflow:
                                     self.logger.debug(f"  Dependencies: {jobids}")
                                     if dry:  # Fake mode
                                         job = self.submit_task_fake(task_depend, blocking)
-
                                     else:  # Real submission mode
                                         job = self.submit_task(task_depend, blocking)
+                                    n_submitted += 1
                                     depending = f" depending on [{jobids}]" if task_depend else ""
                                     self.logger.info(
                                         f"Submitted task: {long_task} with job id {job}{depending}"
@@ -827,9 +828,10 @@ class Workflow:
 
             stage_depend = stage_jobs
 
-        # Sentinel job
+        # Sentinel job — only needed when at least one new task was submitted
         if self.jobmanager.with_scheduler:
-            self.submit_sentinel()
+            if n_submitted:
+                self.submit_sentinel()
         else:
             self.terminate_blocking_jobs()
 
