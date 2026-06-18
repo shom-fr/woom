@@ -705,6 +705,68 @@ class TestWorkflowSkip:
 
         assert workflow.is_task_skipped('task1') is False
 
+    def test_is_task_skipped_via_only_tasks_list(self, minimal_config, mock_taskmanager, tmp_path):
+        """is_task_skipped returns True when an only-tasks list is set and the task is absent from it"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        mock_task = Mock()
+        mock_task.is_skipped = False
+        mock_taskmanager.get_task.return_value = mock_task
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow._only_tasks = ['task2']
+
+        assert workflow.is_task_skipped('task1') is True
+
+    def test_is_task_skipped_false_when_in_only_tasks_list(self, minimal_config, mock_taskmanager, tmp_path):
+        """is_task_skipped returns False when an only-tasks list is set and the task is in it"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        mock_task = Mock()
+        mock_task.is_skipped = False
+        mock_taskmanager.get_task.return_value = mock_task
+        workflow = Workflow(minimal_config, mock_taskmanager)
+        workflow._only_tasks = ['task1']
+
+        assert workflow.is_task_skipped('task1') is False
+
+    def test_only_tasks_list_empty_by_default(self, minimal_config, mock_taskmanager, tmp_path):
+        """_only_tasks defaults to empty list when not in config"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        assert workflow._only_tasks == []
+
+    def test_only_tasks_list_loaded_from_config(self, minimal_config, mock_taskmanager, tmp_path):
+        """_only_tasks is populated from workflow config [stages] tasks"""
+        minimal_config['stages']['tasks'] = ['task_a', 'task_b']
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        assert workflow._only_tasks == ['task_a', 'task_b']
+
+    def test_run_sets_only_tasks_list(self, minimal_config, mock_taskmanager, tmp_path):
+        """workflow.run(tasks=[...]) sets _only_tasks"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        # Empty task tree + no scheduler → run() completes without submission
+        mock_taskmanager.host.get_jobmanager.return_value.with_scheduler = None
+        mock_taskmanager.host.get_jobmanager.return_value.jobs = []
+        workflow.run(tasks=['task_a'])
+
+        assert workflow._only_tasks == ['task_a']
+
+    def test_run_cli_tasks_overrides_config_tasks(self, minimal_config, mock_taskmanager, tmp_path):
+        """workflow.run(tasks=[...]) overrides (not merges with) the config-defined list"""
+        minimal_config['stages']['tasks'] = ['task_a']
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        # Empty task tree + no scheduler → run() completes without submission
+        mock_taskmanager.host.get_jobmanager.return_value.with_scheduler = None
+        mock_taskmanager.host.get_jobmanager.return_value.jobs = []
+        workflow.run(tasks=['task_b'])
+
+        assert workflow._only_tasks == ['task_b']
+
     def test_skip_list_loaded_from_config(self, minimal_config, mock_taskmanager, tmp_path):
         """_skip_tasks is populated from workflow config [stages] skip"""
         minimal_config['stages']['skip'] = ['task_a', 'task_b']

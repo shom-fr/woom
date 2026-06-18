@@ -99,6 +99,9 @@ class Workflow:
         # Tasks to skip (from workflow.cfg [stages] skip)
         self._skip_tasks = list(self._config["stages"].get("skip") or [])
 
+        # Tasks to exclusively run (from workflow.cfg [stages] tasks, overridden by --tasks on the CLI)
+        self._only_tasks = list(self._config["stages"].get("tasks") or [])
+
         # Other paths
         self._paths = {
             "PATH": os.path.join(self._workflow_dir, "bin"),
@@ -283,12 +286,17 @@ class Workflow:
         """Is this task skipped?
 
         A task is skipped when its ``skip`` flag is set to ``True`` in
-        :file:`tasks.cfg`, or when its name appears in the runtime skip list
-        (``[stages] skip`` in :file:`workflow.cfg` or ``--skip`` on the CLI).
+        :file:`tasks.cfg`, when its name appears in the runtime skip list
+        (``[stages] skip`` in :file:`workflow.cfg` or ``--skip`` on the CLI),
+        or when a list of tasks to exclusively run is set (``[stages] tasks``
+        in :file:`workflow.cfg`, overridden by ``--tasks`` on the CLI) and its
+        name is not in that list.
 
         Skipped tasks are never submitted but remain in the task tree so that
         their artifact paths are still accessible to downstream tasks.
         """
+        if self._only_tasks and task_name not in self._only_tasks:
+            return True
         return self.get_task(task_name).is_skipped or task_name in self._skip_tasks
 
     def get_task_items(self, getter, task_name, cycle=None, member=None, flat=False, **kwargs):
@@ -660,12 +668,14 @@ class Workflow:
                     os.remove(fname)
                 self.logger.debug(f"Removed: {fname}")
 
-    def run(self, dry=False, force=False, skip=None):
+    def run(self, dry=False, force=False, skip=None, tasks=None):
         """Run the workflow by submiting all tasks"""
         self._dry = dry
         self._force = force
         if skip:
             self._skip_tasks = list(set(self._skip_tasks) | set(skip))
+        if tasks:
+            self._only_tasks = list(tasks)
         if dry:
             self.logger.debug("Running the workflow in fake mode")
         if force:
