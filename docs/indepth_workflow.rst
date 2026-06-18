@@ -431,6 +431,21 @@ already listed in ``[stages] skip``, so you can combine both mechanisms.
    use the ``skip = True`` option directly in :file:`tasks.cfg`
    (see :ref:`indepth.tasks`).
 
+Running Only Some Tasks
+------------------------
+
+``--tasks`` is the opposite of ``--skip``: instead of listing the tasks to
+exclude, you list the only tasks to submit. All other tasks are kept in the
+task tree (without being submitted) so their artifact paths remain
+accessible to downstream tasks, exactly like a skipped task.
+
+.. code-block:: bash
+
+    woom run --tasks run_model
+
+Multiple task names are space-separated. ``--tasks`` and ``--skip`` are
+mutually exclusive: combining them on the command line raises an error.
+
 Custom Parameters
 =================
 

@@ -398,10 +398,21 @@ def add_parser_run(subparsers):
         help="do not run if it has already been run",
         action="store_true",
     )
-    parser_run.add_argument(
+    skip_or_tasks = parser_run.add_mutually_exclusive_group()
+    skip_or_tasks.add_argument(
         "--skip",
         help=(
             "task names to skip: not submitted but kept in the task treeso their artifacts remain accessible"
+        ),
+        nargs="+",
+        metavar="TASK",
+        default=[],
+    )
+    skip_or_tasks.add_argument(
+        "--tasks",
+        help=(
+            "only run these task names: all other tasks are not submitted but kept in the "
+            "task tree so their artifacts remain accessible"
         ),
         nargs="+",
         metavar="TASK",
@@ -422,7 +433,7 @@ def main_run(parser, args):
     # Run the workflow
     logger.debug("Run the workflow")
     try:
-        workflow.run(dry=args.dry_run, force=args.force, skip=args.skip)
+        workflow.run(dry=args.dry_run, force=args.force, skip=args.skip, tasks=args.tasks)
     except Exception as e:
         logger.exception(f"Workflow failed: {e.args[0]}")
         return 1
