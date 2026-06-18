@@ -439,12 +439,32 @@ exclude, you list the only tasks to submit. All other tasks are kept in the
 task tree (without being submitted) so their artifact paths remain
 accessible to downstream tasks, exactly like a skipped task.
 
+**In :file:`workflow.cfg`** (persisted task list for a given experiment):
+
+.. code-block:: ini
+
+    [stages]
+        tasks = run_model
+
+        [[prolog]]
+        setup = preprocess, download_forcings, compile_model
+
+        [[cycles]]
+        run = run_model
+
+Only ``run_model`` is submitted; ``preprocess``, ``download_forcings`` and
+``compile_model`` are kept in the task tree but not submitted.
+
+**On the command line** (one-off override):
+
 .. code-block:: bash
 
     woom run --tasks run_model
 
-Multiple task names are space-separated. ``--tasks`` and ``--skip`` are
-mutually exclusive: combining them on the command line raises an error.
+Multiple task names are space-separated. Unlike ``--skip``, the CLI list
+**overrides** (rather than merges with) any names already listed in
+``[stages] tasks``. ``--tasks`` and ``--skip`` are mutually exclusive:
+combining them on the command line raises an error.
 
 Custom Parameters
 =================

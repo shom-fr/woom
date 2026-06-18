@@ -13,10 +13,12 @@ New features
   or at runtime with ``skip = task1 task2`` in ``[stages]`` of
   :file:`workflow.cfg`, or via ``woom run --skip task1 task2`` on the CLI.
   Skipped tasks appear as ``SKIPPED`` (bold cyan) in ``woom show status`` [:pull:`35`].
-* Add the ``woom run --tasks task1 task2`` option, the opposite of ``--skip``:
-  only the listed tasks are submitted, all others are kept in the task tree
-  (without being submitted) so their artifacts remain accessible. ``--tasks``
-  and ``--skip`` are mutually exclusive [:issue:`45`].
+* Add the ability to run only selected tasks, the opposite of skip: set
+  ``tasks = task1 task2`` in ``[stages]`` of :file:`workflow.cfg`, or pass
+  ``woom run --tasks task1 task2`` on the CLI (the CLI list overrides the
+  config one, unlike ``--skip`` which merges with it). All other tasks are
+  kept in the task tree (without being submitted) so their artifacts remain
+  accessible. ``--tasks`` and ``--skip`` are mutually exclusive [:issue:`45`].
 * Add the ``woom monitor`` command: a lightweight Flask-based web UI for launching,
   monitoring, and stopping workflows from a browser.  Features include a live log
   stream (SSE), artifact browser with download links, an interactive crontab scheduler
