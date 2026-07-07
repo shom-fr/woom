@@ -7,6 +7,7 @@ Develop
 
 New features
 ------------
+* Add a ``horizon`` option to the ``[cycles]`` section: when ``as_intervals=False``, sets ``end_date = begin_date + horizon`` on each :class:`~woom.iters.Cycle`, making ``cycle_end_date`` and ``cycle_duration`` available in templates [:pull:`38`].
 * Add the ability to skip tasks: a task can be excluded from submission while
   remaining in the task tree, so downstream tasks can still reference its
   artifacts.  Skip a task permanently with ``skip = True`` in :file:`tasks.cfg`,
@@ -50,7 +51,6 @@ New features
 * ``woom run --dry-run`` now logs a one-line summary per task at ``INFO`` level
   (``Fake submission: <task_path> → <qsub command>``); full detail remains available at ``DEBUG``.
 * Switch CI and pre-commit to ruff [:pull:`34`]
-* Add a ``horizon`` option to the ``[cycles]`` section: when ``as_intervals=False``, sets ``end_date = begin_date + horizon`` on each :class:`~woom.iters.Cycle`, making ``cycle_end_date`` and ``cycle_duration`` available in templates [:pull:`38`].
 
 Bug fixes
 ---------
@@ -100,6 +100,7 @@ Bug fixes
 
 Documentation
 -------------
+* Add an academic example that illustrateq how to use the ensemble feature to loop on tiles [:pull:`48`].
 
 
 2025.10.1
