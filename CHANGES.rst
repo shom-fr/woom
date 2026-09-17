@@ -66,6 +66,12 @@ Bug fixes
   checks, making ``submit_sentinel()`` believe new jobs were pending.
   The sentinel is now only dispatched when at least one task was
   actually submitted in the current run [:issue:`28`].
+* Fix ``callable=True`` artifact generators being evaluated only once,
+  for the first cycle/member that resolved them, and silently reused
+  (stale) for every following cycle/member.  ``Task.get_artifact_path()``
+  was cached with ``functools.lru_cache`` on ``(self, name)``, and
+  ``TaskManager.get_task()`` caches ``Task`` instances by name only, so the
+  same ``Task`` object was reused across cycles/members [:issue:`51`].
 
 Breaking changes
 ----------------
