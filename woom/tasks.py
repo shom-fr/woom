@@ -349,9 +349,14 @@ class Task:
             artifacts[name] = self.get_artifact_path(name)
         return artifacts
 
-    @functools.lru_cache
     def get_artifact_path(self, name):
         """Get the path of a single artifact from its name
+
+        .. note:: Not cached: for ``callable=True`` artifacts, this runs the
+            generator function against the current :attr:`context`, which
+            varies with the cycle/member even though the :class:`Task`
+            instance itself may be reused across them (see
+            :meth:`~woom.tasks.TaskManager.get_task`).
 
         Parameters
         ----------
