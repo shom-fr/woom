@@ -853,13 +853,17 @@ class PbsproJobManager(_Scheduler_):
         1. If ``nnodes`` is provided, ``ncpus``, ``memory`` and ``pmem`` are
            merged into the ``-l select=`` directive (PBS Pro forbids these as
            standalone ``-l`` directives alongside ``select``).
+           If ``ntasks`` is provided, the tasks are spread over the nodes
+           (``mpiprocs = ceil(ntasks / nnodes)``, one node if ``nnodes`` is not
+           set) and ``ncpus`` defaults to ``mpiprocs``.
         2. Any key in *opts* that is not in the known options dict (i.e. keys
            added via ``__many__`` in ``tasks.ini``) is treated as a raw qsub
            flag string and inserted verbatim before the script path.
         """
-        # 1. Merge nnodes + ncpus + memory + pmem into a single select directive.
+        # 1. Merge nnodes + ntasks + ncpus + memory + pmem into a single select directive.
         # Values may arrive as strings when Jinja2 templates are used in tasks.cfg.
         nnodes = opts.get("nnodes")
+        ntasks = opts.pop("ntasks", None)
         ncpus = opts.pop("ncpus", None)
         memory = opts.pop("memory", None)
         pmem = opts.pop("pmem", None)
@@ -867,10 +871,17 @@ class PbsproJobManager(_Scheduler_):
             nnodes = int(nnodes)
         if ncpus is not None:
             ncpus = int(ncpus)
+        mpiprocs = ncpus
+        if ntasks is not None:
+            if nnodes is None:
+                nnodes = 1
+            mpiprocs = -(-int(ntasks) // nnodes)
+            if ncpus is None:
+                ncpus = mpiprocs
         if nnodes is not None:
             select = str(nnodes)
             if ncpus is not None:
-                select += f":ncpus={ncpus}:mpiprocs={ncpus}"
+                select += f":ncpus={ncpus}:mpiprocs={mpiprocs}"
             if memory is not None:
                 select += f":mem={memory}"
             if pmem is not None:
@@ -968,9 +979,11 @@ class SlurmJobManager(_Scheduler_):
                 "name": "-J {}",
                 "queue": "-p {}",
                 "nnodes": "-N {}",
+                # number of tasks (MPI processes); ncpus is the number of cpus per task
+                "ntasks": "--ntasks={}",
                 "ncpus": "-c {}",
                 "ngpus": "--gpus={}",
-                "mem": "--mem={}",
+                "memory": "--mem={}",
                 "pmem": "--mem-per-cpu={0} --mem-per-gpu={0}",
                 "time": "--time={}",
                 "depend": "--dependency=afterok:{} --kill-on-invalid-dep=yes",

@@ -273,6 +273,17 @@ class TestSlurmJobManager:
         status = wjob.SlurmJobManager.get_killed(content)
         assert status is None
 
+    def test_submission_command_ntasks(self):
+        """Test ntasks and memory are passed to sbatch"""
+        manager = wjob.SlurmJobManager()
+        cmd = manager.get_submission_command(
+            "job.sh", {"nnodes": "1", "ntasks": "116", "ncpus": None, "memory": "250g"}
+        )
+        assert "--ntasks=116" in cmd
+        assert "--mem=250g" in cmd
+        assert "-c" not in cmd
+        assert cmd[-1] == "job.sh"
+
 
 class TestPbsproJobManager:
     """Test PbsproJobManager class"""
@@ -302,3 +313,16 @@ class TestPbsproJobManager:
         content = "Job completed successfully"
         status = wjob.PbsproJobManager.get_killed(content)
         assert status is None
+
+    def test_submission_command_ntasks(self):
+        """Test ntasks is spread over the nodes in the select directive"""
+        manager = wjob.PbsproJobManager()
+        cmd = manager.get_submission_command("job.sh", {"nnodes": "2", "ntasks": "116", "memory": "60g"})
+        assert "select=2:ncpus=58:mpiprocs=58:mem=60g" in cmd
+        assert "116" not in cmd
+
+    def test_submission_command_ncpus(self):
+        """Test the select directive without ntasks is unchanged"""
+        manager = wjob.PbsproJobManager()
+        cmd = manager.get_submission_command("job.sh", {"nnodes": "4", "ncpus": "28", "ntasks": None})
+        assert "select=4:ncpus=28:mpiprocs=28" in cmd
