@@ -159,7 +159,10 @@ class Job:
         with open(json_file) as jsonf:
             content = json.load(jsonf)
         if manager.__class__.__name__ != content["manager"]:
-            raise WoomJobError(f"Cannot load this job in a {manager.__class__.__name__} manager: {json_file}")
+            raise WoomJobError(
+                f"Cannot load job file {json_file}: it was created by a {content['manager']} "
+                f"manager, not a {manager.__class__.__name__} manager. Has the host scheduler changed?"
+            )
         job = cls(
             manager=manager,
             name=content["name"],
@@ -341,7 +344,7 @@ class Job:
             logger.debug(f"Waiting for process to finish: {p.pid}")
             exit_status = p.wait()
             if exit_status:
-                logger.error(f"Finished with exit status: {exit_status}")
+                logger.error(f"Job {self.name} ({self.jobid}) finished with exit status: {exit_status}")
             else:
                 logger.debug("Ok, finished!")
             return exit_status
@@ -591,7 +594,10 @@ class BackgroundJobManager(object):
             for job in depend:
                 status = job.wait()
                 if status:
-                    logger.error(f"Can't submit job because one of the parent job failed: {job}")
+                    logger.error(
+                        f"Can't submit job '{opts.get('name')}' because its parent job "
+                        f"{job.name} ({job.jobid}) failed with exit status {status}"
+                    )
                     return
 
         # Get submission arguments

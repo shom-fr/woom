@@ -200,7 +200,7 @@ class TestGenCycles:
         assert cycles[-1].next is None
 
     def test_gen_cycles_no_begin_date(self):
-        with pytest.raises(WoomError):
+        with pytest.raises(WoomError, match="begin_date must be set"):
             witers.gen_cycles(None)
 
     def test_gen_cycles_with_horizon(self):
