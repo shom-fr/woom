@@ -54,6 +54,14 @@ New features
 
 Bug fixes
 ---------
+* Raise a clear :class:`~woom.workflow.WorkFlowError` when a task that is not
+  in the workflow task tree is referenced, for instance to get its artifacts,
+  instead of crashing with an ``AttributeError`` or silently rendering wrong paths.
+* Make error messages more explicit about the cause and the fix (cycles, members,
+  task stages, task inheritance, artifacts, templates). Fix the misleading
+  ``begin_date must be None`` message raised when ``begin_date`` is missing.
+* Improve log messages: name the task and job when re-running after a failure or
+  when a parent job failed, fix the ``woom show artifacts`` error message, and fix typos.
 * Fix ``KeyError: 'cyan'`` in ``colorize()`` when displaying ``SKIPPED`` status on a TTY [:pull:`42`].
 * Fix tasks with ``SUCCESS`` status being re-submitted on a subsequent
   ``woom run`` when all tasks had previously succeeded.  The condition

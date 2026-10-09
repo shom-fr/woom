@@ -172,12 +172,13 @@ class TestWorkflowPaths:
 
     def test_get_task_path(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_path method"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
         workflow = Workflow(minimal_config, mock_taskmanager)
 
         task_path = workflow.get_task_path('task1')
 
-        assert task_path == 'test_app/test_conf/exp1/task1'
+        assert task_path == 'test_app/test_conf/exp1/prolog/task1'
 
     def test_get_task_path_with_cycle(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_path with cycle"""
@@ -197,6 +198,7 @@ class TestWorkflowContext:
 
     def test_get_context(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_context method"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
         workflow = Workflow(minimal_config, mock_taskmanager)
 
@@ -207,6 +209,7 @@ class TestWorkflowContext:
 
     def test_set_context(self, minimal_config, mock_taskmanager, tmp_path):
         """Test set_context method"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
         workflow = Workflow(minimal_config, mock_taskmanager)
 
@@ -320,6 +323,37 @@ class TestWorkflowTaskOperations:
 
         assert result is False
 
+    def test_get_task_cycle_unknown_task(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test that a task missing from the task tree raises an error"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        with pytest.raises(WorkFlowError, match="not in the workflow task tree"):
+            workflow.get_task_cycle('unknown', None)
+        with pytest.raises(WorkFlowError, match="not in the workflow task tree"):
+            workflow.get_task_artifact_paths('art', 'unknown', flat=True)
+
+    def test_get_task_cycle_sentinel(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test that the sentinel task is accepted although not in the task tree"""
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        assert workflow.get_task_cycle('sentinel', None) is None
+        assert workflow.get_task_path('sentinel').endswith('sentinel')
+
+    def test_get_task_cycle_wrong_stage(self, minimal_config, mock_taskmanager, tmp_path):
+        """Test error messages when the cycle does not match the task stage"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
+        minimal_config['stages']['cycles'] = {'seq': ['task2']}
+        minimal_config.filename = str(tmp_path / 'workflow.cfg')
+        workflow = Workflow(minimal_config, mock_taskmanager)
+
+        with pytest.raises(WorkFlowError, match="belongs to the 'prolog' stage"):
+            workflow.get_task_cycle('task1', Cycle('2020-01-01'))
+        with pytest.raises(WorkFlowError, match="must specify the cycle for task 'task2'"):
+            workflow.get_task_cycle('task2', None)
+
 
 class TestWorkflowIterator:
     """Test workflow iteration"""
@@ -367,6 +401,7 @@ class TestWorkflowStatus:
     @patch('woom.workflow.wjob.JobStatus')
     def test_get_task_status_not_submitted(self, mock_status, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_status for unsubmitted task"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
         mock_status.__getitem__.return_value = Mock(name='NOTSUBMITTED')
 
@@ -377,6 +412,7 @@ class TestWorkflowStatus:
 
     def test_get_task_status_slurm_time_limit(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_status detects SLURM time limit"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
         # Configure mock to use actual SlurmJobManager for scheduler
         mock_jobmanager = Mock()
@@ -386,7 +422,7 @@ class TestWorkflowStatus:
         workflow = Workflow(minimal_config, mock_taskmanager)
 
         # Create submission directory with job files
-        submission_dir = tmp_path / 'jobs' / 'test_app' / 'test_conf' / 'exp1' / 'task1'
+        submission_dir = tmp_path / 'jobs' / 'test_app' / 'test_conf' / 'exp1' / 'prolog' / 'task1'
         submission_dir.mkdir(parents=True)
 
         # Create job.json
@@ -413,6 +449,7 @@ class TestWorkflowStatus:
 
     def test_get_task_status_slurm_out_of_memory(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_status detects SLURM out of memory"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
         # Configure mock to use actual SlurmJobManager for scheduler
         mock_jobmanager = Mock()
@@ -422,7 +459,7 @@ class TestWorkflowStatus:
         workflow = Workflow(minimal_config, mock_taskmanager)
 
         # Create submission directory
-        submission_dir = tmp_path / 'jobs' / 'test_app' / 'test_conf' / 'exp1' / 'task1'
+        submission_dir = tmp_path / 'jobs' / 'test_app' / 'test_conf' / 'exp1' / 'prolog' / 'task1'
         submission_dir.mkdir(parents=True)
 
         # Create job.json
@@ -449,6 +486,7 @@ class TestWorkflowStatus:
 
     def test_get_task_status_pbspro_walltime(self, minimal_config, mock_taskmanager, tmp_path):
         """Test get_task_status detects PBS Pro walltime"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
         # Configure mock to use actual PbsproJobManager for scheduler
         mock_jobmanager = Mock()
@@ -458,7 +496,7 @@ class TestWorkflowStatus:
         workflow = Workflow(minimal_config, mock_taskmanager)
 
         # Create submission directory
-        submission_dir = tmp_path / 'jobs' / 'test_app' / 'test_conf' / 'exp1' / 'task1'
+        submission_dir = tmp_path / 'jobs' / 'test_app' / 'test_conf' / 'exp1' / 'prolog' / 'task1'
         submission_dir.mkdir(parents=True)
 
         # Create job.json
@@ -489,6 +527,7 @@ class TestWorkflowClean:
 
     def test_clean_task(self, minimal_config, mock_taskmanager, tmp_path):
         """Test clean_task method"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
         workflow = Workflow(minimal_config, mock_taskmanager)
         workflow._dry = True
@@ -553,6 +592,7 @@ class TestWorkflowFillTemplates:
 
     def test_fill_templates_with_task_context(self, minimal_config, mock_taskmanager, tmp_path):
         """Test fill_templates with task context set"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
 
         # Create mock task
@@ -571,6 +611,7 @@ class TestWorkflowFillTemplates:
 
     def test_fill_templates_dry_mode(self, minimal_config, mock_taskmanager, tmp_path):
         """Test fill_templates respects dry mode"""
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
 
         # Create mock task
@@ -614,6 +655,7 @@ class TestWorkflowFillTemplates:
         """Test fill_templates with ensemble member context"""
         minimal_config['ensemble']['size'] = 3
         minimal_config['ensemble']['tasks'] = ['task1']
+        minimal_config['stages']['prolog'] = {'init': ['task1']}
         minimal_config.filename = str(tmp_path / 'workflow.cfg')
 
         # Create mock task
