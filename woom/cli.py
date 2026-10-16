@@ -104,7 +104,7 @@ def setup_workflow(parser, args):
     try:
         workflow = get_workflow(workflow_cfg, logger, parser, args)
     except Exception as e:
-        logger.exception(f"Workflow setup failed: {e.args[0]}")
+        logger.exception(f"Workflow setup failed: {e}")
         return None, None
     else:
         logger.info("Successfully setup the workflow!")
@@ -167,11 +167,11 @@ def get_workflow(workflow_cfg, logger, parser, args):  # , clean):
     if args.host:
         logger.debug("Get host instance: " + args.host)
         host = hostmanager.get_host(args.host)
-        logger.info("Got host instance: " + args.host)
+        logger.info("Using host: " + args.host)
     else:
         logger.debug("Infer host")
         host = hostmanager.infer_host()
-        logger.info("Infered host: " + host.name)
+        logger.info("Inferred host from the machine name: " + host.name)
 
     # Init task manager
     logger.debug("Initialize the task manager")
@@ -371,7 +371,7 @@ def main_show_artifacts(parser, args):
     try:
         workflow.show_artifacts(tablefmt=args.tablefmt)
     except Exception:
-        logger.exception("Failed showing the run directories")
+        logger.exception("Failed showing the artifacts")
         return 1
     return 0
 
@@ -435,7 +435,7 @@ def main_run(parser, args):
     try:
         workflow.run(dry=args.dry_run, force=args.force, skip=args.skip, tasks=args.tasks)
     except Exception as e:
-        logger.exception(f"Workflow failed: {e.args[0]}")
+        logger.exception(f"Workflow failed: {e}")
         return 1
     else:
         logger.info("Successfully ran the workflow!")

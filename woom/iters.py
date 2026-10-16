@@ -231,7 +231,7 @@ def gen_cycles(
         Ignored when ``as_intervals=True``.
     """
     if begin_date is None:
-        raise WoomError("begin_date must be None to generate cycles")
+        raise WoomError("begin_date must be set in the [cycles] section to generate cycles")
     begin_date = wutil.WoomDate(begin_date, round)
 
     if end_date:
@@ -277,8 +277,11 @@ def gen_cycles(
 
     if not cycles:
         raise WoomError(
-            "Unable to generate cycles with these specs: "
-            f"begin_date={begin_date}, end_date={end_date}, freq={freq}, ncycle={ncycles}, round={round}"
+            "Unable to generate cycles with these [cycles] specs: "
+            f"begin_date={begin_date}, end_date={end_date}, freq={freq}, ncycles={ncycles}, "
+            f"round={round}, as_intervals={as_intervals}. "
+            "Check that end_date is after begin_date, and that at least two dates "
+            "are generated when as_intervals=True."
         )
 
     cycles[0].is_first = True
@@ -376,7 +379,8 @@ def gen_ensemble(nmembers, skip=None, **iters):
             nvalues = len(values)
             if nvalues != nmembers:
                 raise WoomError(
-                    f"Ensemble iterator names '{attr}' must have a length of {nmembers}, not {nvalues}!"
+                    f"Ensemble iterator '{attr}' of the [ensemble] [[iters]] section must have "
+                    f"one value per member ({nmembers}), not {nvalues}"
                 )
             member.set_prop(attr, values[member_id - 1])
         members.append(member)

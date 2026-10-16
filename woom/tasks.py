@@ -74,7 +74,10 @@ class TaskTree:
                     # Check unicity
                     for task in tasks[i]:
                         if task in all_tasks:
-                            raise TaskError(f"Duplicate tasks not allowed: {task}")
+                            raise TaskError(
+                                f"Duplicate tasks not allowed: {task}. A task must appear only once "
+                                "in the [stages] section, including through [groups]"
+                            )
                         all_tasks.append(task)
         return tt
 
@@ -178,7 +181,10 @@ class TaskManager:
                                 else:
                                     not_complete = True
                             else:
-                                raise TaskError(f"Wrong task name to inherit from: {inherit}")
+                                raise TaskError(
+                                    f"Task '{name}' cannot inherit from '{inherit}': "
+                                    "this task is not defined in tasks.cfg"
+                                )
 
             # Convert old artifacts specifications
             for task, content in self._config.items():
@@ -229,7 +235,10 @@ class TaskManager:
         """
 
         if name not in self._config:
-            raise TaskError(f"Invalid task name: {name}")
+            raise TaskError(
+                f"Invalid task name: {name}. It is not defined in tasks.cfg. "
+                f"Available tasks: {', '.join(self._config)}"
+            )
 
         # Create instance
         return Task(self._config[name], self.host)
@@ -376,7 +385,11 @@ class Task:
             if isinstance(func_name, list):
                 func_name = func_name[0]
             if func_name not in ARTIFACTS_GENERATORS:
-                raise TaskError(f"Artifact generator function not found: {func_name}")
+                raise TaskError(
+                    f"Artifact generator function '{func_name}' not found for artifact '{name}' "
+                    f"of task '{self.name}'. It must be defined in ext/artifacts_generators.py. "
+                    f"Available functions: {', '.join(ARTIFACTS_GENERATORS) or 'none'}"
+                )
             kwargs = dict(self.context)
             kwargs.update(specs["kwargs"])
             path = ARTIFACTS_GENERATORS[func_name](**kwargs)
@@ -431,7 +444,8 @@ class Task:
                     else:
                         raise TaskError(
                             f"Rendered artifact '{name}' of task '{self.name}' is not absolute "
-                            "and task run_dir is not defined. Please fix it!"
+                            f"({rendered}) and the task run_dir is not defined. Make the artifact "
+                            "path absolute or set the run_dir of the task in tasks.cfg"
                         )
                 if single:
                     artifacts[name] = rendered
@@ -473,7 +487,7 @@ class Task:
             if not dry:
                 with open(destination, "w") as f:
                     f.write(content)
-            self.logger.info(f"Filled ttemplate '{name}': {template_file} → {destination}")
+            self.logger.info(f"Filled template '{name}': {template_file} → {destination}")
 
     def export_scheduler_options(self):
         """Export a dict of scheduler options

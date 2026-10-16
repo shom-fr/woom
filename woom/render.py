@@ -104,7 +104,10 @@ class WoomLoader(BaseLoader):
             loader = FileSystemLoader(".")
             return loader.get_source(environment, template)
 
-        raise TemplateNotFound(f"Templates {template} not found")
+        raise TemplateNotFound(
+            f"Template not found: {template}. Searched in the workflow templates directory, "
+            "the woom templates and the current directory"
+        )
 
 
 def render(template, context, strict=True, nested=True):

@@ -224,7 +224,10 @@ class Workflow:
         for cycle_ in self.cycles:
             if cycle_ == cycle:
                 return cycle_
-        raise WoomError(f"Invalid cycle: {cycle}")
+        raise WoomError(
+            f"Invalid cycle: {cycle}. It is not one of the {len(self.cycles)} cycles of the workflow"
+            + (f", from {self.cycles[0]} to {self.cycles[-1]}" if self.cycles else "")
+        )
 
     def get_member(self, member):
         """Get a valid :class:`~woom.iters.Member` instance from its :attr:`~woom.iters.Member.label ` string
@@ -235,7 +238,9 @@ class Workflow:
         for member_ in self.members:
             if str(member_) == str(member):
                 return member_
-        raise WoomError(f"Invalid member: {member}")
+        raise WoomError(
+            f"Invalid member: {member}. Available members: {', '.join(str(m) for m in self.members or [])}"
+        )
 
     def get_task(self, task_name):
         """Shortcut to ``self.taskmanager.get_task(task_name)``"""
@@ -244,12 +249,23 @@ class Workflow:
     def get_task_cycle(self, task_name, cycle):
         """Like :meth:`get_cycle` but check that it is compatible with a given task"""
         stage = self._task_tree.get_task_stage(task_name)
+        if stage is None and task_name != "sentinel":
+            raise WorkFlowError(
+                f"Task '{task_name}' is not in the workflow task tree. "
+                "Add it to the [stages] section of workflow.cfg, and skip it with "
+                "[stages] skip or --skip if you only need its artifacts."
+            )
         if stage != "cycles":
             if cycle is not None and stage != cycle:
-                raise WorkFlowError(f"Cycle '{cycle}' is not compatible with task '{task_name}'")
+                raise WorkFlowError(
+                    f"Cycle '{cycle}' is not compatible with task '{task_name}': this task belongs "
+                    f"to the '{stage}' stage, so no cycle must be specified"
+                )
             return stage
         elif cycle is None:
-            raise WorkFlowError(f"You must specify the cycle for task: {task_name}")
+            raise WorkFlowError(
+                f"You must specify the cycle for task '{task_name}' since it belongs to the 'cycles' stage"
+            )
 
         return self.get_cycle(cycle)
 
@@ -258,9 +274,14 @@ class Workflow:
         task_members = self.get_task_members(task_name)
         member = self.get_member(member)
         if member is not None and task_members is None:
-            raise WorkFlowError(f"Task '{task_name}' has no member")
+            raise WorkFlowError(
+                f"Task '{task_name}' has no member since it is not listed in [ensemble] tasks, "
+                f"but member '{member}' was specified"
+            )
         if member is None and task_members is not None:
-            raise WorkFlowError(f"Task '{task_name}' needs a member")
+            raise WorkFlowError(
+                f"You must specify the member for task '{task_name}' since it is listed in [ensemble] tasks"
+            )
         return member
 
     def get_task_path(self, task_name, cycle=None, member=None, sep=os.path.sep):
@@ -546,7 +567,10 @@ class Workflow:
         # Check submission
         if job is None:
             task_path = self.context["task_path"]
-            raise WorkFlowError(f"Task submission aborted: {task_path}. Stopping workflow...")
+            raise WorkFlowError(
+                f"Task submission aborted: {task_path}, probably because a parent job failed "
+                "(see errors above). Stopping workflow..."
+            )
         return job
 
     def submit_task_fake(self, depend=None, blocking=True):
@@ -695,21 +719,21 @@ class Workflow:
             if stage == "cycles":
                 cycles = self._cycles
                 if len(self._cycles) > 1:
-                    indep = "independant " if self._cycles_indep else ""
+                    indep = "independent " if self._cycles_indep else ""
                     if cycles[0].is_interval:
                         self.logger.info(
-                            "Cycling on {}intervals from {} to {} in {} time(s)".format(
-                                indep, cycles[0].begin_date, cycles[-1].end_date, len(cycles)
+                            "Cycling on {} {}intervals from {} to {}".format(
+                                len(cycles), indep, cycles[0].begin_date, cycles[-1].end_date
                             )
                         )
                     else:
                         self.logger.info(
-                            "Cycling on {}dates from {} to {} in {} time(s)".format(
-                                indep, cycles[0].date, cycles[-1].date, len(cycles)
+                            "Cycling on {} {}dates from {} to {}".format(
+                                len(cycles), indep, cycles[0].date, cycles[-1].date
                             )
                         )
                 else:
-                    self.logger.info("Single cycle with unique date: {}".format(cycles[0].date))
+                    self.logger.info("Single cycle: {}".format(cycles[0].label))
 
             else:
                 cycles = [stage]
@@ -775,10 +799,13 @@ class Workflow:
                                         continue
 
                                     elif status is wjob.JobStatus.ERROR:
-                                        self.logger.warning("Existing job task led to error. Re-running...")
+                                        self.logger.warning(
+                                            f"Previous job {status.jobid} failed. Re-running: {long_task}"
+                                        )
                                     elif status is wjob.JobStatus.UNKNOWN:
                                         self.logger.warning(
-                                            "Unknown status for existing task job task. Re-running..."
+                                            f"Unknown status of the previous job {status.jobid}. "
+                                            f"Re-running: {long_task}"
                                         )
                                 else:
                                     if status.jobid:
@@ -1184,7 +1211,7 @@ class Workflow:
                     if not dry:
                         shutil.rmtree(run_dir)
                     nitems += 1
-                    self.logger.info(f"Removed submission directory: {run_dir}")
+                    self.logger.info(f"Removed run directory: {run_dir}")
 
             if artifacts:
                 for name, path in self.get_task_artifacts(task_name, cycle, member).items():
@@ -1236,5 +1263,5 @@ class Workflow:
     def fill_templates(self):
         """Fill template file of a task in a context"""
         if self.context["task_name"] is None:
-            raise WorkFlowError("The context must be defined for a task to fill its templates")
+            raise WorkFlowError("The context must be set for a task to fill its templates")
         self.context.task.fill_templates(dry=self._dry)
