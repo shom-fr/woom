@@ -29,6 +29,23 @@ class WoomJobError(WoomError):
     pass
 
 
+def _get_positive_int_(opts, key):
+    """Get ``opts[key]`` as a strictly positive integer, or None if not set
+
+    Values may arrive as strings when Jinja2 templates are used in tasks.cfg.
+    """
+    value = opts.get(key)
+    if value is None:
+        return
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        raise WoomJobError(f"Invalid {key} submission option: {value!r} (integer expected)")
+    if value <= 0:
+        raise WoomJobError(f"Invalid {key} submission option: {value} (must be > 0)")
+    return value
+
+
 class JobStatus(Enum):
     SKIPPED = -8
     TERMINATED = -7
@@ -859,29 +876,50 @@ class PbsproJobManager(_Scheduler_):
         1. If ``nnodes`` is provided, ``ncpus``, ``memory`` and ``pmem`` are
            merged into the ``-l select=`` directive (PBS Pro forbids these as
            standalone ``-l`` directives alongside ``select``).
+           If ``ntasks`` is provided, exactly ``ntasks`` MPI processes are
+           spread over the nodes (one node if ``nnodes`` is not set), using two
+           chunks when ``ntasks`` is not a multiple of ``nnodes``.
+           ``ncpus`` is then the number of cpus per task (as with Slurm), so
+           that each chunk requests ``mpiprocs * ncpus`` cpus and
+           ``ompthreads=ncpus``.
         2. Any key in *opts* that is not in the known options dict (i.e. keys
            added via ``__many__`` in ``tasks.ini``) is treated as a raw qsub
            flag string and inserted verbatim before the script path.
         """
-        # 1. Merge nnodes + ncpus + memory + pmem into a single select directive.
+        # 1. Merge nnodes + ntasks + ncpus + memory + pmem into a single select directive.
         # Values may arrive as strings when Jinja2 templates are used in tasks.cfg.
-        nnodes = opts.get("nnodes")
-        ncpus = opts.pop("ncpus", None)
+        nnodes = _get_positive_int_(opts, "nnodes")
+        ntasks = _get_positive_int_(opts, "ntasks")
+        ncpus = _get_positive_int_(opts, "ncpus")
+        opts.pop("ntasks", None)
+        opts.pop("ncpus", None)
         memory = opts.pop("memory", None)
         pmem = opts.pop("pmem", None)
-        if nnodes is not None:
-            nnodes = int(nnodes)
-        if ncpus is not None:
-            ncpus = int(ncpus)
-        if nnodes is not None:
+        suffix = ""
+        if memory is not None:
+            suffix += f":mem={memory}"
+        if pmem is not None:
+            suffix += f":pmem={pmem}"
+        if ntasks is not None:
+            if nnodes is None:
+                nnodes = 1
+            if ntasks < nnodes:
+                raise WoomJobError(f"ntasks ({ntasks}) must be greater or equal to nnodes ({nnodes})")
+            # (nnodes - nbig) nodes with mpiprocs tasks, nbig nodes with mpiprocs+1 tasks
+            mpiprocs, nbig = divmod(ntasks, nnodes)
+            chunks = []
+            for nchunk, nprocs in ((nbig, mpiprocs + 1), (nnodes - nbig, mpiprocs)):
+                if nchunk:
+                    chunk = f"{nchunk}:ncpus={nprocs * (ncpus or 1)}:mpiprocs={nprocs}"
+                    if ncpus is not None:
+                        chunk += f":ompthreads={ncpus}"
+                    chunks.append(chunk + suffix)
+            opts["nnodes"] = "+".join(chunks)
+        elif nnodes is not None:
             select = str(nnodes)
             if ncpus is not None:
                 select += f":ncpus={ncpus}:mpiprocs={ncpus}"
-            if memory is not None:
-                select += f":mem={memory}"
-            if pmem is not None:
-                select += f":pmem={pmem}"
-            opts["nnodes"] = select
+            opts["nnodes"] = select + suffix
 
         # 2. Extract __many__ keys: unknown to the scheduler, not internal
         known = set(self.commands["submit"]["options"]) | self._non_scheduler_keys
@@ -974,9 +1012,11 @@ class SlurmJobManager(_Scheduler_):
                 "name": "-J {}",
                 "queue": "-p {}",
                 "nnodes": "-N {}",
+                # number of tasks (MPI processes); ncpus is the number of cpus per task
+                "ntasks": "--ntasks={}",
                 "ncpus": "-c {}",
                 "ngpus": "--gpus={}",
-                "mem": "--mem={}",
+                "memory": "--mem={}",
                 "pmem": "--mem-per-cpu={0} --mem-per-gpu={0}",
                 "time": "--time={}",
                 "depend": "--dependency=afterok:{} --kill-on-invalid-dep=yes",
@@ -1046,6 +1086,30 @@ class SlurmJobManager(_Scheduler_):
     }
 
     jobid_sep = ","
+
+    def get_submission_command(self, script, opts, depend=None):
+        """Build the sbatch command, with Slurm-specific checks
+
+        - ``mem`` is a deprecated alias for ``memory``.
+        - ``memory`` and ``pmem`` cannot be used together since ``--mem``
+          and ``--mem-per-cpu`` are mutually exclusive.
+        - ``nnodes``, ``ntasks`` and ``ncpus`` must be strictly positive integers.
+        """
+        if "mem" in opts:
+            mem = opts.pop("mem")
+            if mem is not None:
+                woom_warn(
+                    "The 'mem' submission option is deprecated, please use 'memory' instead",
+                    category="deprecation",
+                )
+                if opts.get("memory") is None:
+                    opts["memory"] = mem
+        if opts.get("memory") is not None and opts.get("pmem") is not None:
+            raise WoomJobError("The 'memory' and 'pmem' submission options are mutually exclusive with Slurm")
+        for key in ("nnodes", "ntasks", "ncpus"):
+            if key in opts:
+                opts[key] = _get_positive_int_(opts, key)
+        return super().get_submission_command(script, opts, depend=depend)
 
     def _extra_status_args_(self, args):
         args.append("--noheader")

@@ -30,6 +30,9 @@ New features
 * Add colors to ``woom show status``.
 * App name is now inferred from ``workflow_dir`` when undefined.
 * Add the ``nnodes``, ``ncpus``, ``nnodes`` and ``pmem`` submission options to tasks.
+* Add the ``ntasks`` submission option (number of MPI processes); ``ncpus`` is
+  the number of cpus per task. With PBS Pro, exactly ``ntasks`` processes are
+  spread over the ``nnodes`` nodes in the ``select`` directive.
 * Add the ``Context`` class that holds the input mappings for Jinja substitutions [:pull:`16`].
 * Add the possibility to skip the artifact existence checking [:pull:`16`].
 * Add the support for generating artifact paths with a registered function through a ``artifacts_generators`` extension [:pull:`16`].
@@ -54,6 +57,11 @@ New features
 
 Bug fixes
 ---------
+* SLURM: fix the ``memory`` submission option that was never passed to
+  ``sbatch`` (``--mem``). ``memory`` and ``pmem`` are now rejected when used
+  together, and the former ``mem`` option is deprecated in favor of ``memory``.
+* Invalid ``nnodes``, ``ntasks`` and ``ncpus`` submission values now raise a
+  ``WoomJobError`` instead of an unhandled exception.
 * Raise a clear :class:`~woom.workflow.WorkFlowError` when a task that is not
   in the workflow task tree is referenced, for instance to get its artifacts,
   instead of crashing with an ``AttributeError`` or silently rendering wrong paths.
@@ -94,6 +102,7 @@ Breaking changes
 
 Deprecations
 ------------
+* SLURM: the ``mem`` submission option is deprecated, use ``memory`` instead.
 
 Bug fixes
 ---------
