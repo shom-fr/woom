@@ -284,6 +284,33 @@ class TestSlurmJobManager:
         assert "-c" not in cmd
         assert cmd[-1] == "job.sh"
 
+    def test_submission_command_ntasks_ncpus(self):
+        """Test ncpus stays the number of cpus per task with ntasks"""
+        manager = wjob.SlurmJobManager()
+        cmd = manager.get_submission_command("job.sh", {"nnodes": "2", "ntasks": "116", "ncpus": "2"})
+        assert "--ntasks=116" in cmd
+        assert cmd[cmd.index("-c") + 1] == "2"
+
+    def test_submission_command_mem_deprecated(self):
+        """Test the deprecated mem option is still passed as --mem"""
+        manager = wjob.SlurmJobManager()
+        with pytest.warns(DeprecationWarning, match="mem"):
+            cmd = manager.get_submission_command("job.sh", {"mem": "1GB", "memory": None})
+        assert "--mem=1GB" in cmd
+
+    def test_submission_command_memory_pmem_exclusive(self):
+        """Test memory and pmem cannot be used together"""
+        manager = wjob.SlurmJobManager()
+        with pytest.raises(wjob.WoomJobError, match="mutually exclusive"):
+            manager.get_submission_command("job.sh", {"memory": "128GB", "pmem": "4GB"})
+
+    @pytest.mark.parametrize("ntasks", ["", "abc", "0", "-4"])
+    def test_submission_command_invalid_ntasks(self, ntasks):
+        """Test invalid ntasks values raise a WoomJobError"""
+        manager = wjob.SlurmJobManager()
+        with pytest.raises(wjob.WoomJobError, match="ntasks"):
+            manager.get_submission_command("job.sh", {"ntasks": ntasks})
+
 
 class TestPbsproJobManager:
     """Test PbsproJobManager class"""
@@ -326,3 +353,34 @@ class TestPbsproJobManager:
         manager = wjob.PbsproJobManager()
         cmd = manager.get_submission_command("job.sh", {"nnodes": "4", "ncpus": "28", "ntasks": None})
         assert "select=4:ncpus=28:mpiprocs=28" in cmd
+
+    def test_submission_command_ntasks_ncpus(self):
+        """Test ncpus is the number of cpus per task with ntasks"""
+        manager = wjob.PbsproJobManager()
+        cmd = manager.get_submission_command("job.sh", {"nnodes": "2", "ntasks": "116", "ncpus": "2"})
+        assert "select=2:ncpus=116:mpiprocs=58:ompthreads=2" in cmd
+
+    def test_submission_command_ntasks_not_divisible(self):
+        """Test exactly ntasks processes are requested when not a multiple of nnodes"""
+        manager = wjob.PbsproJobManager()
+        cmd = manager.get_submission_command("job.sh", {"nnodes": "3", "ntasks": "116", "memory": "60g"})
+        assert "select=2:ncpus=39:mpiprocs=39:mem=60g+1:ncpus=38:mpiprocs=38:mem=60g" in cmd
+
+    def test_submission_command_ntasks_no_nnodes(self):
+        """Test ntasks without nnodes uses a single node"""
+        manager = wjob.PbsproJobManager()
+        cmd = manager.get_submission_command("job.sh", {"nnodes": None, "ntasks": "16"})
+        assert "select=1:ncpus=16:mpiprocs=16" in cmd
+
+    def test_submission_command_ntasks_lower_than_nnodes(self):
+        """Test ntasks lower than nnodes raises a WoomJobError"""
+        manager = wjob.PbsproJobManager()
+        with pytest.raises(wjob.WoomJobError, match="ntasks"):
+            manager.get_submission_command("job.sh", {"nnodes": "2", "ntasks": "1"})
+
+    @pytest.mark.parametrize("opts", [{"nnodes": "0", "ntasks": "4"}, {"nnodes": "2", "ntasks": ""}])
+    def test_submission_command_invalid(self, opts):
+        """Test invalid nnodes/ntasks values raise a WoomJobError"""
+        manager = wjob.PbsproJobManager()
+        with pytest.raises(wjob.WoomJobError, match="Invalid"):
+            manager.get_submission_command("job.sh", opts)
