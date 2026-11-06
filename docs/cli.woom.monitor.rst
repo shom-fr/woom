@@ -24,6 +24,25 @@ from a browser.
     :prog: woom
     :path: monitor
 
+Access token
+------------
+
+The monitor can launch, kill and clean jobs, and write to your crontab,
+so it is protected by a random access token generated at startup.
+The URL that contains it is printed in the terminal, and opened in the browser
+unless ``--no-browser`` is used::
+
+    Open the woom monitor at: http://127.0.0.1:5000/?token=Xq3...
+
+Opening this URL stores the token in a cookie, so the token is only needed once.
+Without it, all pages and API routes answer with ``403 Access denied``.
+This matters on shared machines such as HPC login nodes, where the local
+address and port can be reached by all the users of the node.
+Scripts may pass the token with the ``X-Woom-Token`` HTTP header.
+
+The token is kept when the monitor is restarted from the browser.
+To choose it, set the ``WOOM_MONITOR_TOKEN`` environment variable.
+
 UI tabs
 -------
 
@@ -61,6 +80,7 @@ UI tabs
     generated line, and writes it to the user crontab with *Apply*.
     The generated line appends to ``log/woom_cron.log`` inside the
     workflow directory.
+    Only plain 5-field crontab expressions are accepted.
 
 Shutting down the server
 ------------------------

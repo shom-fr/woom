@@ -12,10 +12,14 @@ HTML/CSS/JS live in the sub-directories next to this package:
   woom/monitor/static/monitor.js
 """
 
+import hmac
 import json
 import logging
 import os
 import queue
+import re
+import secrets
+import shlex
 import shutil
 import signal
 import subprocess
@@ -23,7 +27,7 @@ import threading
 import time
 from collections import deque
 
-from flask import Flask, Response, abort, jsonify, render_template, request, send_file
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_file
 
 try:
     from .. import __version__ as _woom_version
@@ -110,14 +114,46 @@ def _serialize_task_tree(task_tree):
     return result
 
 
+#: Environment variable used to keep the access token across restarts
+TOKEN_ENV_VAR = "WOOM_MONITOR_TOKEN"
+
+#: Name of the HTTP header that may carry the access token
+TOKEN_HEADER = "X-Woom-Token"
+
+_CRON_FIELD_RE = re.compile(r"^[0-9A-Za-z*/,\-]+$")
+
+
+def is_valid_cron_expr(expr):
+    """Check that `expr` is a plain 5-field crontab time specification
+
+    Only digits, letters (month and day names) and the ``* / , -``
+    characters are accepted, so that no shell command can be injected
+    in the crontab line.
+    """
+    fields = expr.split()
+    return len(fields) == 5 and all(_CRON_FIELD_RE.match(field) for field in fields)
+
+
+def _cookie_name():
+    # Cookies are not isolated by port: include it to support several monitors
+    return "woom_monitor_token_" + re.sub(r"\W", "_", request.host)
+
+
 # %% Flask application factory
 
 
-def create_monitor_app(workflow, sse_handler, restart_flag=None):
+def create_monitor_app(workflow, sse_handler, restart_flag=None, token=None):
     """Create and return the Flask application.
 
     Templates are loaded from ``woom/monitor/templates/``;
     static assets from ``woom/monitor/static/`` (served at ``/static/``).
+
+    All routes except static assets require the access `token`.
+    It is first given as a ``token`` query parameter of the index page,
+    which stores it in a strict same-site HTTP-only cookie.
+    It may also be passed with the ``X-Woom-Token`` header.
+    POST requests must furthermore have a JSON content type,
+    which prevents cross-site form submissions.
 
     Parameters
     ----------
@@ -125,6 +161,11 @@ def create_monitor_app(workflow, sse_handler, restart_flag=None):
         Fully initialised workflow instance.
     sse_handler : SSELogHandler
         SSE log handler (already attached to ``logging.getLogger("woom")``).
+    restart_flag : threading.Event, None
+        Event set when a restart is requested.
+    token : str, None
+        Access token. A random one is generated when not provided,
+        and is available as ``app.config["WOOM_MONITOR_TOKEN"]``.
 
     Returns
     -------
@@ -133,6 +174,33 @@ def create_monitor_app(workflow, sse_handler, restart_flag=None):
     # Flask resolves template_folder / static_folder relative to __file__
     # (__file__ == woom/monitor/__init__.py → package root is woom/monitor/)
     app = Flask(__name__)
+    if not token:
+        token = secrets.token_urlsafe(32)
+    app.config["WOOM_MONITOR_TOKEN"] = token
+
+    def _check_token(value):
+        return bool(value) and hmac.compare_digest(str(value), token)
+
+    @app.before_request
+    def _authenticate():
+        if request.endpoint == "static":
+            return
+        # First access from the URL printed in the terminal
+        if request.path == "/" and _check_token(request.args.get("token")):
+            resp = redirect("/")
+            resp.set_cookie(_cookie_name(), token, httponly=True, samesite="Strict")
+            return resp
+        if not (
+            _check_token(request.cookies.get(_cookie_name()))
+            or _check_token(request.headers.get(TOKEN_HEADER))
+        ):
+            abort(
+                403,
+                description="Access denied: open the monitor with the URL that contains "
+                "the access token, as printed in the terminal by woom monitor",
+            )
+        if request.method == "POST" and not request.is_json:
+            abort(415, description="POST requests must have a JSON content type")
 
     # Preserve JSON key order — Flask ≤ 2.1 sorts keys alphabetically by
     # default, which would scramble prolog/cycles/epilog ordering in task_tree.
@@ -344,7 +412,7 @@ def create_monitor_app(workflow, sse_handler, restart_flag=None):
         run_dirs = bool(data.get("run_dirs", False))
         artifacts = bool(data.get("artifacts", False))
         extra_files = data.get("extra_files") or None
-        dry = bool(data.get("dry", False))
+        dry = bool(data.get("dry", True))
 
         try:
             workflow.clean(
@@ -430,8 +498,12 @@ def create_monitor_app(workflow, sse_handler, restart_flag=None):
         action = data.get("action", "add")  # "add" | "remove"
         cron_expr = (data.get("cron_expr") or "").strip()
 
+        if action not in ("add", "remove"):
+            return jsonify({"error": "action must be add or remove"}), 400
         if action == "add" and not cron_expr:
             return jsonify({"error": "cron_expr is required"}), 400
+        if action == "add" and not is_valid_cron_expr(cron_expr):
+            return jsonify({"error": f"Invalid crontab expression: {cron_expr!r}"}), 400
 
         try:
             lines = _crontab_lines()
@@ -443,8 +515,8 @@ def create_monitor_app(workflow, sse_handler, restart_flag=None):
             if action == "add":
                 log_file = os.path.join(workflow.workflow_dir, "log", "woom_cron.log")
                 new_line = (
-                    f"{cron_expr} cd {workflow.workflow_dir} && "
-                    f"{_woom_cmd()} run >> {log_file} 2>&1  # {marker}"
+                    f"{cron_expr} cd {shlex.quote(workflow.workflow_dir)} && "
+                    f"{shlex.quote(_woom_cmd())} run >> {shlex.quote(log_file)} 2>&1  # {marker}"
                 )
                 lines.append(new_line)
 
@@ -502,6 +574,10 @@ def run_monitor(workflow, host="127.0.0.1", port=5000, open_browser=True):
     Both paths send ``SIGINT`` to the main process — Flask's dev server handles
     this as a clean shutdown, so no special teardown is needed.
 
+    A random access token is generated, or taken from the
+    ``WOOM_MONITOR_TOKEN`` environment variable,
+    and the URL that contains it is printed on the standard output.
+
     Parameters
     ----------
     workflow : woom.workflow.Workflow
@@ -521,11 +597,15 @@ def run_monitor(workflow, host="127.0.0.1", port=5000, open_browser=True):
     # Quieten Flask's noisy access log
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    restart_flag = threading.Event()
-    app = create_monitor_app(workflow, sse_handler, restart_flag)
+    # Keep the same token after a restart so that open pages keep working
+    token = os.environ.get(TOKEN_ENV_VAR) or secrets.token_urlsafe(32)
+    os.environ[TOKEN_ENV_VAR] = token
 
+    restart_flag = threading.Event()
+    app = create_monitor_app(workflow, sse_handler, restart_flag, token=token)
+
+    url = f"http://{host}:{port}/?token={token}"
     if open_browser:
-        url = f"http://{host}:{port}"
 
         def _open():
             import webbrowser
@@ -539,6 +619,8 @@ def run_monitor(workflow, host="127.0.0.1", port=5000, open_browser=True):
     woom_logger.info(
         f"Starting woom monitor on http://{host}:{port}  (Ctrl-C or browser Stop button to quit)"
     )
+    # The token is printed but not logged to keep it out of log files
+    print(f"Open the woom monitor at: {url}", flush=True)
     try:
         app.run(host=host, port=port, threaded=True, debug=False)
     except KeyboardInterrupt:
