@@ -37,8 +37,10 @@ New features
 * Add the possibility to skip the artifact existence checking [:pull:`16`].
 * Add the support for generating artifact paths with a registered function through a :ref:`artifacts_generators <ext_artifacts_generators>` extension [:pull:`16`].
 * The :meth:`Workflow.get_task_submission_dir() <woom.workflow.Workflow.get_task_submission_dir>`, :meth:`Workflow.get_task_run_dir() <woom.workflow.Workflow.get_task_run_dir>`, :meth:`Workflow.get_task_artifacts() <woom.workflow.Workflow.get_task_artifacts>` can now return all possible values, i.e or all cycles and members as a dict or a flat list [:pull:`16`].
-* Add a `template` and `blocking` option to task configuration [:pull:`18`].
-* Add a `graceful` option to :meth:`Workflow.kill() <woom.workflow.Workflow.kill>` to terminate jobs without killing them [:pull:`18`].
+* Add a ``template`` and ``blocking`` option to task configuration [:pull:`18`].
+* Add a ``graceful`` option to :meth:`Job.kill() <woom.job.Job.kill>` and
+  :meth:`ScheduledJob.kill() <woom.job.ScheduledJob.kill>` to terminate jobs
+  without killing them [:pull:`18`].
 * Add a sentinel job that monitor jobs when using a scheduler [:pull:`18`].
 * Add the capability to fill templates with a decated section in tasks and with the :ref:`woom fill <cli.woom.fill>` command [:pull:`22`].
 * User paramaters specified in the workflow configuration can now contain sub-sections [:pull:`22`].
