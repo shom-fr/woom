@@ -22,7 +22,12 @@ from unittest.mock import Mock, patch
 import pandas as pd
 import pytest
 
-from woom.monitor import SSELogHandler, _serialize_task_tree, create_monitor_app
+from woom.monitor import (
+    SSELogHandler,
+    _serialize_task_tree,
+    create_monitor_app,
+    is_valid_cron_expr,
+)
 
 # %% Helpers / shared fixtures
 
@@ -81,6 +86,14 @@ def _make_workflow(tmp_path, with_scheduler=False):
     return wf
 
 
+def _authed_client(flask_app):
+    """Return a test client that has the access token cookie"""
+    c = flask_app.test_client()
+    resp = c.get("/?token=" + flask_app.config["WOOM_MONITOR_TOKEN"])
+    assert resp.status_code == 302
+    return c
+
+
 @pytest.fixture
 def workflow(tmp_path):
     return _make_workflow(tmp_path)
@@ -105,7 +118,7 @@ def app(workflow):
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    return _authed_client(app)
 
 
 # %% SSELogHandler
@@ -299,7 +312,7 @@ class TestMonitorRoutes:
     def test_api_run_scheduler_host_forbidden(self, scheduler_workflow, tmp_path):
         app = create_monitor_app(scheduler_workflow, SSELogHandler())
         app.config["TESTING"] = True
-        c = app.test_client()
+        c = _authed_client(app)
         resp = c.post("/api/run", json={})
         assert resp.status_code == 403
 
@@ -344,7 +357,7 @@ class TestMonitorRoutes:
     def test_api_kill_scheduler_host_forbidden(self, scheduler_workflow, tmp_path):
         app = create_monitor_app(scheduler_workflow, SSELogHandler())
         app.config["TESTING"] = True
-        c = app.test_client()
+        c = _authed_client(app)
         resp = c.post("/api/kill", json={"jobid": "99"})
         assert resp.status_code == 403
 
@@ -391,7 +404,7 @@ class TestMonitorRoutes:
     def test_api_stop_returns_stopping(self, client):
         # Patch threading.Thread to prevent the delayed SIGINT from firing in-process
         with patch("woom.monitor.threading.Thread"):
-            resp = client.post("/api/stop")
+            resp = client.post("/api/stop", json={})
         assert resp.status_code == 200
         assert resp.get_json()["stopping"] is True
 
@@ -400,10 +413,10 @@ class TestMonitorRoutes:
         restart_flag = threading.Event()
         flask_app = create_monitor_app(workflow, SSELogHandler(), restart_flag=restart_flag)
         flask_app.config["TESTING"] = True
-        c = flask_app.test_client()
+        c = _authed_client(flask_app)
         # Patch threading.Thread to prevent the delayed SIGINT from firing in-process
         with patch("woom.monitor.threading.Thread"):
-            resp = c.post("/api/restart")
+            resp = c.post("/api/restart", json={})
         assert resp.status_code == 200
         assert resp.get_json()["restarting"] is True
         assert restart_flag.is_set()
@@ -499,7 +512,7 @@ class TestApiFiles:
         )
         flask_app = create_monitor_app(workflow, SSELogHandler())
         flask_app.config["TESTING"] = True
-        c = flask_app.test_client()
+        c = _authed_client(flask_app)
         resp = c.get(f"/api/files?path={artifact_file}")
         assert resp.status_code == 200
         resp.close()
@@ -575,3 +588,99 @@ class TestApiCrontab:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["relevant"] == []
+
+
+# %% Security
+
+
+class TestSecurity:
+    @pytest.mark.unit
+    @pytest.mark.parametrize("path", ["/", "/api/info", "/api/status", "/api/crontab"])
+    def test_get_without_token_is_denied(self, app, path):
+        resp = app.test_client().get(path)
+        assert resp.status_code == 403
+
+    @pytest.mark.unit
+    def test_wrong_token_is_denied(self, app):
+        resp = app.test_client().get("/?token=wrong")
+        assert resp.status_code == 403
+
+    @pytest.mark.unit
+    def test_static_files_do_not_need_token(self, app):
+        resp = app.test_client().get("/static/monitor.css")
+        resp.close()
+        assert resp.status_code == 200
+
+    @pytest.mark.unit
+    def test_token_in_url_sets_cookie(self, app):
+        c = app.test_client()
+        resp = c.get("/?token=" + app.config["WOOM_MONITOR_TOKEN"])
+        assert resp.status_code == 302
+        cookie = resp.headers["Set-Cookie"]
+        assert "HttpOnly" in cookie
+        assert "SameSite=Strict" in cookie
+        assert c.get("/api/info").status_code == 200
+
+    @pytest.mark.unit
+    def test_token_header_is_accepted(self, app):
+        headers = {"X-Woom-Token": app.config["WOOM_MONITOR_TOKEN"]}
+        resp = app.test_client().get("/api/info", headers=headers)
+        assert resp.status_code == 200
+
+    @pytest.mark.unit
+    def test_post_without_token_is_denied(self, app, workflow):
+        resp = app.test_client().post("/api/kill", json={})
+        assert resp.status_code == 403
+        workflow.kill.assert_not_called()
+
+    @pytest.mark.unit
+    def test_non_json_post_is_rejected(self, client, workflow):
+        # Cross-site HTML forms cannot send a JSON content type
+        resp = client.post("/api/kill", data="jobid=1", content_type="application/x-www-form-urlencoded")
+        assert resp.status_code == 415
+        workflow.kill.assert_not_called()
+
+    @pytest.mark.unit
+    def test_given_token_is_used(self, workflow):
+        flask_app = create_monitor_app(workflow, SSELogHandler(), token="secret")
+        assert flask_app.config["WOOM_MONITOR_TOKEN"] == "secret"
+
+    @pytest.mark.unit
+    def test_clean_is_dry_by_default(self, client, workflow):
+        resp = client.post("/api/clean", json={})
+        assert resp.status_code == 200
+        assert workflow.clean.call_args.kwargs["dry"] is True
+
+
+class TestCrontab:
+    @pytest.mark.unit
+    @pytest.mark.parametrize("expr", ["0 */6 * * *", "*/5 * * * *", "30 2 1-15/2 jan,feb mon-fri"])
+    def test_valid_cron_expr(self, expr):
+        assert is_valid_cron_expr(expr)
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "expr",
+        ["", "* * * *", "* * * * * *", "* * * * * rm -rf ~", "* * * * $(id)", "0 0 * * *;id", "@daily"],
+    )
+    def test_invalid_cron_expr(self, expr):
+        assert not is_valid_cron_expr(expr)
+
+    @pytest.mark.unit
+    def test_post_rejects_injected_command(self, client):
+        with patch("woom.monitor.subprocess.run") as run:
+            resp = client.post("/api/crontab", json={"action": "add", "cron_expr": "* * * * * rm -rf ~ #"})
+        assert resp.status_code == 400
+        run.assert_not_called()
+
+    @pytest.mark.unit
+    def test_post_writes_quoted_line(self, client, workflow):
+        listing = Mock(returncode=0, stdout="", stderr="")
+        written = Mock(returncode=0, stdout="", stderr="")
+        with patch("woom.monitor.subprocess.run", side_effect=[listing, written]) as run:
+            resp = client.post("/api/crontab", json={"action": "add", "cron_expr": "0 */6 * * *"})
+        assert resp.status_code == 200
+        line = resp.get_json()["line"]
+        assert line.startswith("0 */6 * * * cd ")
+        assert f"# woom:{workflow.workflow_dir}" in line
+        assert run.call_args_list[1].kwargs["input"] == line + "\n"

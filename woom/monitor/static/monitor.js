@@ -871,7 +871,7 @@ function updateCronPreview() {
   const preview = document.getElementById('cron-preview');
   if (!expr || !_cronInfo) { preview.textContent = '—'; return; }
   preview.textContent =
-    `${expr}  cd ${_cronInfo.workflow_dir} && ${_cronInfo.woom_cmd} run >> ${_cronInfo.log_file} 2>&1  # woom:${_cronInfo.workflow_dir}`;
+    `${expr}  cd ${shellQuote(_cronInfo.workflow_dir)} && ${shellQuote(_cronInfo.woom_cmd)} run >> ${shellQuote(_cronInfo.log_file)} 2>&1  # woom:${_cronInfo.workflow_dir}`;
 }
 
 async function applyCron() {
@@ -933,7 +933,7 @@ async function restartServer() {
   if (!confirm('Restart the woom monitor server? The page will reload automatically.')) return;
   if (_jobsRefreshTimer) clearInterval(_jobsRefreshTimer);
   if (_runStatusTimer)   clearInterval(_runStatusTimer);
-  try { await fetch('/api/restart', {method: 'POST'}); } catch(e) {}
+  try { await fetch('/api/restart', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}); } catch(e) {}
   // Poll until the server is back up, then reload
   const t0 = Date.now();
   const poll = setInterval(async () => {
@@ -953,7 +953,7 @@ async function stopServer() {
   if (_runStatusTimer)   clearInterval(_runStatusTimer);
   if (_logEventSource)   { _logEventSource.close(); _logEventSource = null; }
   try {
-    await fetch('/api/stop', {method: 'POST'});
+    await fetch('/api/stop', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
   } catch(e) { /* server may close before response arrives — that's fine */ }
   document.body.innerHTML =
     '<div style="display:flex;align-items:center;justify-content:center;height:100vh;' +
@@ -1009,6 +1009,13 @@ if (window.matchMedia) {
 }
 
 /* ── Utilities ───────────────────────────────────────────────────────── */
+function shellQuote(s) {
+  // Same as Python's shlex.quote
+  if (!s) return "''";
+  if (/^[\w@%+=:,./-]+$/.test(s)) return s;
+  return "'" + String(s).replace(/'/g, "'\"'\"'") + "'";
+}
+
 function escapeHtml(s) {
   if (!s) return '';
   return String(s)

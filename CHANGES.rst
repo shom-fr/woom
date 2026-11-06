@@ -59,6 +59,11 @@ New features
 
 Bug fixes
 ---------
+* Secure the :ref:`woom monitor <woom_monitor>` web server: it now requires
+  a random access token, given in the URL printed at startup, so that other
+  users of a shared machine cannot control the workflow; POST requests must be
+  JSON, which blocks cross-site form submissions; the clean action is now dry
+  by default; crontab expressions are validated to prevent command injection.
 * SLURM: fix the ``memory`` submission option that was never passed to
   ``sbatch`` (``--mem``). ``memory`` and ``pmem`` are now rejected when used
   together, and the former ``mem`` option is deprecated in favor of ``memory``.
