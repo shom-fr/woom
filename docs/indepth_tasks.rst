@@ -431,33 +431,52 @@ Resource Requirements
 
     [[submit]]
     nnodes = 2
-    ncpus = 32
+    ntasks = 64
+    ncpus = 2
     ngpus = 4
     memory = 128GB
-    pmem = 4GB
     time = 06:00:00
 
 **Fields:**
 
 - ``nnodes`` - Number of compute nodes
-- ``ncpus`` - Number of CPU cores per task
+- ``ntasks`` - Number of tasks, i.e. MPI processes
+- ``ncpus`` - Number of CPU cores per task (e.g. OpenMP threads)
 - ``ngpus`` - Number of GPUs
 - ``memory`` - Total memory limit
 - ``pmem`` - Per-process memory limit
 - ``time`` - Walltime limit (HH:MM:SS format)
+
+``nnodes``, ``ntasks`` and ``ncpus`` must be strictly positive integers
+(or Jinja2 templates that render to such integers).
 
 **Scheduler Translation:**
 
 Woom translates these to scheduler-specific options:
 
 SLURM:
-  - ``nnodes`` → ``--nodes=2``
-  - ``ncpus`` → ``--ntasks-per-node=32``
+  - ``nnodes`` → ``-N 2``
+  - ``ntasks`` → ``--ntasks=64``
+  - ``ncpus`` → ``-c 2``
+  - ``memory`` → ``--mem=128GB``
+  - ``pmem`` → ``--mem-per-cpu=4GB --mem-per-gpu=4GB``
   - ``time`` → ``--time=06:00:00``
 
+  ``memory`` and ``pmem`` are mutually exclusive.
+  The former ``mem`` option is deprecated in favor of ``memory``.
+
 PBS Pro:
-  - ``nnodes=2, ncpus=32`` → ``-l select=2:ncpus=32``
+  - ``nnodes=2, ncpus=32`` → ``-l select=2:ncpus=32:mpiprocs=32``
+  - ``nnodes=2, ntasks=64, ncpus=2`` →
+    ``-l select=2:ncpus=64:mpiprocs=32:ompthreads=2``
+  - ``nnodes=3, ntasks=116`` →
+    ``-l select=2:ncpus=39:mpiprocs=39+1:ncpus=38:mpiprocs=38``
+    (exactly ``ntasks`` processes are requested)
+  - ``memory`` and ``pmem`` → ``:mem=...`` and ``:pmem=...`` in each chunk
   - ``time`` → ``-l walltime=06:00:00``
+
+  ``ntasks`` without ``nnodes`` uses a single node, and ``ntasks`` must not
+  be lower than ``nnodes``.
 
 Task Blocking
 -------------
